@@ -167,7 +167,7 @@ project-translations.zip
 * Open `project-translations/teksi_wastewater.qgs` with QGIS
 * When you save that project it will keep it's language and it cannot be changed in the same way.
 
-
+.. _add_oid_prefix:
 If you are a data owner: Add your own OID to the project
 --------------------------------------------------------
 
