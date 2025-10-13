@@ -2,8 +2,6 @@ import logging
 import os
 import tempfile
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication
 
 from ..utils.database_utils import DatabaseUtils
 from . import config
@@ -106,6 +104,8 @@ class InterlisImporterExporter:
             tww_session = self._import_from_intermediate_schema(import_model)
 
             if show_selection_dialog:
+                from PyQt5.QtCore import Qt
+                from PyQt5.QtWidgets import QApplication
                 self._progress_done(90, "Import objects selection...")
                 import_dialog = InterlisImportSelectionDialog()
                 import_dialog.init_with_session(tww_session)

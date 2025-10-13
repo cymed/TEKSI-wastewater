@@ -3,7 +3,6 @@
 import argparse
 import sys
 
-from qgis.core import QgsApplication
 from teksi_wastewater.interlis import config
 from teksi_wastewater.interlis.interlis_importer_exporter import (
     InterlisImporterExporter,
@@ -14,7 +13,6 @@ from teksi_wastewater.interlis.processing_algs.extractlabels_interlis import (
 )
 from teksi_wastewater.utils.database_utils import DatabaseUtils
 
-QgsApplication.setPrefixPath("/usr", True)
 
 
 class TeksiWastewaterCmd:
@@ -155,7 +153,6 @@ class TeksiWastewaterCmd:
             exit(1)
 
     def execute_interlis_import(self):
-        qgs = QgsApplication([], False)
 
         DatabaseUtils.databaseConfig.PGSERVICE = self.args.pgservice
         DatabaseUtils.databaseConfig.PGHOST = self.args.pghost
@@ -183,14 +180,9 @@ class TeksiWastewaterCmd:
                 print(f"Log file: {exception.log_path}", file=sys.stderr)
 
         except Exception as exception:
-            qgs.exitQgis()
             raise exception
 
-        qgs.exitQgis()
-
     def execute_interlis_export(self):
-        qgs = QgsApplication([], False)
-
         DatabaseUtils.databaseConfig.PGSERVICE = self.args.pgservice
         DatabaseUtils.databaseConfig.PGHOST = self.args.pghost
         DatabaseUtils.databaseConfig.PGPORT = self.args.pgport
@@ -235,11 +227,7 @@ class TeksiWastewaterCmd:
                 print(f"Log file: {exception.log_path}", file=sys.stderr)
 
         except Exception as exception:
-            qgs.exitQgis()
             raise exception
-
-        qgs.exitQgis()
-
 
 if __name__ == "__main__":
     teksi_wastewater_cmd = TeksiWastewaterCmd()
