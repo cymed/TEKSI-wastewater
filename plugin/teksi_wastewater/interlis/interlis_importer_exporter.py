@@ -54,6 +54,7 @@ class InterlisImporterExporter:
         self.filter_nulls = None
         self.srid = 2056
         self.current_progress = 0
+        self.ilischema = None
 
     def _init_model_classes(self, model):
         ModelInterlis = None
@@ -105,6 +106,7 @@ class InterlisImporterExporter:
             self.base_log_path = None
 
         self.filter_nulls = filter_nulls
+        self.ilischema = config.IMPORT_SCHEMA
 
         if srid:
             self.srid = srid
@@ -234,6 +236,7 @@ class InterlisImporterExporter:
     ):
         # File name without extension (used later for export)
         file_name_base, _ = os.path.splitext(xtf_file_output)
+        self.ilischema = config.EXPORT_SCHEMA
 
         # Configure logging
         if logs_next_to_file:
@@ -433,7 +436,7 @@ class InterlisImporterExporter:
         log_path = make_log_path(self.base_log_path, "ili2pg-import")
         try:
             self.interlisTools.import_xtf_data(
-                config.ABWASSER_SCHEMA,
+                self.ilischema,
                 xtf_file_input,
                 log_path,
                 self.srid,
@@ -656,7 +659,7 @@ class InterlisImporterExporter:
             log_path = make_log_path(self.base_log_path, f"ili2pg-export-{export_model_name}")
             try:
                 self.interlisTools.export_xtf_data(
-                    schema=config.ABWASSER_SCHEMA,
+                    schema=self.ilischema,
                     xtf_file=export_file_name,
                     log_path=log_path,
                     model_name=export_model_name,
@@ -706,22 +709,22 @@ class InterlisImporterExporter:
             cursor = connection.cursor()
 
             cursor.execute(
-                f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{config.ABWASSER_SCHEMA}';"
+                f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{self.ilischema}';"
             )
             if cursor.rowcount == 0:
-                cursor.execute(f"CREATE SCHEMA {config.ABWASSER_SCHEMA} CASCADE;")
+                cursor.execute(f"CREATE SCHEMA {self.ilischema} CASCADE;")
             else:
                 cursor.execute(
-                    f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{config.ABWASSER_SCHEMA}';"
+                    f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{self.ilischema}';"
                 )
-                logger.info(f"Truncating all tables in schema {config.ABWASSER_SCHEMA}")
+                logger.info(f"Truncating all tables in schema {self.ilischema}")
                 rows = cursor.fetchall()
                 for row in rows:
-                    cursor.execute(f"TRUNCATE TABLE {config.ABWASSER_SCHEMA}.{row[0]} CASCADE;")
+                    cursor.execute(f"TRUNCATE TABLE {self.ilischema}.{row[0]} CASCADE;")
                 if recreate_tables:
-                    logger.info(f"Deleting all tables in schema {config.ABWASSER_SCHEMA} ")
+                    logger.info(f"Deleting all tables in schema {self.ilischema} ")
                     for row in rows:
-                        cursor.execute(f"DROP TABLE {config.ABWASSER_SCHEMA}.{row[0]} CASCADE;")
+                        cursor.execute(f"DROP TABLE {self.ilischema}.{row[0]} CASCADE;")
 
     def _create_ili_schema(
         self, models, ext_columns_no_constraints=False, create_basket_col=False
@@ -729,7 +732,7 @@ class InterlisImporterExporter:
         log_path = make_log_path(self.base_log_path, "ili2pg-schemaimport")
         try:
             self.interlisTools.import_ili_schema(
-                config.ABWASSER_SCHEMA,
+                self.ilischema,
                 models,
                 log_path,
                 ext_columns_no_constraints=ext_columns_no_constraints,

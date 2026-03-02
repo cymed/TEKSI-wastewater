@@ -35,6 +35,20 @@ class TeksiWastewaterCmd:
             default=2056,
             help="SRID for import/export",
         )
+       
+       # introduced TWW 4 VGEP
+        self.parser.add_argument(
+            "--to_quarantine_only",
+            action="store_true",
+            help="import/export to quarantine and then stop",
+        )
+
+       # introduced TWW 4 VGEP
+        self.parser.add_argument(
+            "--from_quarantine_only",
+            action="store_true",
+            help="import/export from quarantine and then stop",
+        )
 
         subparsers = self.parser.add_subparsers(dest="subparser_name", help="sub-command --help")
 
@@ -200,6 +214,9 @@ class TeksiWastewaterCmd:
                 logs_next_to_file=self.args.logs_next_to_file,
                 filter_nulls=self.args.filter_nulls,
                 srid=self.args.srid,
+                # introduced TWW 4 VGEP
+                to_quarantine_only=self.args.to_quarantine_only,
+                from_quarantine_only=self.args.from_quarantine_only,
             )
 
             print(f"\nData successfully imported from {self.args.xtf_file}")
@@ -260,6 +277,9 @@ class TeksiWastewaterCmd:
                 selected_labels_scales_indices=label_scales,
                 selected_ids=selected_ids,
                 srid=self.args.srid,
+                # introduced TWW 4 VGEP
+                to_quarantine_only=self.args.to_quarantine_only,
+                from_quarantine_only=self.args.from_quarantine_only,
             )
             print(f"\nData successfully exported to {self.args.xtf_file}")
 
