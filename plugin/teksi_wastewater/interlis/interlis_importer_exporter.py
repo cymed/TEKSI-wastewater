@@ -36,6 +36,15 @@ from .utils.various import (
     logger,
     make_log_path,
 )
+# Introduced TWW 4 VGEP
+from pum import HookBase
+
+
+
+class pre_hook():
+    pass
+class post_hook():
+    pass #initialization analogous to create_app.py TODO
 
 
 class InterlisImporterExporter:
@@ -98,6 +107,11 @@ class InterlisImporterExporter:
         logs_next_to_file=True,
         filter_nulls=True,
         srid: int = None,
+        # introduced TWW 4 VGEP
+        to_quarantine_only=False,
+        from_quarantine_only=False,
+        pre_hook = None,
+        post_hook = None,
     ):
         # Configure logging
         if logs_next_to_file:
@@ -156,71 +170,86 @@ class InterlisImporterExporter:
             [import_model], ext_columns_no_constraints=True, create_basket_col=True
         )
 
-        # Import from xtf file to ili2pg model
-        self._progress_done(30, "Importing XTF data...")
-        self._import_xtf_file(xtf_file_input=xtf_file_input)
+        if pre_hook:
+            pass # execute prehook order TODO
+        
+        if from_quarantine_only:
+            pass
 
-        # Disable symbology triggers
-        self._progress_done(35, "Disable symbology and modification triggers...")
-        self._import_disable_symbology_and_modification_triggers()
+        else:
+            # Import from xtf file to ili2pg model
+            self._progress_done(30, "Importing XTF data into quarantine schema...")
+            self._import_xtf_file(xtf_file_input=xtf_file_input)
+        
+        
+        if post_hook:
+            pass #execute posthook order TODO
 
-        try:
-            # Import from the temporary ili2pg model
-            self._progress_done(40, "Converting to TEKSI Wastewater...")
-            tww_session = self._import_from_intermediate_schema(import_model)
+        if to_quarantine_only:
+            self._progress_done(100)
+            logger.info("INTERLIS import into quarantine scheme finished.")
+        else:
+            # Disable symbology triggers
+            self._progress_done(35, "Disable symbology and modification triggers...")
+            self._import_disable_symbology_and_modification_triggers()
 
-            if show_selection_dialog:
-                from PyQt5.QtCore import Qt
-                from PyQt5.QtWidgets import QApplication
+            try: 
+                # Import from the temporary ili2pg model
+                self._progress_done(40, "Converting from quarantine schema to TEKSI Wastewater...")
+                tww_session = self._import_from_intermediate_schema(import_model)
 
-                self._progress_done(90, "Import objects selection...")
-                import_dialog = InterlisImportSelectionDialog()
-                import_dialog.init_with_session(tww_session)
-                QApplication.restoreOverrideCursor()
-                if import_dialog.exec_() == import_dialog.Rejected:
-                    tww_session.rollback()
-                    tww_session.close()
-                    raise InterlisImporterExporterStopped()
-                QApplication.setOverrideCursor(Qt.WaitCursor)
-            else:
-                self._progress_done(90, "Commit session...")
-                tww_session.commit()
-            tww_session.close()
+                if show_selection_dialog:
+                    from PyQt5.QtCore import Qt
+                    from PyQt5.QtWidgets import QApplication
 
-            # Update the sequence values
-            self._progress_done(92, "Update sequence values...")
-            self._import_set_od_sequences()
+                    self._progress_done(90, "Import objects selection...")
+                    import_dialog = InterlisImportSelectionDialog()
+                    import_dialog.init_with_session(tww_session)
+                    QApplication.restoreOverrideCursor()
+                    if import_dialog.exec_() == import_dialog.Rejected:
+                        tww_session.rollback()
+                        tww_session.close()
+                        raise InterlisImporterExporterStopped()
+                    QApplication.setOverrideCursor(Qt.WaitCursor)
+                else:
+                    self._progress_done(90, "Commit session...")
+                    tww_session.commit()
+                tww_session.close()
 
-            # Update main_cover and main_wastewater_node
-            self._progress_done(95, "Update main cover and refresh materialized views...")
-            self._import_update_main_cover_and_refresh_mat_views()
+                # Update the sequence values
+                self._progress_done(92, "Update sequence values...")
+                self._import_set_od_sequences()
 
-            # Validate subclasses after import
-            integrityChecker = TWWIntegrityChecker()
-            _ = integrityChecker._check_subclass_counts(raise_err=True)
+                # Update main_cover and main_wastewater_node
+                self._progress_done(95, "Update main cover and refresh materialized views...")
+                self._import_update_main_cover_and_refresh_mat_views()
 
-            # Update organisations
-            self._progress_done(96, "Set organisations filter...")
-            self._import_manage_organisations()
+                # Validate subclasses after import
+                integrityChecker = TWWIntegrityChecker()
+                _ = integrityChecker._check_subclass_counts(raise_err=True)
 
-            # Reenable symbology triggers
-            self._progress_done(97, "Reenable symbology and modification triggers...")
-            self._import_enable_symbology_and_modification_triggers()
+                # Update organisations
+                self._progress_done(96, "Set organisations filter...")
+                self._import_manage_organisations()
 
-        except Exception as exception:
-            # Make sure to re-enable triggers in case an exception occourred
-            try:
+                # Reenable symbology triggers
+                self._progress_done(97, "Reenable symbology and modification triggers...")
                 self._import_enable_symbology_and_modification_triggers()
-            except Exception as enable_trigger_exception:
-                logger.error(
-                    f"Symbology triggers couldn't be re-enabled because an exception occourred: '{enable_trigger_exception}'"
-                )
 
-            # Raise the original exception for further error handling
-            raise exception
+            except Exception as exception:
+                # Make sure to re-enable triggers in case an exception occourred
+                try:
+                    self._import_enable_symbology_and_modification_triggers()
+                except Exception as enable_trigger_exception:
+                    logger.error(
+                        f"Symbology triggers couldn't be re-enabled because an exception occourred: '{enable_trigger_exception}'"
+                    )
 
-        self._progress_done(100)
-        logger.info("INTERLIS import finished.")
+                # Raise the original exception for further error handling
+                raise exception
+
+            self._progress_done(100)
+            logger.info("INTERLIS import finished.")
 
     def execute_export(
         self,
@@ -233,6 +262,11 @@ class InterlisImporterExporter:
         selected_labels_scales_indices=[],
         selected_ids=None,
         include_unplaced: bool = False,
+        to_quarantine_only=False,
+        from_quarantine_only=False,
+        pre_hook = None,
+        post_hook = None,
+       
     ):
         # File name without extension (used later for export)
         file_name_base, _ = os.path.splitext(xtf_file_output)
@@ -279,23 +313,38 @@ class InterlisImporterExporter:
             logger.info("Importing AG-64 organisation to intermediate schema")
             self._import_xtf_file(abs_file_path)
 
-        # Export to the temporary ili2pg model
-        self._progress_done(35, "Converting from TEKSI Wastewater...")
-        self._export_to_intermediate_schema(
-            export_model=export_models[0],
-            file_name=xtf_file_output,
-            selected_ids=selected_ids,
-            export_orientation=export_orientation,
-            labels_file_path=labels_file,
-            basket_enabled=create_basket_col,
-        )
-        tempdir.cleanup()  # Cleanup
+        if pre_hook:
+            pass # execute prehook order TODO
 
-        self._progress_done(75)
-        self._export_xtf_files(file_name_base, export_models)
+        if from_quarantine_only:
+            self._progress_done(35, "Converting from intermediate schema to INTERLIS...")
+        else:
+            # Export to the temporary ili2pg model
+            self._progress_done(35, "Converting from TEKSI Wastewater to intermediate schema...")
+            self._export_to_intermediate_schema(
+                export_model=export_models[0],
+                file_name=xtf_file_output,
+                selected_ids=selected_ids,
+                export_orientation=export_orientation,
+                labels_file_path=labels_file,
+                basket_enabled=create_basket_col,
+            )
+            tempdir.cleanup()  # Cleanup
 
-        self._progress_done(100)
-        logger.info("INTERLIS export finished.")
+        if post_hook:
+            pass # execute posthook order TODO
+
+        if to_quarantine_only:
+            self._progress_done(100)
+            logger.info("Export to intermediate schema finished.")
+
+        else:
+            # Export from the temporary ili2pg model
+            self._progress_done(75)
+            self._export_xtf_files(file_name_base, export_models)
+
+            self._progress_done(100)
+            logger.info("INTERLIS export finished.")
 
     def interlis_export(
         self,
@@ -310,10 +359,22 @@ class InterlisImporterExporter:
         selected_ids=None,
         srid: int = None,
         include_unplaced: bool = False,
+        # introduced TWW 4 VGEP
+        to_quarantine_only=False,
+        from_quarantine_only=False,
+        pre_hook = None,
+        post_hook = None,
+
     ):
 
         if srid:
             self.srid = srid
+        # Maybe integrity check is only needed if we do the full export (not only until intermediate). Then we could use 
+        # if to_quarantine_only:
+        #     exportChecker = TWWIntegrityChecker(
+        #     models=export_models, limit_to_selection=limit_to_selection
+        # )
+            
         exportChecker = TWWIntegrityChecker(
             models=export_models, limit_to_selection=limit_to_selection
         )
@@ -339,6 +400,10 @@ class InterlisImporterExporter:
         # go thru all available checks and register if check failed or not.
 
         results = exportChecker.run_integrity_checks()
+        # if from_quarantine_only:
+        #     pass
+        # else:
+
         if not results["failed"]:
             logger.info(f"All checks passed! ({results['stats']['ok']} OK)")
             self.execute_export(
@@ -350,6 +415,10 @@ class InterlisImporterExporter:
                 labels_file,
                 selected_labels_scales_indices,
                 selected_ids,
+                to_quarantine_only,
+                from_quarantine_only,
+                pre_hook,
+                post_hook,
             )
         else:
             if user_interaction:
@@ -403,6 +472,10 @@ class InterlisImporterExporter:
                         labels_file,
                         selected_labels_scales_indices,
                         selected_ids,
+                        to_quarantine_only,
+                        from_quarantine_only,
+                        pre_hook,
+                        post_hook,
                     )
             else:
                 logger.error(f"Failed checks:\n{results['failed_checks']}")
