@@ -10,6 +10,7 @@ TWW_VL_SCHEMA = "tww_vl"
 TWW_SYS_SCHEMA = "tww_sys"
 IMPORT_SCHEMA = "tww_app_xtf2pg"
 EXPORT_SCHEMA = "tww_app_pg2xtf"
+# alt: ABWASSER_SCHEMA = "tww_app_pg2ili"
 TWW_APP_SCHEMA = "tww_app"
 
 MODEL_NAME_VSA_KEK = "VSA_KEK_2020_1_LV95"
