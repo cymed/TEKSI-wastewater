@@ -1,4 +1,35 @@
-extra_definitions:
+parameters:
+    SRID:
+        type: int
+        default: 2056
+        description: Coordinate Reference System (CRS) to use for the data. This is used for the geometry column in the database. Default is 2056 (CH1903+ / LV95).
+        py_only: true    
+
+    lang_code:
+        type: str
+        default: en
+        description: language code for the creation of custom views
+        py_only: true
+        values: [en, de, fr, it]
+
+prefiles: 
+    - /datamodel/app/modification_repos/dummy/000_demo.sql
+    - /datamodel/app/modification_repos/dummy/000_demo.py
+    - /datamodel/app/modification_repos/dummy/001_demo.sql
+    - /datamodel/app/modification_repos/dummy/000_demo.sql
+    - /datamodel/app/modification_repos/dummy/000_demo.py
+    - /datamodel/app/modification_repos/dummy/001_demo.sql        
+
+postfiles: 
+    - /datamodel/app/modification_repos/dummy/000_demo.sql
+    - /datamodel/app/modification_repos/dummy/000_demo.py
+    - /datamodel/app/modification_repos/dummy/001_demo.sql
+    - /datamodel/app/modification_repos/dummy/000_demo.sql
+    - /datamodel/app/modification_repos/dummy/000_demo.py
+    - /datamodel/app/modification_repos/dummy/001_demo.sql        
+
+
+#extra_definitions:
 #   vw_tww_additional_ws: null
 #   vw_tww_catchment_area: null
 #   vw_tww_catchment_area_totals: null
@@ -25,46 +56,55 @@ extra_definitions:
 #     - file: /datamodel/app/modification_repos/dummy/000_demo.sql
 #     reset_vl_files:
 #     - file: /datamodel/app/modification_repos/dummy/vl_management.sql
-- parameters:
-    SRID:
-        type: integer
-        default: 2056
-        description: Coordinate Reference System (CRS) to use for the data. This is used for the geometry column in the database. Default is 2056 (CH1903+ / LV95).
+# Idee für Struktur: Typ wird in python-notation aufgeschrieben. Falls py_only, wird nur das py-dict erstellt. 
+# Ansonsten wird ein sql-dict erstellt, das die python-datentypen in sql-datentypen ummünzt
 
-    modification_ci:
-        type: boolean
-        default: false
-        description: load ci modification
-        app_only: true
 
-    modification_agxx:
-        type: boolean
-        default: false
-        description: enable AG-64/96 app modification
-        app_only: true
+## Alte Version
+# parameters:
+#     SRID:
+#         type: int
+#         default: 2056
+#         description: Coordinate Reference System (CRS) to use for the data. This is used for the geometry column in the database. Default is 2056 (CH1903+ / LV95).
+#         py_only: true    
 
-    webgis:
-        type: boolean
-        default: false
-        description: enable WebGIS app modification
-        app_only: true
+#     modification_ci:
+#         type: bool
+#         default: false
+#         description: load ci modification
+#         py_only: false
 
-    modification_yaml:
-        type: path
-        description: yaml file with app modification definitions
-        app_only: true
+#     modification_agxx:
+#         type: bool
+#         default: false
+#         description: enable AG-64/96 app modification
+#         py_only: true
 
-    lang_code:
-        type_py: string
-        type_sql: text
-        default: en
-        description: language code for the creation of custom views
-        app_only: true
-        values: [en, de, fr, it]
-    files:
-        file: /datamodel/app/modification_repos/dummy/000_demo.sql
-        file: /datamodel/app/modification_repos/dummy/000_demo.py
-        file: /datamodel/app/modification_repos/dummy/001_demo.sql
+#     webgis:
+#         type: bool
+#         default: false
+#         description: enable WebGIS app modification
+#         py_only: true
+
+#     modification_yaml:
+#         type: path
+#         default: None
+#         description: yaml file with app modification definitions
+#         py_only: true
+
+#     lang_code:
+#         type: string
+#         # type_sql: text
+#         default: en
+#         description: language code for the creation of custom views
+#         py_only: true
+#         values: [en, de, fr, it]
+#     files:
+#         file: /datamodel/app/modification_repos/dummy/000_demo.sql
+#         file: /datamodel/app/modification_repos/dummy/000_demo.py
+#         file: /datamodel/app/modification_repos/dummy/001_demo.sql
+
+
 
 # multiple_inherintances:
 #   vw_maintenance: "view/multipleinheritance/vw_maintenance_event.yaml"

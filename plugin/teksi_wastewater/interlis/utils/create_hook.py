@@ -9,25 +9,25 @@ import psycopg
 import yaml
 from pirogue import MultipleInheritance, SimpleJoins, SingleInheritance
 from pum import HookBase
-from triggers.set_defaults_and_triggers import set_defaults_and_triggers
-from view.catchment_area_views import (
-    vw_tww_catchment_area,
-    vw_tww_catchment_area_totals,
-)
-from view.maintenance_views import (
-    mvw_tww_channel,
-    vw_tww_channel_maintenance,
-    vw_tww_ws_maintenance,
-)
-from view.vw_tww_additional_ws import vw_tww_additional_ws
-from view.vw_tww_damage_channel import vw_tww_damage_channel
-from view.vw_tww_infiltration_installation import vw_tww_infiltration_installation
-from view.vw_tww_log_card import vw_tww_log_card
-from view.vw_tww_measurement_series import vw_tww_measurement_series
-from view.vw_tww_overflow import vw_tww_overflow
-from view.vw_tww_reach import vw_tww_reach
-from view.vw_tww_wastewater_structure import vw_tww_wastewater_structure
-from view.vw_wastewater_structure import vw_wastewater_structure
+# from triggers.set_defaults_and_triggers import set_defaults_and_triggers
+# from view.catchment_area_views import (
+#     vw_tww_catchment_area,
+#     vw_tww_catchment_area_totals,
+# )
+# from view.maintenance_views import (
+#     mvw_tww_channel,
+#     vw_tww_channel_maintenance,
+#     vw_tww_ws_maintenance,
+# )
+# from view.vw_tww_additional_ws import vw_tww_additional_ws
+# from view.vw_tww_damage_channel import vw_tww_damage_channel
+# from view.vw_tww_infiltration_installation import vw_tww_infiltration_installation
+# from view.vw_tww_log_card import vw_tww_log_card
+# from view.vw_tww_measurement_series import vw_tww_measurement_series
+# from view.vw_tww_overflow import vw_tww_overflow
+# from view.vw_tww_reach import vw_tww_reach
+# from view.vw_tww_wastewater_structure import vw_tww_wastewater_structure
+# from view.vw_wastewater_structure import vw_wastewater_structure
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 class Hook(HookBase): #maybe remove HookBase
     def run_hook(
         self,
-        connection: psycopg.Connection,
+        # connection: psycopg.Connection,
         SRID: int = 2056,
         modification_agxx: bool = False,
         webgis: bool = False,
@@ -43,8 +43,7 @@ class Hook(HookBase): #maybe remove HookBase
         lang_code: str = "en",
         hook_yaml: Path = None,
         # added: bools pre and post to define which ones we have
-        pre: bool = False,
-        post: bool = False,
+        hook_type: str = None, # defines if it is a pre or post hook
     ):
         """
         Creates the schema tww_app for TEKSI Wastewater & GEP
@@ -56,32 +55,13 @@ class Hook(HookBase): #maybe remove HookBase
         :param modification_yaml: Path of yaml containing app parametrisation
         """
         self.cwd = Path(__file__).parent.resolve()
-        self._connection = connection
+        # UNCOMMENT LATER
+        # self._connection = connection
 
         self.parameters = self.load_yaml(hook_yaml)
-        
-        # if "modification_repositories" in self.parameters:
-        #         for entry in self.parameters["modification_repositories"]:
-        #             if modification_ci and entry["id"] == "ci":
-        #                 entry["active"] = True
-        #             if webgis and entry["id"] == "webgis":
-        #                 entry["active"] = True
-        #             if modification_agxx and entry["id"] == "agxx":
-        #                 entry["active"] = True
-
         self.abspath = self.cwd if not hook_yaml else ""
 
-        # variables_pirogue = {
-        #     "SRID": psycopg.sql.SQL(f"{SRID}")
-        # }  # when dropping psycopg2 support, we can use the SRID var directly
-
-        # TODO: Welche Variable muss man hier definieren?
-        
-        # Braucht sowohl self.variables_sql als auch self.variables_py
-        # Dort drin speichern wir die parameter, die in hook.yaml den entsprechenden type haben. 
-        # Die variablen braucht es wiederum, um py- resp sql-files auszuführen.
-
-        # loop over parameters in hook file if type sql then...
+ 
 
         self.variables_sql = {}
         self.variables_py = {}
@@ -97,86 +77,46 @@ class Hook(HookBase): #maybe remove HookBase
                 # gleiches für type_py und post
 
 # ADDED 23/03: Loop über die Parameter in hook.yaml, um die Variablen für die sql- resp py-files zu befüllen.
-        for name, param in self.parameters.items():
+        
+        for name, param in self.parameters['parameters'].items():
 
-            # Determine type
-            if param.get("type_sql"):
-                sql_type = param["type_sql"]
-            elif param.get("type") in ("integer", "float"):
-                sql_type = "number"
-            elif param.get("type") == "boolean":
-                sql_type = "boolean"
-            else:
-                sql_type = "text"
-
-            # Add parameter entry
-            self.variables_sql[name] = {
+            # Idea to handle path, maybe better further down
+            # if param.get("type") == "path" and param.get("default") != None:
+            #     py_type = Path(param.get("default"))
+            
+            self.variables_py[name] = {
                 "value": param.get("default"),
-                "type": sql_type,
+                "type": param.get("type"),
             }
 
-        # ----------------------------------------------------------
-        # EXTRA VARIABLES DERIVED FROM lang_code
-        # ----------------------------------------------------------
-        lang_code = self.parameters.get("lang_code", {}).get("default", "en")
+            if param.get("py_only") == False: # FRAGE: Brauchts noch mehr sql-parameter?
+                if param.get("type") in ("int", "float"):
+                    sql_type = "number"
+                elif param.get("type") == "bool":
+                    sql_type = "boolean"
+                elif param.get("type") == "identifier":  # Table/Column names
+                    sql_type = "identifier"
+                elif param.get("type") == "str":  # String/Number literals
+                    sql_type = "literal"
+                else:
+                    sql_type = "text"
+                # Add parameter entry
+                self.variables_sql[name] = {
+                    "value": param.get("default"),
+                    "type": sql_type,
+                }
 
-        self.variables_sql.update({
-            "value_lang": {
-                "value": f"value_{lang_code}",
-                "type": "identifier",
-            },
-            "abbr_lang": {
-                "value": f"abbr_{lang_code}",
-                "type": "identifier",
-            },
-            "description_lang": {
-                "value": f"description_{lang_code}",
-                "type": "identifier",
-            },
-            "display_lang": {
-                "value": f"display_{lang_code}",
-                "type": "identifier",
-            },
-            "name_lang": {
-                "value": f"name_{lang_code}",
-                "type": "identifier",
-            },
-        })
+        if hook_type == "pre":
+            self.files = self.parameters["prefiles"]
 
-    
+        elif hook_type == "post":
+            self.files = self.parameters["postfiles"]
 
-        # Wenn die Parameter zugewiesen wurden, kann man danach mit python kwargs py-files laufen lassen
-        # und mit den schon definierten sql-funktionen (siehe unten) sql laufen lassen.
+        else:
+            raise ValueError(f"Hook type '{hook_type}' is not supported.")
+            
 
-
-
-
-        self.variables_sql = {
-            "SRID": {
-                "value": SRID,
-                "type": "number",
-            },
-            "value_lang": {
-                "value": f"value_{lang_code}",
-                "type": "identifier",
-            },
-            "abbr_lang": {
-                "value": f"abbr_{lang_code}",
-                "type": "identifier",
-            },
-            "description_lang": {
-                "value": f"description_{lang_code}",
-                "type": "identifier",
-            },
-            "display_lang": {
-                "value": f"display_{lang_code}",
-                "type": "identifier",
-            },
-            "name_lang": {
-                "value": f"name_{lang_code}",
-                "type": "identifier",
-            },
-        }
+            
 
 # pyhton kwargs
 
@@ -184,37 +124,42 @@ class Hook(HookBase): #maybe remove HookBase
         # self.execute("CREATE SCHEMA tww_app_pg2xtf;")
         # self.execute("CREATE SCHEMA tww_app_xtf2pg;")
         # self.run_sql_files_in_folder(self.cwd / "sql_functions")
-        self.app_modifications = [
-            entry
-            for entry in self.parameters.get("modification_repositories")
-            if entry.get("active")
-        ]
 
-        self.extra_definitions = self.parameters.get("extra_definitions")
+# Modifications werden nicht hier geladen, sondern weiter unten (IDEE Stand 30.3.)
+        # self.app_modifications = [
+        #     entry
+        #     for entry in self.parameters.get("modification_repositories")
+        #     if entry.get("active")
+        # ]
         # self.simple_joins_yaml = self.parameters.get("simple_joins_yaml")
         # self.multiple_inherintances = self.parameters.get("multiple_inherintances")
 
         # self.single_inherintances = self.load_yaml(self.cwd / "single_inherintances.yaml")
 
-        if self.app_modifications:
-            for modification in self.app_modifications:
-                logger.debug(
-                    f"""*****
-Running modification {modification.get('id')}
-****
-                """
-                )
-                self.load_modification(
-                    modification_config=modification,
-                )
-        for entry in self.parameters.get("modification_repositories"):
-            if entry.get("reset_vl", False):
-                self.manage_vl(entry)
+# # UNCOMMENT LATER
+#         if self.app_modifications:
+#             for modification in self.app_modifications:
+#                 logger.debug(
+#                     f"""*****
+# Running modification {modification.get('id')}
+# ****
+#                 """
+#                 )
+#                 self.load_modification(
+#                     modification_config=modification,
+#                 )
+
+#         for entry in self.parameters.get("modification_repositories"):
+#             if entry.get("reset_vl", False):
+#                 self.manage_vl(entry)
+# END UNCOMMENT LATER
 
         # Defaults and Triggers
         # Has to be fired before view creation otherwise it won't work and will only fail in CI
-        set_defaults_and_triggers(self._connection, self.single_inherintances)
+        # UNCOMMENT LATER MAYBE
+        # set_defaults_and_triggers(self._connection, self.single_inherintances)
 
+# region collapsable block1
         # for key in self.single_inherintances:
         #     logger.debug(f"creating view vw_{key}")
         #     SingleInheritance(
@@ -358,6 +303,7 @@ Running modification {modification.get('id')}
         #     ),
         # )
 
+# endregion
 
         # for _, yaml_path in self.simple_joins_yaml.items():
         #     SimpleJoins(
@@ -393,7 +339,8 @@ Running modification {modification.get('id')}
 
     def load_modification(
         self,
-        modification_config: set = None,
+        modification_config: dict = None,
+        executable_files: list = None,
     ):
         """
         initializes the TWW app schema for usage of a modification
@@ -401,33 +348,37 @@ Running modification {modification.get('id')}
             modification_config: modification configuration set
         """
 
-        # load definitions from config
-        template_path = modification_config.get("template", None)
-        if template_path:
-            curr_dir = self.abspath / os.path.dirname(template_path)
-            modification_config = self.load_yaml(self.abspath / template_path)
-        else:
-            curr_dir = ""
+        # # load definitions from config
+        # template_path = modification_config.get("template", None)
+        # if template_path:
+        #     curr_dir = self.abspath / os.path.dirname(template_path)
+        #     modification_config = self.load_yaml(self.abspath / template_path)
+        # else:
+        
 
-        ext_variables = modification_config.get("variables", {})
-        sql_vars = self.parse_variables({**self.variables_sql, **ext_variables})
+        
+        sql_vars = self.parse_sql_variables({**self.variables_sql})
+        py_vars = self.parse_py_variables({**self.variables_py})
 
         # Ist hier Idee, dass wir das alles in py statt sql umschreiben oder immer noch sql?
         # nein, die Idee ist, dass sowohl sql als auch py geht. deshalb über alle files iterieren. 
         # for file in bla
-        for file in modification_config.get("files", None):
+        for file in self.files:
             logger.debug(f"Running file {file}")
-            file_name = curr_dir / file.get("file")
+            # file_name = curr_dir / file.get("file")
             # Idee: If endswith sql, then self.run_sql_file. If endswith py, then self.run_py_file
-            self.run_sql_file(file_name, sql_vars)
+            if file.endswith(".sql"):
+                self.run_sql_file(file, sql_vars)
+            elif file.endswith(".py"):
+                self.run_py_file(file, py_vars)
 
-        if template_path:
-            for key, value in modification_config.get("extra_definitions", {}).items():
-                if not self.extra_definitions[key]:
-                    self.extra_definitions[key] = curr_dir / value
-                    logger.debug(
-                        f"altered {key} extra definition to {self.extra_definitions[key]}"
-                    )
+        # if template_path:
+        #     for key, value in modification_config.get("extra_definitions", {}).items():
+        #         if not self.extra_definitions[key]:
+        #             self.extra_definitions[key] = curr_dir / value
+        #             logger.debug(
+        #                 f"altered {key} extra definition to {self.extra_definitions[key]}"
+        #             )
 
             # for key, value in modification_config.get("simple_joins_yaml", {}).items():
             #     if not self.simple_joins_yaml[key]:
@@ -442,31 +393,34 @@ Running modification {modification.get('id')}
             #         logger.debug(
             #             f"altered {key} multipleInheritance definition to {self.multiple_inherintances[key]}"
             #         )
-# Noch überlegen, wo es separate py und sql funktionen braucht
-    def manage_vl(
-        self,
-        config: set = None,
-    ):
-        """
-        manages activation/deactivation of tww value list of a modification
-        Args:
-            config:  configuration set
-        """
+# # Noch überlegen, wo es separate py und sql funktionen braucht
+#     def manage_vl(
+#         self,
+#         config: dict = None,
+#     ):
+#         """
+#         manages activation/deactivation of tww value list of a modification
+#         Args:
+#             config:  configuration set
+#         """
 
-        # load definitions from config
-        template_path = config.get("template", None)
-        is_active = config.get("active", False)
-        sql_vars = {"activate": {"value": is_active, "type": "literal"}}
-        sql_vars = self.parse_variables(sql_vars)
-        if template_path:
-            curr_dir = os.path.dirname(template_path)
-            config = self.load_yaml(template_path)
-        else:
-            curr_dir = ""
+#         # load definitions from config
+#         template_path = config.get("template", None)
+#         is_active = config.get("active", False)
+#         sql_vars = {"activate": {"value": is_active, "type": "literal"}}
+#         sql_vars = self.parse_variables(sql_vars)
+#         if template_path:
+#             curr_dir = os.path.dirname(template_path)
+#             config = self.load_yaml(template_path)
+#         else:
+#             curr_dir = ""
 
-        for sql_file in config.get("reset_vl_files", None):
-            file_name = curr_dir / sql_file.get("file")
-            self.run_sql_file(file_name, sql_vars)
+#         for sql_file in config.get("reset_vl_files", None):
+#             file_name = curr_dir / sql_file.get("file")
+#             self.run_sql_file(file_name, sql_vars)
+
+    def run_py_file(self, file_path: str, variables: dict = None):
+        pass
 
     def run_sql_file(self, file_path: str, variables: dict = None):
         with open(file_path) as f:
@@ -487,18 +441,18 @@ Running modification {modification.get('id')}
                 raise
         self.execute(sql)
 
-    def run_sql_files_in_folder(self, directory: str):
-        files = os.listdir(directory)
-        files.sort()
-        sql_vars = self.parse_variables(self.variables_sql)
-        for file in files:
-            filename = os.fsdecode(file)
-            if filename.lower().endswith(".sql"):
-                logger.debug(f"Running {filename}")
-                self.run_sql_file(os.path.join(directory, filename), sql_vars)
+    # def run_sql_files_in_folder(self, directory: str):
+    #     files = os.listdir(directory)
+    #     files.sort()
+    #     sql_vars = self.parse_variables(self.variables_sql)
+    #     for file in files:
+    #         filename = os.fsdecode(file)
+    #         if filename.lower().endswith(".sql"):
+    #             logger.debug(f"Running {filename}")
+    #             self.run_sql_file(os.path.join(directory, filename), sql_vars)
 
-    def parse_variables(self, variables: dict) -> dict:
-        """Parse variables based on their defined types in the YAML."""
+    def parse_sql_variables(self, variables: dict) -> dict:
+        """Parse sql variables based on their defined types in the YAML."""
         formatted_vars = {}
 
         for key, meta in variables.items():
@@ -516,6 +470,29 @@ Running modification {modification.get('id')}
                     formatted_vars[key] = psycopg.sql.Identifier(value)
                 elif var_type == "literal":  # String/Number literals
                     formatted_vars[key] = psycopg.sql.Literal(value)
+                else:
+                    raise ValueError(f"Unknown type '{var_type}' for variable '{key}'")
+            else:
+                raise ValueError(f"Unknown type '{var_type}' for variable '{key}'.")
+        return formatted_vars
+    
+
+    def parse_py_variables(self, variables: dict) -> dict:
+        """Parse py variables based on their defined types in the YAML."""
+        formatted_vars = {}
+# Todo: fix parse_py_variables
+        for key, meta in variables.items():
+            if isinstance(meta, dict) and "default" in meta and "type" in meta:
+                value, var_type = meta["default"], meta["type"].lower()
+
+                if var_type == "int":  
+                    formatted_vars[key] = int(value)
+                if var_type == "float":  
+                    formatted_vars[key] = float(value)
+                if var_type == "str":
+                    formatted_vars[key] = str(value)
+                if var_type == "bool": 
+                    formatted_vars[key] = bool(value)
                 else:
                     raise ValueError(f"Unknown type '{var_type}' for variable '{key}'")
             else:
@@ -586,34 +563,6 @@ Running modification {modification.get('id')}
 #             if filename.lower().endswith(".py"):
 #                 logger.debug(f"Running {filename}")
 #                 self.run_py_file(os.path.join(directory, filename), py_vars)
-
-
-# # TODO: Diese Funktion zu py ummodeln
-
-#     def parse_variables(self, variables: dict) -> dict:
-#         """Parse variables based on their defined types in the YAML."""
-#         formatted_vars = {}
-
-#         for key, meta in variables.items():
-#             if isinstance(meta, dict) and "value" in meta and "type" in meta:
-#                 value, var_type = meta["value"], meta["type"].lower()
-
-#                 if var_type == "number":  # Directly insert SQL without escaping
-#                     if isinstance(value, float) or isinstance(value, int):
-#                         formatted_vars[key] = psycopg.sql.SQL(f"{value}")
-#                     else:  # avoid injection
-#                         raise ValueError(f"Value '{value}' is not float or int.")
-#                 elif var_type == "identifier":  # Table/Column names
-#                     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", value):  # avoid injection
-#                         raise ValueError(f"Identifier '{value}' contains invalid characters.")
-#                     formatted_vars[key] = psycopg.sql.Identifier(value)
-#                 elif var_type == "literal":  # String/Number literals
-#                     formatted_vars[key] = psycopg.sql.Literal(value)
-#                 else:
-#                     raise ValueError(f"Unknown type '{var_type}' for variable '{key}'")
-#             else:
-#                 raise ValueError(f"Unknown type '{var_type}' for variable '{key}'.")
-#         return formatted_vars
 
 
 if __name__ == "__main__":
