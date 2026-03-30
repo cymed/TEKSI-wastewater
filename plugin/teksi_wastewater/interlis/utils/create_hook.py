@@ -88,15 +88,69 @@ class Hook(HookBase): #maybe remove HookBase
 
         # Wo macht es Sinn, zwischen pre und post zu unterscheiden?
 
-        if pre:
-            for param in self.parameters.pre_hook.parameters: # Hier genaue Struktur zum Callen rausfinden
-                if param["type_sql"] :
+        # if pre:
+        # for param in self.parameters.pre_hook.parameters: # Hier genaue Struktur zum Callen rausfinden
+        #     if param["type_sql"] :
+
                     # die variablen übernehmen, die im hook.yaml übernommen werden
 
                 # gleiches für type_py und post
 
+# ADDED 23/03: Loop über die Parameter in hook.yaml, um die Variablen für die sql- resp py-files zu befüllen.
+        for name, param in self.parameters.items():
+
+            # Determine type
+            if param.get("type_sql"):
+                sql_type = param["type_sql"]
+            elif param.get("type") in ("integer", "float"):
+                sql_type = "number"
+            elif param.get("type") == "boolean":
+                sql_type = "boolean"
+            else:
+                sql_type = "text"
+
+            # Add parameter entry
+            self.variables_sql[name] = {
+                "value": param.get("default"),
+                "type": sql_type,
+            }
+
+        # ----------------------------------------------------------
+        # EXTRA VARIABLES DERIVED FROM lang_code
+        # ----------------------------------------------------------
+        lang_code = self.parameters.get("lang_code", {}).get("default", "en")
+
+        self.variables_sql.update({
+            "value_lang": {
+                "value": f"value_{lang_code}",
+                "type": "identifier",
+            },
+            "abbr_lang": {
+                "value": f"abbr_{lang_code}",
+                "type": "identifier",
+            },
+            "description_lang": {
+                "value": f"description_{lang_code}",
+                "type": "identifier",
+            },
+            "display_lang": {
+                "value": f"display_{lang_code}",
+                "type": "identifier",
+            },
+            "name_lang": {
+                "value": f"name_{lang_code}",
+                "type": "identifier",
+            },
+        })
+
+    
+
         # Wenn die Parameter zugewiesen wurden, kann man danach mit python kwargs py-files laufen lassen
         # und mit den schon definierten sql-funktionen (siehe unten) sql laufen lassen.
+
+
+
+
         self.variables_sql = {
             "SRID": {
                 "value": SRID,
