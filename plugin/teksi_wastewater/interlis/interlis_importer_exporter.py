@@ -38,14 +38,7 @@ from .utils.various import (
 )
 # Introduced TWW 4 VGEP
 from pum import HookBase
-
-
-
-class pre_hook():
-    pass
-class post_hook():
-    pass #initialization analogous to create_app.py TODO
-
+from .utils.create_hook import Hook
 
 class InterlisImporterExporter:
 
@@ -110,8 +103,9 @@ class InterlisImporterExporter:
         # introduced TWW 4 VGEP
         to_quarantine_only=False,
         from_quarantine_only=False,
-        pre_hook = None,
-        post_hook = None,
+        hook_yaml: Path = None,
+        pre_hook: bool = None,
+        post_hook: bool = None,
     ):
         # Configure logging
         if logs_next_to_file:
@@ -171,7 +165,11 @@ class InterlisImporterExporter:
         )
 
         if pre_hook:
-            pass # execute prehook order TODO
+            hook = Hook()
+            hook.run_hook(
+                SRID = srid,
+                hook_yaml = Path(hook_yaml),
+                hook_type = "pre")
         
         if from_quarantine_only:
             pass
@@ -181,9 +179,12 @@ class InterlisImporterExporter:
             self._progress_done(30, "Importing XTF data into quarantine schema...")
             self._import_xtf_file(xtf_file_input=xtf_file_input)
         
-        
         if post_hook:
-            pass #execute posthook order TODO
+            hook = Hook()
+            hook.run_hook(
+                SRID = srid,
+                hook_yaml = Path(hook_yaml),
+                hook_type = "post")
 
         if to_quarantine_only:
             self._progress_done(100)
@@ -262,6 +263,9 @@ class InterlisImporterExporter:
         selected_labels_scales_indices=[],
         selected_ids=None,
         include_unplaced: bool = False,
+        # Introduced TWW4VGEP
+        srid: int = None,
+        hook_yaml: Path = None,
         to_quarantine_only=False,
         from_quarantine_only=False,
         pre_hook = None,
@@ -314,7 +318,11 @@ class InterlisImporterExporter:
             self._import_xtf_file(abs_file_path)
 
         if pre_hook:
-            pass # execute prehook order TODO
+            hook = Hook()
+            hook.run_hook(
+                SRID = srid,
+                hook_yaml = Path(hook_yaml),
+                hook_type = "pre")
 
         if from_quarantine_only:
             self._progress_done(35, "Converting from intermediate schema to INTERLIS...")
@@ -332,7 +340,11 @@ class InterlisImporterExporter:
             tempdir.cleanup()  # Cleanup
 
         if post_hook:
-            pass # execute posthook order TODO
+            hook = Hook()
+            hook.run_hook(
+                SRID = srid,
+                hook_yaml = Path(hook_yaml),
+                hook_type = "post")
 
         if to_quarantine_only:
             self._progress_done(100)
@@ -400,9 +412,7 @@ class InterlisImporterExporter:
         # go thru all available checks and register if check failed or not.
 
         results = exportChecker.run_integrity_checks()
-        # if from_quarantine_only:
-        #     pass
-        # else:
+
 
         if not results["failed"]:
             logger.info(f"All checks passed! ({results['stats']['ok']} OK)")
