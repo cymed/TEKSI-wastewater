@@ -1,0 +1,507 @@
+defaults:
+  default_creator: [DBW_WK]
+  default_writer: [DBW_GEP]
+
+classes:
+
+# Die Attribute, die es nur im Aargau gibt (kursiv im Word-Dokument) werden auskommentiert
+# Ausserdem sind Subklassen, die von der Superklasse erben, auskommentiert
+
+  # ---------------------------------------------------------
+  # Netztopologie / Abwassernetzelement
+  # ---------------------------------------------------------
+
+  - id: abwassernetzelement
+    inherit_default_from_subclass: true
+    attributes:
+      # bemerkung_gep:
+      #   creator: [DBW_GEP]
+      #   writer: [DBW_GEP]
+      # datenbewirtschafter_gep:
+      #   creator: [DBW_GEP]
+      #   writer: [DBW_GEP]
+      letzte_aenderung:
+        creator: [DBW_WK, DBW_GEP]
+        writer: [DBW_WK, DBW_GEP]
+
+  - id: abwasserknoten
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    attributes:
+      hydr_geometrieref:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      rueckstaukote_ist:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+
+  - id: haltung
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    attributes:
+      fliesszeit_trockenwetter:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      hydr_belastung_ist:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      reliner_art:
+        creator: [FI_BU]
+        writer: [FI_BU]
+      reliner_nennweite:
+        creator: [FI_BU]
+        writer: [FI_BU]
+      reliner_bautechnik:
+        creator: [FI_BU]
+        writer: [FI_BU]
+      reliner_material:
+        creator: [FI_BU]
+        writer: [FI_BU]
+      wandrauhigkeit:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]      
+
+  - id: haltung_alternativverlauf
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]    
+
+  - id: haltung_text
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: haltungspunkt
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    
+  - id: hydr_geometrie
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: hydr_geomrelation
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: rohrprofil
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: rohrprofil_geometrie
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    
+  # ---------------------------------------------------------
+  # Abwasserbauwerke
+  # ---------------------------------------------------------
+
+  - id: abwasserbauwerk
+    inherit_default_from_subclass: true
+    attributes:
+      baulicherzustand:
+        writer: [FI_BU]
+      bruttokosten:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      dringlichkeitszahl:
+        writer: [FI_BU]
+      finanzierung:
+        writer: [DBW_GEP]
+      inspektionsintervall:
+        writer: [FI_BU]
+      sanierungsbedarf:
+        writer: [FI_BU]
+      subventionen:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]       
+      astatus:
+        writer: [DBW_GEP, DBW_WK]
+      wbw_basisjahr:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      wbw_bauart:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      wiederbeschaffungswert:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      zustandserhebung_jahr:
+        writer: [FI_BU]
+      zustandsnote:
+        writer: [FI_BU]
+
+  - id: abflusslose_toilette
+    default_creator: [DBW_WK]
+    default_writer: [DBW_GEP]
+
+  - id: einleitstelle
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    attributes:
+      hochwasserkote:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      wasserspiegel_hydraulik:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+
+  - id: kanal
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    attributes:
+      nutzungsart_geplant:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      spuelintervall:
+        writer: [FI_BU]
+
+  - id: klara
+    default_writer: [DBW_GEP, DBW_WK]
+
+  - id: normschacht
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: spezialbauwerk
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    attributes:
+      bypass:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      regenbecken_anordnung:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+
+  - id: versickerungsanlage
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    attributes:
+      gwdistanz:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      maengel:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      schluckvermoegen:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+      wirksameflaeche:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+
+  - id: mechanischevorreinigung
+    default_writer: [DBW_GEP, DBW_WK]
+
+  - id: retentionskoerper
+    default_writer: [DBW_GEP, DBW_WK]
+  
+  - id: abwasserbauwerk_symbol 
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: abwasserbauwerk_text 
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+
+  # ---------------------------------------------------------
+  # Bauwerksteile
+  # ---------------------------------------------------------
+
+  - id: bauwerksteil
+    inherit_default_from_subclass: true
+    attributes:
+      instandstellung:
+        creator: [FI_BU]
+        writer: [FI_BU]
+    # weitere Attribute gemäss Subklassen → keine Default-Rechte
+
+  - id: deckel
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+    # Fabrikat hat keine speziellen Rechte → Default gilt
+
+  - id: spuelstutzen
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  # Weitere Subklassen SIA 405
+  # alle Attribute: DBW-WK = CRU
+
+  - id: bankett
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: einstiegshilfe
+    default_creator:  [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: trockenwetterrinne
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  - id: trockenwetterfallrohr
+    default_creator: [DBW_WK]
+    default_writer: [DBW_WK]
+
+  # Weitere Subklassen VSA-DSS
+  # alle Attribute: DBW-GT = CRU → DBW_GEP
+
+  - id: beckenentleerung
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: beckenreinigung
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: elektrischeeinrichtung
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: elektromechanischeausruestung
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: feststoffrueckhalt
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: rueckstausicherung
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  # ---------------------------------------------------------
+  # Überlauf / Förderaggregat
+  # ---------------------------------------------------------
+
+  - id: ueberlauf
+    inherit_default_to_subclass: true
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+    attributes:
+      bezeichnung:
+        creator: [DBW_WK]
+        writer: [DBW_WK]
+      datenlieferant:
+        creator: [DBW_WK]
+        writer: [DBW_WK]
+
+  # - id: leapingwehr
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  # - id: streichwehr
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  # - id: foerderaggregat
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  - id: absperr_drosselorgan 
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: hq_relation
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: hydr_kennwerte
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: ueberlaufcharakteristik
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+
+
+  # ---------------------------------------------------------
+  # Einzugsgebiete
+  # ---------------------------------------------------------
+
+  - id: einzugsgebiet
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: oberflaechenabflussparameter
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: anschlussobjekt
+    inherit_default_to_subclass: true
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+    attributes:
+      fremdwasseranfall:
+        creator: [DBW_GEP]
+        writer: [DBW_GEP]
+
+  # - id: brunnen
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  # - id: gebaeude
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  # - id: reservoir
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  # - id: einzelflaeche
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  - id: einzugsgebiet_text
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+
+  # ---------------------------------------------------------
+  # Massnahmen
+  # ---------------------------------------------------------
+
+  - id: massnahme
+    default_creator: [DBW_GEP, DBW_VGEP]
+    default_writer: [DBW_GEP, DBW_VGEP]
+    
+  - id: erhaltungsereignis
+    inherit_default_from_subclass: true
+ 
+  - id: unterhalt
+    default_creator: [DBW_GEP, DBW_VGEP]
+    default_writer: [DBW_GEP, DBW_VGEP]
+    
+
+  # ---------------------------------------------------------
+  # Abwasser im ländlichen Raum
+  # ---------------------------------------------------------
+
+  - id: gebaeudegruppe
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: landwirtschaftsbetrieb
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: gebaeudegruppe_baugwr
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  - id: entsorgung
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+
+  # ---------------------------------------------------------
+  # Abwasserreinigung
+  # ---------------------------------------------------------
+
+  - id: abwasserreinigungsanlage
+    default_creator: [DBW_VGEP]
+    default_writer: [DBW_VGEP]
+
+  - id: araenergienutzung
+    default_creator: [DBW_VGEP]
+    default_writer: [DBW_VGEP]
+
+  - id: abwasserbehandlung
+    default_creator: [DBW_VGEP]
+    default_writer: [DBW_VGEP]
+
+  - id: schlammbehandlung
+    default_creator: [DBW_VGEP]
+    default_writer: [DBW_VGEP]
+
+  - id: arabauwerk
+    default_creator: [DBW_VGEP]
+    default_writer: [DBW_VGEP]
+
+  - id: steuerungszentrale
+    default_creator: [DBW_VGEP]
+    default_writer: [DBW_VGEP]  
+
+  # ---------------------------------------------------------
+  # Administration
+  # ---------------------------------------------------------
+
+  - id: zone
+    inherit_default_to_subclass: true
+    default_creator: [DBW_GEP]
+    default_writer: [DBW_GEP]
+
+  # - id: versickerungsbereich
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  # - id: entwaesserungssystem
+  #   default_creator: [DBW_GEP]
+  #   default_writer: [DBW_GEP]
+
+  # ---------------------------------------------------------
+  # Stammkarte
+  # ---------------------------------------------------------
+
+    - id: stammkarte
+      default_creator: [DBW_VGEP]
+      default_writer: [DBW_VGEP]
+
+    - id: gesamteinzugsgebiet
+      default_creator: [DBW_VGEP]
+      default_writer: [DBW_VGEP]
+
+    - id: biol_oekol_gesamtbeurteilung
+      default_creator: [DBW_VGEP]
+      default_writer: [DBW_VGEP]
+
+  # ---------------------------------------------------------
+  # Messung
+  # ---------------------------------------------------------
+
+  - id: messstelle
+    default_creator: [DBW_GEP, DBW_VGEP]
+    default_writer: [DBW_GEP, DBW_VGEP]
+
+  - id: messreihe
+    default_creator: [DBW_GEP, DBW_VGEP]
+    default_writer: [DBW_GEP, DBW_VGEP]
+
+  - id: messresultat
+    default_creator: [DBW_GEP, DBW_VGEP]
+    default_writer: [DBW_GEP, DBW_VGEP]
+
+  - id: messgeraet
+    default_creator: [DBW_GEP, DBW_VGEP]
+    default_writer: [DBW_GEP, DBW_VGEP]
+
+  # ---------------------------------------------------------
+  # VSA-KEK und Unterhalt
+  # ---------------------------------------------------------
+
+  - id: untersuchung
+    default_creator: [FI_BU]
+    default_writer: [FI_BU]
+
+  - id: schaden
+    inherit_default_to_subclass: true
+    default_creator: [FI_BU]
+    default_writer: [FI_BU]
+
+  # - id: kanalschaden
+  #   default_creator: [FI_BU]
+  #   default_writer: [FI_BU]
+
+  # - id: normschachtschaden
+  #   default_creator: [FI_BU]
+  #   default_writer: [FI_BU]
+
+  - id: datei
+    default_creator: [FI_BU]
+    default_writer: [FI_BU]
+
+  - id: datentraeger
+    default_creator: [FI_BU]
+    default_writer: [FI_BU]
+   

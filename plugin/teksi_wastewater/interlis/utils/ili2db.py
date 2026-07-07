@@ -70,8 +70,6 @@ class InterlisTools:
                     f"{srid}",
                     "--log",
                     f'"{log_path}"',
-                    "--nameLang",
-                    "de",
                     "--models",
                     f'"{";".join(models)}"',
                 ]

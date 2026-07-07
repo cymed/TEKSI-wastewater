@@ -14,34 +14,51 @@ from ..processing_algs.extractlabels_interlis import ExtractlabelsInterlisAlgori
 class InterlisExportSettingsDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
+
+        settings=QSettings()
+        locale = settings.value('locale/userLocale','de_CH')
+        self.lang = locale[:2]
         loadUi(os.path.join(os.path.dirname(__file__), "interlis_export_settings_dialog.ui"), self)
 
         self.finished.connect(self.on_finish)
 
         # Fill models selection combobox
-        self.export_model_selection_comboBox.addItem(
-            config.MODEL_NAME_DSS, [config.MODEL_NAME_DSS]
-        )
-        self.export_model_selection_comboBox.addItem(
-            config.MODEL_NAME_SIA405_ABWASSER, [config.MODEL_NAME_SIA405_ABWASSER]
-        )
-        self.export_model_selection_comboBox.addItem(
-            config.MODEL_NAME_VSA_KEK,
-            [config.MODEL_NAME_VSA_KEK, config.MODEL_NAME_SIA405_ABWASSER],
-        )
-        self.export_model_selection_comboBox.addItem(
-            config.MODEL_NAME_SIA405_BASE_ABWASSER, [config.MODEL_NAME_SIA405_BASE_ABWASSER]
+        self._add_model(
+            config.MODEL_NAME_DSS,
+            [config.MODEL_NAME_DSS],
         )
 
-        ag6496extension = QSettings().value("/TWW/AGxxExtensions", False)
-        # QGIS loads value as string on application restart
+        self._add_model(
+            config.MODEL_NAME_SIA405_ABWASSER,
+            [config.MODEL_NAME_SIA405_ABWASSER],
+        )
+
+        self._add_model(
+            config.MODEL_NAME_VSA_KEK,
+            [
+                config.MODEL_NAME_VSA_KEK,
+                config.MODEL_NAME_SIA405_ABWASSER,
+            ],
+        )
+
+        self._add_model(
+            config.MODEL_NAME_SIA405_BASE_ABWASSER,
+            [config.MODEL_NAME_SIA405_BASE_ABWASSER],
+        )
+
+        ag6496extension = settings.value("/TWW/AGxxExtensions", False)
+
         if ag6496extension and ag6496extension != "false":
-            self.export_model_selection_comboBox.addItem(
-                config.MODEL_NAME_AG96, [config.MODEL_NAME_AG96]
+            self._add_model(
+                config.MODEL_NAME_AG96,
+                [config.MODEL_NAME_AG96],
             )
-            self.export_model_selection_comboBox.addItem(
-                config.MODEL_NAME_AG64, [config.MODEL_NAME_AG64]
+
+            self._add_model(
+                config.MODEL_NAME_AG64,
+                [config.MODEL_NAME_AG64],
             )
+
         # Fill orientation selection combobox
         self.export_orientation_selection_comboBox.clear()
         self.export_orientation_selection_comboBox.addItem("90°", 90.0)
@@ -136,3 +153,12 @@ class InterlisExportSettingsDialog(QDialog):
     def labels_orientation_offset(self):
         eorientation = self.export_orientation_selection_comboBox.currentData()
         return eorientation
+
+    def _model_name(self, model_dict):
+        return model_dict.get(self.lang, model_dict["de"])
+
+    def _add_model(self, model_dict, model_list):
+        self.export_model_selection_comboBox.addItem(
+            self._model_name(model_dict),
+            model_list,
+        )

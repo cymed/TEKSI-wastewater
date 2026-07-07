@@ -9,14 +9,14 @@ roles:
     description: Role for users who can view the TWW data.
     permissions:
       - type: read
-        schemas: [tww_od, tww_vl, tww_sys, tww_app, tww_app_pg2ili]
+        schemas: [tww_od, tww_vl, tww_sys, tww_app]
 
   - name: tww_user
     description: Role for users who can view and edit the TWW data.
     inherit: tww_viewer
     permissions:
       - type: write
-        schemas: [tww_od, tww_app_pg2ili]
+        schemas: [tww_od, tww_app_xtf2pg, tww_app_pg2xtf]
 
   - name: tww_manager
     description: Role for users who can view and edit the TWW data, and manage the TWW application.
@@ -77,6 +77,8 @@ application:
   drop:
     - code: DROP SCHEMA IF EXISTS tww_app CASCADE;
     - code: DROP SCHEMA IF EXISTS tww_app_pg2ili CASCADE;
+    - code: DROP SCHEMA IF EXISTS tww_app_pg2xtf CASCADE;
+    - code: DROP SCHEMA IF EXISTS tww_app_xtf2pg CASCADE;
   create:
     - file: app/create_app.py
     - code: SELECT tww_app.update_wastewater_node_symbology(NULL,True);
@@ -88,6 +90,8 @@ uninstall:
   - code: DROP SCHEMA IF EXISTS tww_sys CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_app CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_app_pg2ili CASCADE;
+  - code: DROP SCHEMA IF EXISTS tww_app_pg2xtf CASCADE;
+  - code: DROP SCHEMA IF EXISTS tww_app_xtf2pg CASCADE;
 
 demo_data:
   - name: Aletsch
