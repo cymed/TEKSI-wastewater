@@ -57,7 +57,14 @@ class InterlisImporterExporter:
         self.srid = 2056
         self.current_progress = 0
         self.ilischema = None
+        
+    # TODO: connection einbauen --> Vorschlag:
+        with self._engine.connect() as conn:
+            self._connection = conn
+    # RunTimeError, wenn keine Connection mitgegeben wird? Wenn ja, wo?
 
+
+    
     def _init_model_classes(self, model):
         ModelInterlis = None
         if model == config.MODEL_NAME_AG96:
@@ -104,8 +111,8 @@ class InterlisImporterExporter:
         to_quarantine_only=False,
         from_quarantine_only=False,
         hook_yaml: Path = None,
-        pre_hook: bool = None,
-        post_hook: bool = None,
+        pre_hook_import: bool = None,
+        post_hook_import: bool = None,
     ):
         # Configure logging
         if logs_next_to_file:
@@ -163,25 +170,33 @@ class InterlisImporterExporter:
         self._create_ili_schema(
             [import_model], ext_columns_no_constraints=True, create_basket_col=True
         )
-
-        if pre_hook:
-            hook = Hook()
-            hook.run_hook(
-                SRID = srid,
-                hook_yaml = Path(hook_yaml),
-                hook_type = "pre")
         
-        if from_quarantine_only:
-            pass
+        # Vorschlag von Copilot zum Handling von sql
+        # with self._connection.transaction():
 
-        else:
+        #     hook.run_hook(hook_type="import_pre")
+
+        #     self._import_xtf_file(...)
+
+        #     hook.run_hook(hook_type="import_post")
+
+        if not from_quarantine_only:
+            if pre_hook_import:
+                hook = Hook()
+                hook.run_hook(
+                    connection = self._connection,
+                    SRID = srid,
+                    hook_yaml = Path(hook_yaml),
+                    hook_type = "pre")
+                
             # Import from xtf file to ili2pg model
             self._progress_done(30, "Importing XTF data into quarantine schema...")
             self._import_xtf_file(xtf_file_input=xtf_file_input)
-        
-        if post_hook:
+                
+        if post_hook_import:
             hook = Hook()
             hook.run_hook(
+                connection = self._connection,
                 SRID = srid,
                 hook_yaml = Path(hook_yaml),
                 hook_type = "post")
@@ -189,6 +204,7 @@ class InterlisImporterExporter:
         if to_quarantine_only:
             self._progress_done(100)
             logger.info("INTERLIS import into quarantine scheme finished.")
+            
         else:
             # Disable symbology triggers
             self._progress_done(35, "Disable symbology and modification triggers...")
@@ -268,8 +284,8 @@ class InterlisImporterExporter:
         hook_yaml: Path = None,
         to_quarantine_only=False,
         from_quarantine_only=False,
-        pre_hook = None,
-        post_hook = None,
+        pre_hook_export = None,
+        post_hook_export = None,
        
     ):
         # File name without extension (used later for export)
@@ -317,9 +333,10 @@ class InterlisImporterExporter:
             logger.info("Importing AG-64 organisation to intermediate schema")
             self._import_xtf_file(abs_file_path)
 
-        if pre_hook:
+        if pre_hook_export:
             hook = Hook()
             hook.run_hook(
+                connection = self._connection,
                 SRID = srid,
                 hook_yaml = Path(hook_yaml),
                 hook_type = "pre")
@@ -339,9 +356,10 @@ class InterlisImporterExporter:
             )
             tempdir.cleanup()  # Cleanup
 
-        if post_hook:
+        if post_hook_export:
             hook = Hook()
             hook.run_hook(
+                connection = self._connection,
                 SRID = srid,
                 hook_yaml = Path(hook_yaml),
                 hook_type = "post")
@@ -374,8 +392,8 @@ class InterlisImporterExporter:
         # introduced TWW 4 VGEP
         to_quarantine_only=False,
         from_quarantine_only=False,
-        pre_hook = None,
-        post_hook = None,
+        pre_hook_export = None,
+        post_hook_export = None,
 
     ):
 
@@ -427,8 +445,8 @@ class InterlisImporterExporter:
                 selected_ids,
                 to_quarantine_only,
                 from_quarantine_only,
-                pre_hook,
-                post_hook,
+                pre_hook_export,
+                post_hook_export,
             )
         else:
             if user_interaction:
@@ -484,8 +502,8 @@ class InterlisImporterExporter:
                         selected_ids,
                         to_quarantine_only,
                         from_quarantine_only,
-                        pre_hook,
-                        post_hook,
+                        pre_hook_export,
+                        post_hook_export,
                     )
             else:
                 logger.error(f"Failed checks:\n{results['failed_checks']}")
