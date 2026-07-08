@@ -59,3 +59,30 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION tww_app.apply_refresh() RETURNS VOID AS $body$
+BEGIN
+    IF NOT pg_try_advisory_lock(4711) THEN
+        RETURN;
+    END IF;
+    BEGIN
+        -- Don't refresh while users are editing
+        IF EXISTS (
+            SELECT 1
+            FROM tww_app.active_editors
+        ) THEN
+            RETURN;
+        END IF;
+        SELECT tww_app.network_refresh_network_simple();
+        TRUNCATE tww_od.refresh_state;
+        PERFORM pg_advisory_unlock(4711);
+        RETURN;
+    EXCEPTION
+        WHEN OTHERS THEN
+            PERFORM pg_advisory_unlock(4711);
+            RAISE;
+    END;
+END;
+
+$body$
+LANGUAGE plpgsql;
