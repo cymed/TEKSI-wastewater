@@ -1,0 +1,223 @@
+classes:
+
+  GepKnoten:
+    attributes:
+      istschnittstelle:
+        targets:
+          - class: agxx_wastewater_node
+            attribute: ag96_is_gateway
+      funktionag:
+        targets:
+          - class: agxx_wastewater_node
+            attribute: ag64_function
+      gepmassnahmeref:
+        targets:
+          - class: agxx_wastewater_structure
+            attribute: ag96_fk_measure
+      bemerkung_wi:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag64_remark
+      bemerkung_gep:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag96_remark
+      datenbewirtschafter_wi:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag64_fk_provider
+      datenbewirtschafter_gep:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag96_fk_provider
+      letzte_aenderung_wi:
+        targets:
+          - class: agxx_last_modification
+            attribute: ag64_last_modification
+            foreign_key: fk_element
+      letzte_aenderung_gep:
+        targets:
+          - class: agxx_last_modification
+            attribute: ag96_last_modification
+            foreign_key: fk_element
+
+  GepHaltung:
+    attributes:
+      lichte_breite_geplant:
+        targets:
+          - class: reach
+            attribute: ag96_clear_width_planned
+      lichte_hoehe_geplant:
+        targets:
+          - class: reach
+            attribute: ag96_clear_height_planned
+      nutzungsartag_ist:
+        targets:
+          - class: channel
+            attribute: usage_current
+            vl_extension: true
+      nutzungsartag_geplant:
+        targets:
+          - class: channel
+            attribute: usage_planned
+            vl_extension: true
+      gepmassnahmeref:
+        targets:
+          - class: agxx_wastewater_structure
+            attribute: ag96_fk_measure
+      bemerkung_wi:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag64_remark
+      bemerkung_gep:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag96_remark
+      datenbewirtschafter_wi:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag64_fk_provider
+      datenbewirtschafter_gep:
+        targets:
+          - class: agxx_wastewater_networkelement
+            attribute: ag96_fk_provider
+      letzte_aenderung_wi:
+        targets:
+          - class: agxx_last_modification
+            attribute: ag64_last_modification
+            foreign_key: fk_element
+      letzte_aenderung_gep:
+        targets:
+          - class: agxx_last_modification
+            attribute: ag96_last_modification
+            foreign_key: fk_element
+
+  GepMassnahme:
+    attributes: 
+      kategorie:
+        targets:
+          - class: measure
+            attribute: category
+            vl_extension: true
+      prioritaetag:
+        targets:
+          - class: measure
+            attribute: priority
+            vl_extension: true
+
+  Einzugsgebiet:
+    attributes: 
+      entwaesserungssystemag_geplant:
+        targets:
+          - class: catchment_area
+            attribute: drainage_system_planned
+            vl_extension: true
+      entwaesserungssystemag_ist:
+        targets:
+          - class: catchment_area
+            attribute: drainage_system_current
+            vl_extension: true
+
+  Ueberlauf_Foerderaggregat:
+    attributes:
+      bemerkung_wi:
+        targets:
+          - class: agxx_overflow
+            attribute: ag64_remark
+      bemerkung_gep:
+        targets:
+          - class: agxx_overflow
+            attribute: ag96_remark
+      datenbewirtschafter_wi:
+        targets:
+          - class: agxx_overflow
+            attribute: ag64_fk_provider
+      datenbewirtschafter_gep:
+        targets:
+          - class: agxx_overflow
+            attribute: ag96_fk_provider
+      letzte_aenderung_wi:
+        targets:
+          - class: agxx_last_modification
+            attribute: ag64_last_modification
+            foreign_key: fk_element
+      letzte_aenderung_gep:
+        targets:
+          - class: agxx_last_modification
+            attribute: ag96_last_modification
+            foreign_key: fk_element
+
+  BautenAusserhalbBaugebiet:
+    attributes: 
+      anzstaendigeeinwohner:
+        targets:
+          - class: agxx_building_group
+            attribute: ag96_population
+      eigentuemername:
+        targets:
+          - class: agxx_building_group
+            attribute: ag96_owner_name
+      eigentuemeradresse:
+        targets:
+          - class: agxx_building_group
+            attribute: ag96_owner_address
+      arealnutzung:
+        targets:
+          - class: building_group
+            attribute: function
+            vl_extension: true
+      beseitigung_haeusliches_abwasser:
+        targets:
+          - class: agxx_building_group
+            attribute: ag96_disposal_wastewater
+      beseitigung_gewerbliches_abwasser:
+        targets:
+          - class: agxx_building_group
+            attribute: ag96_disposal_industrial_wastewater
+      beseitigung_platzentwaesserung:
+        targets:
+          - class: agxx_building_group
+            attribute: ag96_disposal_square_water
+      beseitigung_dachentwaesserung:
+        targets:
+          - class: agxx_building_group
+            attribute: ag96_disposal_roof_water
+ 
+  SBWEinzugsgebiet:
+    attributes: 
+      fremdwasseranfall_geplant:
+        targets:
+          - class: agxx_catchment_area_totals
+            attribute: ag96_sewer_infiltration_water_dim
+      schmutzabwasseranfall_geplant:
+        targets:
+          - class: agxx_catchment_area
+            attribute: ag96_waste_water_production_dim
+      perimeter_ist:
+        targets:
+          - class: agxx_catchment_area
+            attribute: ag96_perimeter_geometry
+ 
+  VersickerungsbereichAG:
+    attributes: 
+      durchlaessigkeit:
+        targets:
+          - class: agxx_infiltration_zone
+            attribute: ag96_permeability
+      einschraenkung:
+        targets:
+          - class: agxx_infiltration_zone
+            attribute: ag96_limitation
+      maechtigkeit:
+        targets:
+          - class: agxx_infiltration_zone
+            attribute: ag96_thickness
+      q_check:
+        targets:
+          - class: agxx_infiltration_zone
+            attribute: ag96_q_check
+      versickerungsmoeglichkeitag:
+        targets:
+          - class: infiltration_zone
+            attribute: infiltration_capacity
+            vl_extension: true

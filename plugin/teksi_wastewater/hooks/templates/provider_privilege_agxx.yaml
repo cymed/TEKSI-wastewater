@@ -1,0 +1,29 @@
+
+defaults:
+
+  ag64_*:
+    update: [DBW_WI]
+
+  ag96_*:
+    update: [DBW_GEP]
+
+
+classes:
+
+  - id: agxx_wastewater_networkelement
+
+  - id: agxx_last_modification
+
+  - id: agxx_wastewater_node
+
+  - id: agxx_wastewater_structure
+
+  - id: agxx_reach
+
+  - id: agxx_overflow
+
+  - id: agxx_building_group
+
+  - id: agxx_catchment_area_totals
+
+  - id: agxx_infiltration_zone
