@@ -126,42 +126,7 @@ class InterlisImporterExporter:
 
         # Get model to import from xtf file
         self._progress_done(10, "Extract model from xtf...")
-        import_models = self.interlisTools.get_xtf_models(xtf_file_input)
-
-        import_model = "" # German name for mapping to TWW
-        created_models = [] # list of models to create on ili2db
-        if config.ALL_SIA405_BASE_ABWASSER_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_SIA405_BASE_ABWASSER.values()
-
-        # override base model if necessary
-        if config.ALL_VSA_KEK_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_VSA_KEK.values()
-            import_model = config.MODEL_NAME_KEK["de"]
-        if config.ALL_SIA405_ABWASSER_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_SIA405_ABWASSER.values()
-            import_model = config.MODEL_NAME_SIA405_ABWASSER["de"]
-        if config.ALL_DSS_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_DSS.values()
-            import_model = config.MODEL_NAME_DSS["de"]
-
-        elif config.ALL_SIA405_BASE_ABWASSER_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_SIA405_ABWASSER.values()
-            import_model = config.MODEL_NAME_SIA405_ABWASSER["de"]
-        elif config.MODEL_NAME_AG96.values() in import_models:
-            created_models = config.MODEL_NAME_AG96.values()
-            import_model = config.MODEL_NAME_AG96["de"]
-        elif config.MODEL_NAME_AG64.values() in import_models:
-            created_models = config.MODEL_NAME_AG64.values()
-            import_model = config.MODEL_NAME_AG64["de"]
-
-        if not created_models:
-            error_text = f"No supported model was found among '{import_models}'."
-            if len(import_models) == 1:
-                error_text = f"The model '{import_models[0]}' is not supported."
-            raise InterlisImporterExporterError("Import error", error_text, None)
-        logger.info(
-            f"Models '{created_models}' were chosen for import among found models '{import_models}'"
-        )
+        import_model, created_models=self.find_import_ilimodels(xtf_file_input)
 
         # Prepare the temporary ili2pg model
         self._progress_done(15, "Creating ili schema...")
@@ -245,6 +210,45 @@ class InterlisImporterExporter:
 
             self._progress_done(100)
             logger.info("INTERLIS import finished.")
+
+    def find_import_ilimodels(self,xtf_file_input):
+        import_models = self.interlisTools.get_xtf_models(xtf_file_input)
+
+        import_model = "" # German name for mapping to TWW
+        created_models = [] # list of models to create on ili2db
+        if config.ALL_SIA405_BASE_ABWASSER_MODELS.intersection(import_models):
+            created_models = config.MODEL_NAME_SIA405_BASE_ABWASSER.values()
+
+        # override base model if necessary
+        if config.ALL_VSA_KEK_MODELS.intersection(import_models):
+            created_models = config.MODEL_NAME_VSA_KEK.values()
+            import_model = config.MODEL_NAME_KEK["de"]
+        if config.ALL_SIA405_ABWASSER_MODELS.intersection(import_models):
+            created_models = config.MODEL_NAME_SIA405_ABWASSER.values()
+            import_model = config.MODEL_NAME_SIA405_ABWASSER["de"]
+        if config.ALL_DSS_MODELS.intersection(import_models):
+            created_models = config.MODEL_NAME_DSS.values()
+            import_model = config.MODEL_NAME_DSS["de"]
+
+        elif config.ALL_SIA405_BASE_ABWASSER_MODELS.intersection(import_models):
+            created_models = config.MODEL_NAME_SIA405_ABWASSER.values()
+            import_model = config.MODEL_NAME_SIA405_ABWASSER["de"]
+        elif config.MODEL_NAME_AG96.values() in import_models:
+            created_models = config.MODEL_NAME_AG96.values()
+            import_model = config.MODEL_NAME_AG96["de"]
+        elif config.MODEL_NAME_AG64.values() in import_models:
+            created_models = config.MODEL_NAME_AG64.values()
+            import_model = config.MODEL_NAME_AG64["de"]
+
+        if not created_models:
+            error_text = f"No supported model was found among '{import_models}'."
+            if len(import_models) == 1:
+                error_text = f"The model '{import_models[0]}' is not supported."
+            raise InterlisImporterExporterError("Import error", error_text, None)
+        logger.info(
+            f"Models '{created_models}' were chosen for import among found models '{import_models}'"
+        )
+        return import_model, created_models
 
     def execute_export(
         self,
