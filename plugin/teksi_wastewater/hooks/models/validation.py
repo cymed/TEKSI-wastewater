@@ -3,40 +3,10 @@ from typing import Any
   
 from teksi_hooks.ili_definitions import Standardoid
 from enum import StrEnum
+from .rulesets import StateTransitionRule
+from .privilege import Privilege
 
 
-
-
-@dataclass(frozen=True, slots=True)
-class PrivilegeMetadata:
-    label_de: str
-    label_fr: str
-
-
-class Privilege(StrEnum):
-    DBW_WI = "DBW_WI"
-    DBW_GEP = "DBW_GEP"
-    FI_BU = "FI_BU"
-
-    @property
-    def metadata(self) -> PrivilegeMetadata:
-        return _PRIVILEGE_METADATA[self]
-
-
-_PRIVILEGE_METADATA = {
-    Privilege.DBW_WI: PrivilegeMetadata(
-        label_de="Datenbewirtschafter Werkinformation",
-        label_fr="Gestionnaire cadastral",
-    ),
-    Privilege.DBW_GEP: PrivilegeMetadata(
-        label_de="Datenbewirtschafter GEP-Themen",
-        label_fr="Gestionnaire PGEE",
-    ),
-    Privilege.FI_BU: PrivilegeMetadata(
-        label_de="Fachingenieur Betrieb und Unterhalt",
-        label_fr="Ingénieur de maintenance",
-    ),
-}
 
 
 @dataclass(slots=True, frozen=True)
@@ -56,13 +26,25 @@ class Change:
     new_values: dict[str, Any]
 
 
+    @property
+    def changed_attributes(
+        self,
+    ) -> frozenset[AttributeChange]:
+        return frozenset(
+                AttributeChange(
+                    attribute_name=attribute,
+                    old_value=self.old_values.get(attribute),
+                    new_value=self.new_values.get(attribute),
+                )
+                for attribute in ...
+            )
+
+
+
 class ChangeOperation(StrEnum):
     INSERT = "insert"
     UPDATE = "update"
     DELETE = "delete"
-
-from dataclasses import dataclass
-from enum import StrEnum
 
 
 class ValidationSeverity(StrEnum):
@@ -75,3 +57,22 @@ class ValidationSeverity(StrEnum):
 class ValidationFinding:
     severity: ValidationSeverity
     message: str
+
+
+@dataclass(slots=True, frozen=True)
+class AttributeValidation:
+    id: str
+    level: ValidationSeverity
+
+
+@dataclass(slots=True, frozen=True)
+class TransitionValidation:
+    ruleset: frozenset[StateTransitionRule]
+    allow_transitive: bool
+
+
+@dataclass(slots=True, frozen=True)
+class AttributeChange:
+    attribute_name: str
+    old_value: Any | None
+    new_value: Any | None

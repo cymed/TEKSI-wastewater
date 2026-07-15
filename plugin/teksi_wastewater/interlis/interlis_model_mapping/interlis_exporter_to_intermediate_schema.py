@@ -16,7 +16,7 @@ class InterlisExporterToIntermediateSchemaError(Exception):
 class InterlisExporterToIntermediateSchema:
     def __init__(
         self,
-        model,
+        export_model_groups,
         model_classes_interlis,
         model_classes_tww_od,
         model_classes_tww_vl,
@@ -35,8 +35,7 @@ class InterlisExporterToIntermediateSchema:
         Args:
             selection:      if provided, limits the export to networkelements that are provided in the selection
         """
-        self.model = model
-        self.is_ag_xx_model = model in [config.MODEL_NAME_AG64, config.MODEL_NAME_AG96]
+        self.export_model_groups = export_model_groups
         self.callback_progress_done = callback_progress_done
 
         # Filtering
@@ -101,26 +100,26 @@ class InterlisExporterToIntermediateSchema:
 
         self._set_tid_iterator()
 
-        if not self.is_ag_xx_model:
+        if not {"ag64", "ag96"} & self.export_model_groups:
             self.current_basket = self.basket_topic_sia405_administration
             self._export_sia405_abwasser_base()
 
-            if self.model != config.MODEL_NAME_SIA405_BASE_ABWASSER:
+            if self.export_model_groups != {"sia405_base_abwasser"}:
                 self._export_sia405_abwasser()
 
-                if self.model == config.MODEL_NAME_DSS:
+                if "dss" in self.export_model_groups:
                     self.current_basket = self.basket_topic_dss
                     self._export_dss()
 
-                if self.model == config.MODEL_NAME_VSA_KEK:
+                if "kek" in self.export_model_groups:
                     self.current_basket = self.basket_topic_kek
                     self._export_vsa_kek()
 
-        elif self.model == config.MODEL_NAME_AG64:
+        elif "ag64" in self.export_model_groups:
             self.current_basket = self.basket_topic_ag64
             self._export_ag64()
 
-        elif self.model == config.MODEL_NAME_AG96:
+        elif "ag96" in self.export_model_groups:
             self.current_basket = self.basket_topic_ag96
             self._export_ag96()
 
@@ -235,7 +234,7 @@ class InterlisExporterToIntermediateSchema:
         self._export_reach_point()
         self._check_for_stop()
 
-        if self.model == config.MODEL_NAME_DSS:
+        if "dss" in self.export_model_groups:
             logger.info(
                 "Exporting TWW.wastewater_node for VSA-DSS 2020 -> ABWASSER.abwasserknoten"
             )
@@ -528,7 +527,7 @@ class InterlisExporterToIntermediateSchema:
     def _export_organisation(self):
         query = self.tww_session.query(self.model_classes_tww_od.organisation)
         # only export my local extension organisations if called by SIA405 Base
-        if self.model == config.MODEL_NAME_SIA405_BASE_ABWASSER:
+        if "sia405_base_abwasser" in self.export_model_groups:
             query = query.filter(
                 self.model_classes_tww_od.organisation.tww_local_extension.is_(True)
             ).all()
@@ -3184,7 +3183,7 @@ class InterlisExporterToIntermediateSchema:
             "massnahmeref": self.get_tid(row.fk_measure__REL),
         }
 
-        if self.model == config.MODEL_NAME_VSA_KEK:
+        if "kek" in self.export_model_groups:
             query = self.tww_session.query(
                 self.model_classes_tww_od.re_maintenance_event_wastewater_structure
             ).where(
@@ -3320,11 +3319,11 @@ class InterlisExporterToIntermediateSchema:
         for row in self.abwasser_session.query(self.model_classes_interlis.abwasserbauwerk):
             tid_for_obj_id["vw_tww_wastewater_structure"][row.t_ili_tid] = row.t_id
 
-        if self.model in [config.MODEL_NAME_DSS, config.MODEL_NAME_AG96]:
+        if {"dss", "ag96"} & self.export_model_groups:
             for row in self.abwasser_session.query(self.model_classes_interlis.einzugsgebiet):
                 tid_for_obj_id["vw_tww_catchment_area"][row.t_ili_tid] = row.t_id
 
-        if self.model == config.MODEL_NAME_AG96:
+        if "ag96" in self.export_model_groups:
             tid_for_obj_id.update(
                 {
                     "building_group": {},
@@ -3385,7 +3384,7 @@ class InterlisExporterToIntermediateSchema:
             else:
                 logger.debug(f"Debug Plantyp not adapted '{plantyp}'")
 
-            if not self.is_ag_xx_model:
+            if not {"ag64", "ag96"} & self.export_model_groups:
                 if layer_name == "vw_tww_reach":
                     ili_label = self.model_classes_interlis.haltung_text(
                         **self._textpos_common(
@@ -3433,7 +3432,7 @@ class InterlisExporterToIntermediateSchema:
                     )
                     continue
             else:
-                if self.model == config.MODEL_NAME_AG64:
+                if "ag64" in self.export_model_groups:
                     if layer_name == "vw_tww_reach":
                         ili_label = self.model_classes_interlis.haltung_text(
                             **self._textpos_common(

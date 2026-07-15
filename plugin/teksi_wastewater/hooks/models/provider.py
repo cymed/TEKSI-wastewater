@@ -7,7 +7,7 @@ from .privilege import Privilege
 
 
 @dataclass(slots=True, frozen=True)
-class ProviderRole:
+class ProviderAssignment:
     dataowner_oid: Standardoid
     privileges: frozenset[Privilege]
 
@@ -16,4 +16,4 @@ class ProviderRole:
 class Provider:
     name: str
     organisation_oid: Standardoid
-    roles: frozenset[ProviderRole]
+    roles: frozenset[ProviderAssignment]

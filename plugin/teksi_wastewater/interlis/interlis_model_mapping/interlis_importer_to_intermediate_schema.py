@@ -20,7 +20,7 @@ class InterlisImporterToIntermediateSchema:
         callback_progress_done=None,
         filter_nulls=False,
     ):
-        self.model = model
+        self.model_groups = config.groups_for_models(model)
         self.callback_progress_done = callback_progress_done
 
         self.model_classes_interlis = model_classes_interlis
@@ -68,22 +68,28 @@ class InterlisImporterToIntermediateSchema:
         # Allow to insert rows with cyclic dependencies at once
         self.session_tww.execute(text("SET CONSTRAINTS ALL DEFERRED;"))
 
-        if self.model not in (config.MODEL_NAME_AG64, config.MODEL_NAME_AG96):
+        if not {"ag64", "ag96"} & self.model_groups:
             self._import_sia405_abwasser_base()
-            if self.model != config.MODEL_NAME_SIA405_BASE_ABWASSER:
+            if {"dss", "kek","sia405_abwasser"} & self.model_groups:
                 self._import_sia405_abwasser()
 
-        if self.model == config.MODEL_NAME_DSS:
+        if "dss" in self.model_groups:
             self._import_dss()
 
-        if self.model == config.MODEL_NAME_VSA_KEK:
+        if "kek" in self.model_groups:
             self._import_vsa_kek()
 
-        if self.model == config.MODEL_NAME_AG96:
+        if "ag96" in self.model_groups:
             self._import_ag96()
 
-        if self.model == config.MODEL_NAME_AG64:
+        if "ag64" in self.model_groups:
             self._import_ag64()
+
+        if "sia405_cable" in self.model_groups:
+            self._import_sia405_cable()
+
+        if "sia405_protection_tube" in self.model_groups:
+            self._import_sia405_protection_tube()
 
         self.close_sessions(skip_closing_tww_session=skip_closing_tww_session)
 
@@ -119,9 +125,9 @@ class InterlisImporterToIntermediateSchema:
         self._check_for_stop()
 
         # As fk_hydr_geometry only exists in VSA-DSS, but not in SIA405_Abwasser, distinguish which matching configuration is used
-        if self.model == config.MODEL_NAME_DSS:
+        if "dss" in self.model_groups:
             logger.info(
-                "\nImporting ABWASSER.abwasserknoten with VSA-DSS 2020 -> TWW.wastewater_node"
+                "\nImporting ABWASSER.abwasserknoten with VSA-DSS 2020.1 -> TWW.wastewater_node"
             )
             self._import_abwasserknoten_dss()
         else:
@@ -405,6 +411,14 @@ class InterlisImporterToIntermediateSchema:
 
         logger.info("\nImporting ABWASSER.datei -> TWW.file")
         self._import_datei()
+        self._check_for_stop()
+
+    def _import_sia405_cable(self):
+        logger.error("_import_sia405_cable not implemented")
+        self._check_for_stop()
+
+    def _import_sia405_protection_tube(self):       
+        logger.error("_import_sia405_protection_tube not implemented")
         self._check_for_stop()
 
     def close_sessions(self, skip_closing_tww_session=False):

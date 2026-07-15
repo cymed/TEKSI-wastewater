@@ -37,16 +37,3 @@ _PRIVILEGE_METADATA = {
         label_fr="Ingénieur de maintenance",
     ),
 }
-
-
-@dataclass(slots=True, frozen=True)
-class ProviderRole:
-    dataowner_oid: Standardoid
-    privileges: frozenset[Privilege]
-
-
-@dataclass(slots=True, frozen=True)
-class Provider:
-    name: str
-    provider_oid: Standardoid
-    roles: frozenset[ProviderRole]

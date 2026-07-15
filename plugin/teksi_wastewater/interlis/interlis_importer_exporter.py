@@ -1,3 +1,4 @@
+from collections.abc import Collection
 import logging
 import os
 import socket
@@ -65,17 +66,18 @@ class InterlisImporterExporter:
 
     def _init_model_classes(self, model):
         ModelInterlis = None
-        if model in config.MODEL_NAME_AG96.values():
+        groups = config.groups_for_models(model)
+        if "ag96" in groups:
             ModelInterlis = ModelInterlisAG96(self.schema)
-        elif model in config.MODEL_NAME_AG64.values():
+        elif "ag64" in groups:
             ModelInterlis = ModelInterlisAG64(self.schema)
-        elif model in config.ALL_SIA405_BASE_ABWASSER_MODELS:
+        elif "sia405_base_abwasser" in groups:
             ModelInterlis = ModelInterlisSia405BaseAbwasser(self.schema)
-        elif model in config.ALL_SIA405_ABWASSER_MODELS:
+        elif "sia405_abwasser" in groups:
             ModelInterlis = ModelInterlisSia405Abwasser(self.schema)
-        elif model in config.ALL_DSS_MODELS:
+        elif "dss" in groups:
             ModelInterlis = ModelInterlisDss(self.schema)
-        elif model in config.ALL_VSA_KEK_MODELS:
+        elif "kek" in groups:
             ModelInterlis = ModelInterlisVsaKek(self.schema)
         self.model_classes_interlis = ModelInterlis().classes()
         self._progress_done(self.current_progress + 1)
@@ -92,9 +94,7 @@ class InterlisImporterExporter:
             self.model_classes_tww_sys = ModelTwwSys().classes()
             self._progress_done(self.current_progress + 1)
 
-        if (
-            model in config.ALL_AGXX_MODELS
-        ) and self.model_classes_tww_app is None:
+        if {"ag64", "ag96"} & groups and self.model_classes_tww_app is None:
             self.model_classes_tww_app = ModelTwwAG6496().classes()
             self._progress_done(self.current_progress + 1)
 
@@ -214,37 +214,19 @@ class InterlisImporterExporter:
     def find_import_ilimodels(self,xtf_file_input):
         import_models = self.interlisTools.get_xtf_models(xtf_file_input)
 
-        import_model = "" # German name for mapping to TWW
-        created_models = [] # list of models to create on ili2db
-        if config.ALL_SIA405_BASE_ABWASSER_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_SIA405_BASE_ABWASSER.values()
-
-        # override base model if necessary
-        if config.ALL_VSA_KEK_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_VSA_KEK.values()
-            import_model = config.MODEL_NAME_KEK["de"]
-        if config.ALL_SIA405_ABWASSER_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_SIA405_ABWASSER.values()
-            import_model = config.MODEL_NAME_SIA405_ABWASSER["de"]
-        if config.ALL_DSS_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_DSS.values()
-            import_model = config.MODEL_NAME_DSS["de"]
-
-        elif config.ALL_SIA405_BASE_ABWASSER_MODELS.intersection(import_models):
-            created_models = config.MODEL_NAME_SIA405_ABWASSER.values()
-            import_model = config.MODEL_NAME_SIA405_ABWASSER["de"]
-        elif config.MODEL_NAME_AG96.values() in import_models:
-            created_models = config.MODEL_NAME_AG96.values()
-            import_model = config.MODEL_NAME_AG96["de"]
-        elif config.MODEL_NAME_AG64.values() in import_models:
-            created_models = config.MODEL_NAME_AG64.values()
-            import_model = config.MODEL_NAME_AG64["de"]
-
-        if not created_models:
+        groups = config.groups_for_models(import_models)
+        if not groups:
             error_text = f"No supported model was found among '{import_models}'."
             if len(import_models) == 1:
                 error_text = f"The model '{import_models[0]}' is not supported."
             raise InterlisImporterExporterError("Import error", error_text, None)
+
+        group = next(group for group in config.interlis_models if group in groups)
+        model = config.interlis_models[group]
+
+        import_model = model.lang_name('de')
+        created_models = model.names
+
         logger.info(
             f"Models '{created_models}' were chosen for import among found models '{import_models}'"
         )
@@ -253,7 +235,7 @@ class InterlisImporterExporter:
     def execute_export(
         self,
         xtf_file_output,
-        export_models,
+        export_models: Collection[str],
         logs_next_to_file=True,
         limit_to_selection=False,
         export_orientation=90.0,
@@ -279,9 +261,12 @@ class InterlisImporterExporter:
 
         self._progress_done(15, "Creating ili schema...")
         create_basket_col = False
-        if config.ALL_VSA_KEK_MODELS.intersection(export_models):
+        export_models = set(export_models)
+        groups = config.groups_for_models(export_models)
+        if "vsa_kek" in groups:
             create_basket_col = True
         self._create_ili_schema(export_models, create_basket_col=create_basket_col)
+
 
         # Export the labels file
         tempdir = tempfile.TemporaryDirectory()
@@ -293,18 +278,18 @@ class InterlisImporterExporter:
                     limit_to_selection=limit_to_selection,
                     selected_labels_scales_indices=selected_labels_scales_indices,
                     labels_file_path=labels_file,
-                    export_model=export_models[0],
+                    model_groups=groups,
                     export_orientation=export_orientation,
                     include_unplaced=include_unplaced,
                 )
 
 
-        if export_models[0] in config.MODEL_NAME_AG96.values():
+        if "ag96" in groups:
             file_path = "data/Organisationstabelle_AG96.xtf"
             abs_file_path = Path(__file__).parent.resolve() / file_path
             logger.info("Importing AG-96 organisation to intermediate schema")
             self._import_xtf_file(abs_file_path)
-        elif export_models[0] in config.MODEL_NAME_AG64.values():
+        elif "ag64" in groups:
             file_path = "data/Organisationstabelle_AG64.xtf"
             abs_file_path = Path(__file__).parent.resolve() / file_path
             logger.info("Importing AG-64 organisation to intermediate schema")
@@ -318,7 +303,7 @@ class InterlisImporterExporter:
             # Export to the temporary ili2pg model
             self._progress_done(35, "Converting from TEKSI Wastewater to intermediate schema...")
             self._export_to_intermediate_schema(
-                export_model=export_models[0],
+                export_model_groups=groups,
                 file_name=xtf_file_output,
                 selected_ids=selected_ids,
                 export_orientation=export_orientation,
@@ -555,7 +540,7 @@ class InterlisImporterExporter:
         limit_to_selection,
         selected_labels_scales_indices,
         labels_file_path,
-        export_model,
+        model_groups,
         export_orientation=90.0,
         include_unplaced=False,
     ):
@@ -583,7 +568,7 @@ class InterlisImporterExporter:
             )
 
         self._progress_done(self.current_progress + 2)
-        if export_model in config.MODEL_NAME_AG96.values():
+        if "ag96" in model_groups:
             catch_lyr = TwwLayerManager.layer("vw_tww_catchment_area")
             meas_pt_lyr = TwwLayerManager.layer("measure_point")
             meas_lin_lyr = TwwLayerManager.layer("measure_line")
@@ -607,7 +592,7 @@ class InterlisImporterExporter:
                     "INPUT_INCLUDE_UNPLACED": include_unplaced,
                 },
             )
-        elif config.ALL_DSS_MODELS.intersection(export_model):
+        elif "dss" in model_groups:
             catch_lyr = TwwLayerManager.layer("vw_tww_catchment_area")
 
             processing.run(
@@ -622,7 +607,7 @@ class InterlisImporterExporter:
                     "INPUT_INCLUDE_UNPLACED": include_unplaced,
                 },
             )
-        elif export_model in config.MODEL_NAME_AG64.values():
+        elif "ag64" in model_groups:
             processing.run(
                 "tww:extractlabels_interlis",
                 {
@@ -651,7 +636,7 @@ class InterlisImporterExporter:
 
     def _export_to_intermediate_schema(
         self,
-        export_model,
+        export_model_groups,
         file_name=None,
         selected_ids=None,
         export_orientation=90.0,
@@ -664,10 +649,10 @@ class InterlisImporterExporter:
         log_handler.setLevel(logging.INFO)
         log_handler.setFormatter(logging.Formatter("%(levelname)-8s %(message)s"))
 
-        self._init_model_classes(export_model)
+        self._init_model_classes(export_model_groups)
 
         twwInterlisExporter = InterlisExporterToIntermediateSchema(
-            model=export_model,
+            export_model_groups=export_model_groups,
             model_classes_interlis=self.model_classes_interlis,
             model_classes_tww_od=self.model_classes_tww_od,
             model_classes_tww_vl=self.model_classes_tww_vl,

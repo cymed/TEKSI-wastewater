@@ -4,17 +4,33 @@ from ..models.validation import ValidationFinding,ValidationSeverity
 
 
 @dataclass(slots=True)
-class ValidationCapability:
-    findings: list[ValidationFinding] = field(
+class ValidationResult:
+    _findings: list[ValidationFinding] = field(
         default_factory=list,
     )
 
+
+    _findings: list[ValidationFinding] = field(
+        default_factory=list,
+    )
+
+    @property
+    def findings(
+        self,
+    ) -> tuple[ValidationFinding, ...]:
+        return tuple(self._findings)
+
+
     def add(
         self,
-        finding: ValidationFinding,
+        severity: ValidationSeverity,
+        message: str,
     ) -> None:
         self.findings.append(
-            finding,
+            ValidationFinding(
+                severity=severity,
+                message=message,
+            )
         )
 
 
@@ -22,40 +38,42 @@ class ValidationCapability:
         self,
         message: str,
     ) -> None:
-        self.findings.append(
-            ValidationFinding(
-                severity=ValidationSeverity.ERROR,
-                message=message,
-            )
+        self.add(
+            ValidationSeverity.ERROR,
+            message,
         )
+
 
     def warning(
         self,
         message: str,
     ) -> None:
-        self.findings.append(
-            ValidationFinding(
-                severity=ValidationSeverity.WARNING,
-                message=message,
-            )
+        self.add(
+            ValidationSeverity.WARNING,
+            message,
         )
+
 
     def info(
         self,
         message: str,
     ) -> None:
-        self.findings.append(
-            ValidationFinding(
+        self.add(
                 severity=ValidationSeverity.INFO,
                 message=message,
-            )
         )
 
     @property
-    def has_errors(
+    def has(
         self,
+        severity=ValidationSeverity
     ) -> bool:
         return any(
-            finding.severity == "error"
+            finding.severity == severity
             for finding in self.findings
         )
+
+    @property
+    def has_errors(self) -> bool:
+        return self.has(ValidationSeverity.ERROR)
+

@@ -1,5 +1,5 @@
 from teksi_hooks.hook import HookBase, HookContext, HookMetadata
-from .capabilities.twwcapabilities import SqlCapability
+from teksi_hooks.capabilities import SqlCapability
 from .capabilities.validation import ValidationCapability
 from .capabilities.provider import ProviderCapability
 
