@@ -217,8 +217,10 @@ class DictionaryMappingCapability:
         self._table_mapping = self._load_table_mapping()
         self._attribute_mapping = self._load_attribute_mapping()
         self._value_mapping = self._load_value_mapping()
+
+        self.model_mapping = self._load_model_mapping()
  
-    def od_table_for_ili(
+    def tww_table_for_ili(
         self,
         ili_name: str,
     ) -> str:
@@ -238,8 +240,7 @@ class DictionaryMappingCapability:
 
         return self._table_mapping[ili_name]
 
-
-    def od_field_for_ili(
+    def tww_field_for_ili(
         self,
         ili_class: str,
         ili_attribute: str,
@@ -266,8 +267,7 @@ class DictionaryMappingCapability:
                 (ili_class, ili_attribute)
             ]
 
-
-    def od_value_for_ili(
+    def tww_value_for_ili(
         self,
         ili_class: str,
         ili_attribute: str,

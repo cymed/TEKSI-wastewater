@@ -1,0 +1,166 @@
+settings:
+  allow_transitive_transitions: true
+
+  defaults:
+    create_rules:
+      - ownership:
+          attribute: fk_provider
+
+  validation_rules:
+    last_modification:
+      rules:
+        - id: newer_than_existing
+          level: info
+
+
+classes:
+
+  - id: wastewater_structure
+    rights_from_subclass: false
+
+    create_rules:
+      - privileges: [DBW_GEP]
+        when:
+          local:
+            attribute: status
+            in:
+              - other.planned
+              - other.calculation_alternative
+
+      - privileges: [DBW_WI]
+
+    update_rules:
+      - inherit: create_rules
+
+    delete_rules:
+      - inherit: create_rules
+
+    attributes:
+      status:
+        update: [DBW_GEP, DBW_WI]
+        transitions:
+          - privileges: [DBW_WI]
+            from: other.planned
+            to: operational
+
+          - privileges: [DBW_GEP]
+            from: other.calculation_alternative
+            to: other.planned
+            bilateral: true
+
+      gross_costs:
+        update: [DBW_GEP]
+
+      structure_condition:
+        update: [FI_BU]
+        rules:
+          - id: newer_than_existing
+            level: warning
+
+
+  - id: wastewater_networkelement
+    rights_from_subclass: false
+
+    create_rules:
+      - privileges: [DBW_WI, DBW_GEP]
+        when:
+          local:
+            attribute: fk_wastewater_structure
+            is_null: true
+
+    derive_rights_from:
+      - class: wastewater_structure
+        relation: fk_wastewater_structure
+
+    update_rules:
+      - inherit: create_rules
+
+    delete_rules:
+      - inherit: create_rules
+
+
+  - id: wastewater_node
+    extends: wastewater_networkelement
+
+    attributes:
+      backflow_level_current:
+        update: [DBW_GEP]
+
+
+  - id: reach
+    extends: wastewater_networkelement
+
+    attributes:
+      relining_kind:
+        update: [FI_BU]
+
+      wall_roughness:
+        update: [DBW_GEP]
+
+
+  - id: reach_point
+    derive_rights_from:
+      - class: reach
+        relation: fk_reach_point_from
+
+      - class: reach
+        relation: fk_reach_point_to
+
+
+  - id: pipe_profile
+    crud_rules:
+      - privileges: [DBW_WI, DBW_GEP]
+
+
+  - id: structure_part
+    rights_from_subclass: true
+
+    attributes:
+      renovation:demand:
+        update: [FI_BU]
+
+
+  - id: cover
+    extends: structure_part
+
+    derive_rights_from:
+      - class: wastewater_structure
+        relation: fk_wastewater_structure
+
+
+  - id: maintenance_event
+    rights_from_subclass: true
+
+
+  - id: maintenance
+    extends: maintenance_event
+
+    create_rules:
+      - privileges: [DBW_GEP, FI_BU]
+
+    update_rules:
+      - ownership:
+          attribute: fk_provider
+
+    delete_rules:
+      - inherit: update_rules
+
+
+  - id: damage
+    rights_from_subclass: false
+
+    crud_rules:
+      - privileges: [FI_BU]
+
+
+  - id: damage_channel
+    extends: damage
+
+
+  - id: file
+    update_rules:
+      - ownership:
+          attribute: fk_provider
+
+    delete_rules:
+      - inherit: update_rules

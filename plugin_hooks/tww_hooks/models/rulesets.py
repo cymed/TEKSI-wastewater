@@ -57,14 +57,6 @@ class OwnershipRule(Rule):
     should be evaluated against the submitted row.
     """
 
-    owner: Provider = field(
-        metadata={
-            "doc": (
-                "Provider that is expected to own the object according to "
-                "the configured ownership attribute."
-            )
-        },
-    )
 
     attribute: str = field(
         metadata={

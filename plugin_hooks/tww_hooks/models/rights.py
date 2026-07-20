@@ -8,6 +8,62 @@ from .validation import AttributeValidation, TransitionValidation
 from .rulesets import CrudRules, ResolvedCrudRules
 
 
+
+@dataclass(slots=True)
+class RightsDefinition:
+    """
+    Parsed rights configuration.
+
+    This is the top-level object produced by the rights parser before
+    inheritance, defaults, derived rights and rule references are resolved.
+
+    Runtime validation should use resolved class definitions instead.
+    """
+
+    defaults: DefaultDefinitions = field(
+        default_factory=lambda: DefaultDefinitions(
+            crud_rules=CrudRules(),
+        ),
+        metadata={
+            "doc": (
+                "Global default definitions applied by the resolver when "
+                "class-level rules are missing."
+            )
+        },
+    )
+
+    classes: Mapping[str, ClassDefinition] = field(
+        default_factory=dict,
+        metadata={
+            "doc": (
+                "Parsed class definitions keyed by canonical class identifier."
+            )
+        },
+    )
+
+    validation_rules: Mapping[
+        str,
+        tuple[AttributeValidation, ...],
+    ] = field(
+        default_factory=dict,
+        metadata={
+            "doc": (
+                "Global attribute validation rules keyed by attribute name. "
+                "Example: `last_modification`."
+            )
+        },
+    )
+
+    allow_transitive_transitions: bool = field(
+        default=True,
+        metadata={
+            "doc": (
+                "Whether transition validation may accept transitive paths "
+                "through the configured transition graph."
+            )
+        },
+    )
+
 @dataclass(slots=True)
 class DefaultDefinitions:
     """
@@ -18,6 +74,7 @@ class DefaultDefinitions:
     """
 
     crud_rules: CrudRules = field(
+        default_factory=CrudRules,
         metadata={
             "doc": (
                 "Default CRUD rules applied to classes that do not explicitly "
@@ -26,6 +83,17 @@ class DefaultDefinitions:
         },
     )
 
+    attribute_defaults: tuple[AttributeDefaultDefinition, ...] = field(
+            default_factory=tuple,
+            metadata={
+                "doc": (
+                    "Default attribute-level rights applied by attribute-name "
+                    "pattern. These defaults are resolved against concrete "
+                    "attributes by the resolver. Example: `ag64_*` may grant "
+                    "`DBW_WI`, while `ag96_*` may grant `DBW_GEP`."
+                )
+            },
+        )
 
 @dataclass(slots=True)
 class ClassDefinition:
@@ -100,7 +168,6 @@ class ClassDefinition:
         },
     )
 
-
 @dataclass(slots=True, frozen=True)
 class ResolvedClassDefinition:
     """
@@ -142,7 +209,6 @@ class ResolvedClassDefinition:
     # add when needed for debugging
     # resolution_info: ResolutionInfo | None = None
 
-
 @dataclass(slots=True, frozen=True)
 class DerivedRights:
     """
@@ -153,10 +219,10 @@ class DerivedRights:
     parsed configuration and is resolved later by the rights resolver.
     """
 
-    cls: ClassDefinition = field(
+    class_id: str = field(
         metadata={
             "doc": (
-                "Class definition from which rights may be derived."
+                "CanonicalClass id from which rights may be derived."
             )
         },
     )
@@ -169,7 +235,6 @@ class DerivedRights:
             )
         },
     )
-
 
 @dataclass(slots=True, frozen=True)
 class ResolvedDerivedRights:
@@ -196,7 +261,6 @@ class ResolvedDerivedRights:
             )
         },
     )
-
 
 @dataclass(slots=True)
 class AttributeDefinition:
@@ -237,7 +301,6 @@ class AttributeDefinition:
             )
         },
     )
-
 
 @dataclass(slots=True)
 class ResolutionInfo:
@@ -282,6 +345,40 @@ class ResolutionInfo:
         metadata={
             "doc": (
                 "Rule-set identifiers inherited or expanded during resolution."
+            )
+        },
+    )
+
+@dataclass(slots=True, frozen=True)
+class AttributeDefaultDefinition:
+    """
+    Default attribute rights applied by attribute-name pattern.
+
+    This is mainly used for compact model definitions where many attributes
+    share the same privilege pattern. Example:
+        ag64_* -> update: [DBW_WI]
+        ag96_* -> update: [DBW_GEP]
+
+    The parser stores the pattern. The resolver decides which concrete
+    attributes match the pattern.
+    """
+
+    pattern: str = field(
+        metadata={
+            "doc": (
+                "Attribute-name pattern used to match source or canonical "
+                "attributes. Usually a simple wildcard pattern such as "
+                "`ag64_*`."
+            )
+        },
+    )
+
+    update_privileges: frozenset[Privilege] = field(
+        default_factory=frozenset,
+        metadata={
+            "doc": (
+                "Default update privileges applied to attributes matching "
+                "the pattern."
             )
         },
     )

@@ -61,7 +61,7 @@ class Provider:
         },
     )
 
-    roles: frozenset[ProviderPermission] = field(
+    permissions: frozenset[ProviderPermission] = field(
         metadata={
             "doc": (
                 "Provider permissions before resolution. Multiple entries "
@@ -101,7 +101,7 @@ class ResolvedProvider:
 
     permissions: Mapping[
         Standardoid,
-        Privilege,
+        frozenset[Privilege],
     ] = field(
         metadata={
             "doc": (
