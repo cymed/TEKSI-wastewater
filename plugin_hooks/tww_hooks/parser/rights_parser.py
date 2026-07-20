@@ -508,11 +508,11 @@ class RightsParser:
 
 
 @dataclass(slots=True)
-class AgxxRightsParser:
+class WildcardRightsParser:
     """
-    Parser for AGXX privilege YAML definitions.
+    Parser for wildcard privilege YAML definitions.
 
-    AGXX privilege files use a compact structure where attribute privileges
+    Wildcard privilege files use a compact structure where attribute privileges
     are defined by wildcard defaults, for example:
 
         ag64_*:
@@ -577,6 +577,13 @@ class AgxxRightsParser:
         pattern: str,
         raw: dict[str, Any],
     ) -> AttributeDefaultDefinition:
+
+        if not isinstance(raw, dict):
+            raise TypeError(
+                f"Expected mapping for wildcard default {pattern!r}, "
+                f"got {type(raw)!r}"
+            )
+
         return AttributeDefaultDefinition(
             pattern=pattern,
             update_privileges=self._parse_privileges(
@@ -601,7 +608,7 @@ class AgxxRightsParser:
     def _parse_privileges(
         self,
         raw: list[str],
-    ) -> frozenset:
+    ) -> frozenset[Privilege]:
         return frozenset(
             Privilege(value)
             for value in raw

@@ -1,0 +1,13 @@
+
+defaults:
+
+  ag64_*:
+    update: [DBW_WI]
+
+  ag96_*:
+    update: [DBW_GEP]
+
+
+classes:
+
+  - id: agxx_wastewater_networkelement

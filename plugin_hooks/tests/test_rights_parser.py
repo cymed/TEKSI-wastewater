@@ -1,6 +1,7 @@
 from pathlib import Path
+import pytest
 
-from tww_hooks.parser.rights_parser import RightsParser,AgxxRightsParser
+from tww_hooks.parser.rights_parser import RightsParser, WildcardRightsParser
 
 from tww_hooks.models.privilege import Privilege
 from tww_hooks.models.rulesets import (
@@ -14,11 +15,14 @@ from tww_hooks.models.validation import ValidationSeverity
 
 DATA_DIR = Path(__file__).parent / "data"
 
-
-def test_rights_parser_imports_minimal_yaml() -> None:
-    rights = RightsParser().parse_file(
+@pytest.fixture
+def rights():
+    return RightsParser().parse_file(
         DATA_DIR / "rights_parser_minimal.yaml",
     )
+
+
+def test_rights_parser_imports_minimal_yaml() -> None:
 
     assert rights.allow_transitive_transitions is True
 
@@ -40,9 +44,6 @@ def test_rights_parser_imports_minimal_yaml() -> None:
 
 
 def test_rights_parser_imports_defaults() -> None:
-    rights = RightsParser().parse_file(
-        DATA_DIR / "rights_parser_minimal.yaml",
-    )
 
     create_rules = rights.defaults.crud_rules.create_rules
 
@@ -52,9 +53,6 @@ def test_rights_parser_imports_defaults() -> None:
 
 
 def test_rights_parser_imports_privilege_rules_with_conditions() -> None:
-    rights = RightsParser().parse_file(
-        DATA_DIR / "rights_parser_minimal.yaml",
-    )
 
     wastewater_structure = rights.classes[
         "wastewater_structure"
@@ -104,10 +102,6 @@ def test_rights_parser_imports_inherit_rules() -> None:
 
 
 def test_rights_parser_imports_attributes_and_transitions() -> None:
-    rights = RightsParser().parse_file(
-        DATA_DIR / "rights_parser_minimal.yaml",
-    )
-
     wastewater_structure = rights.classes[
         "wastewater_structure"
     ]
@@ -148,10 +142,6 @@ def test_rights_parser_imports_attributes_and_transitions() -> None:
 
 
 def test_rights_parser_imports_crud_rules_shortcut() -> None:
-    rights = RightsParser().parse_file(
-        DATA_DIR / "rights_parser_minimal.yaml",
-    )
-
     pipe_profile = rights.classes["pipe_profile"]
 
     assert len(pipe_profile.crud_rules.create_rules) == 1
@@ -171,9 +161,6 @@ def test_rights_parser_imports_crud_rules_shortcut() -> None:
 
 
 def test_rights_parser_imports_extends_and_derived_rights() -> None:
-    rights = RightsParser().parse_file(
-        DATA_DIR / "rights_parser_minimal.yaml",
-    )
 
     wastewater_node = rights.classes["wastewater_node"]
 
@@ -215,10 +202,6 @@ def test_rights_parser_imports_extends_and_derived_rights() -> None:
 
 
 def test_rights_parser_imports_ownership_update_rules() -> None:
-    rights = RightsParser().parse_file(
-        DATA_DIR / "rights_parser_minimal.yaml",
-    )
-
     maintenance = rights.classes["maintenance"]
 
     assert maintenance.superclass_id == "maintenance_event"
@@ -236,19 +219,18 @@ def test_rights_parser_imports_ownership_update_rules() -> None:
     assert delete_rules[0].source == "update_rules"
 
 
-def test_agxx_rights_parser_imports_defaults_and_classes() -> None:
-    rights = AgxxRightsParser().parse_file(
-        DATA_DIR / "agxx_privileges_minimal.yaml",
+def test_wildcard_rights_parser_imports_defaults_and_classes() -> None:
+    wildcards = WildcardRightsParser().parse_file(
+        DATA_DIR / "provider_privilege_agxx.yaml",
     )
 
-    assert "agxx_wastewater_node" in rights.classes
-    assert "agxx_overflow" in rights.classes
+    assert "agxx_wastewater_networkelement" in wildcards.classes
 
-    assert len(rights.defaults.attribute_defaults) == 2
+    assert len(wildcards.defaults.attribute_defaults) == 2
 
     defaults_by_pattern = {
         default.pattern: default
-        for default in rights.defaults.attribute_defaults
+        for default in wildcards.defaults.attribute_defaults
     }
 
     assert defaults_by_pattern[

@@ -5,7 +5,7 @@ description = "TWW-specific hook, rights, mapping and validation logic for TEKSI
 requires-python = ">=3.11"
 dependencies = [
     "pyyaml",
-    "teksi-hooks @ git+https://github.com/teksi/teksi_hooks.git",
+    "teksi-hooks @ git+https://github.com/cymed/teksi_hooks.git",
 ]
 authors = [
     {name = "TEKSI"}
