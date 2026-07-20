@@ -1,0 +1,51 @@
+name: Plugin Hooks Tests
+
+on:
+  push:
+    paths:
+      - "plugin_hooks/**"
+      - "pyproject.toml"
+      - ".github/workflows/plugin-hooks-tests.yml"
+
+  pull_request:
+    paths:
+      - "plugin_hooks/**"
+      - "pyproject.toml"
+      - ".github/workflows/plugin-hooks-tests.yml"
+
+jobs:
+  tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.12"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: Install package with dev dependencies
+        run: |
+          python -m pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          pytest
+
+      - name: Run ruff
+        run: |
+          ruff check plugin_hooks/tww_hooks plugin_hooks/tests
