@@ -4,7 +4,7 @@ import pytest
 from teksi_hooks.ili_definitions import Standardoid
 from tww_hooks.models.provider import ResolvedProvider
 from tww_hooks.models.privilege import Privilege
-from tww_hooks.capabilities.provider import ResolvedProviderCapability
+from tww_hooks.capabilities.privilege import ResolvedProviderCapability
 
 
 def test_provider_rights_parser_imports_all_providers(providers) -> None:
@@ -285,6 +285,7 @@ def test_provider_resolver_resolves_permissions(
             Privilege.FI_BU,
         }
     )
+
 
 def test_provider_resolver_handles_provider_without_permissions(
     resolved_providers,
