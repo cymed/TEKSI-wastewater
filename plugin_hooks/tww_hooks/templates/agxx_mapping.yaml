@@ -1,96 +1,19 @@
 classes:
 
+
   GepKnoten:
-    attributes:
-      istschnittstelle:
-        targets:
-          - class: agxx_wastewater_node
-            attribute: ag96_is_gateway
-      funktionag:
-        targets:
-          - class: agxx_wastewater_node
-            attribute: ag64_function
-      gepmassnahmeref:
-        targets:
-          - class: agxx_wastewater_structure
-            attribute: ag96_fk_measure
-      bemerkung_wi:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag64_remark
-      bemerkung_gep:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag96_remark
-      datenbewirtschafter_wi:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag64_fk_provider
-      datenbewirtschafter_gep:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag96_fk_provider
-      letzte_aenderung_wi:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag64_last_modification
-            foreign_key: fk_element
-      letzte_aenderung_gep:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag96_last_modification
-            foreign_key: fk_element
+    function:
+      schema: tww_app
+      name: fct_agxx_gepknoten_mapping_jsonb
+      parameters:
+        row: $row
 
   GepHaltung:
-    attributes:
-      lichte_breite_geplant:
-        targets:
-          - class: reach
-            attribute: ag96_clear_width_planned
-      lichte_hoehe_geplant:
-        targets:
-          - class: reach
-            attribute: ag96_clear_height_planned
-      nutzungsartag_ist:
-        targets:
-          - class: channel
-            attribute: usage_current
-            vl_extension: true
-      nutzungsartag_geplant:
-        targets:
-          - class: channel
-            attribute: usage_planned
-            vl_extension: true
-      gepmassnahmeref:
-        targets:
-          - class: agxx_wastewater_structure
-            attribute: ag96_fk_measure
-      bemerkung_wi:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag64_remark
-      bemerkung_gep:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag96_remark
-      datenbewirtschafter_wi:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag64_fk_provider
-      datenbewirtschafter_gep:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag96_fk_provider
-      letzte_aenderung_wi:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag64_last_modification
-            foreign_key: fk_element
-      letzte_aenderung_gep:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag96_last_modification
-            foreign_key: fk_element
+    function:
+      schema: tww_app
+      name: fct_agxx_gephaltung_mapping_jsonb
+      parameters:
+        row: $row
 
   GepMassnahme:
     attributes: 
@@ -111,41 +34,19 @@ classes:
         targets:
           - class: catchment_area
             attribute: drainage_system_planned
-            vl_extension: true
       entwaesserungssystemag_ist:
         targets:
           - class: catchment_area
             attribute: drainage_system_current
-            vl_extension: true
+
 
   Ueberlauf_Foerderaggregat:
-    attributes:
-      bemerkung_wi:
-        targets:
-          - class: agxx_overflow
-            attribute: ag64_remark
-      bemerkung_gep:
-        targets:
-          - class: agxx_overflow
-            attribute: ag96_remark
-      datenbewirtschafter_wi:
-        targets:
-          - class: agxx_overflow
-            attribute: ag64_fk_provider
-      datenbewirtschafter_gep:
-        targets:
-          - class: agxx_overflow
-            attribute: ag96_fk_provider
-      letzte_aenderung_wi:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag64_last_modification
-            foreign_key: fk_element
-      letzte_aenderung_gep:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag96_last_modification
-            foreign_key: fk_element
+    function:
+      schema: tww_app
+      name: fct_agxx_ueberlauf_foerderaggregat_mapping_jsonb
+      parameters:
+        row: $row
+
 
   BautenAusserhalbBaugebiet:
     attributes: 
@@ -165,7 +66,6 @@ classes:
         targets:
           - class: building_group
             attribute: function
-            vl_extension: true
       beseitigung_haeusliches_abwasser:
         targets:
           - class: agxx_building_group
@@ -197,7 +97,15 @@ classes:
         targets:
           - class: agxx_catchment_area
             attribute: ag96_perimeter_geometry
- 
+      sonderbauwerkref:
+        function:
+          schema: tww_app
+          name: fct_agxx_sbw_einzugsgebiet_sonderbauwerk_ref
+          parameters:
+            sonderbauwerk_ref: sonderbauwerk_ref
+            bemerkung_gep: bemerkung_gep
+
+
   VersickerungsbereichAG:
     attributes: 
       durchlaessigkeit:
@@ -220,4 +128,3 @@ classes:
         targets:
           - class: infiltration_zone
             attribute: infiltration_capacity
-            vl_extension: true

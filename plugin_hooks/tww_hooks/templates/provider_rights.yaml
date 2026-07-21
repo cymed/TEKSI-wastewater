@@ -53,7 +53,3 @@ providers:
 
   - name: Gemeinde Musterlingen
     organisation_oid: ch000000awgde002
-
-    permissions:
-      - dataowner_oid: ch000000awgde002
-        privileges: []

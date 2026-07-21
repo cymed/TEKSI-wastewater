@@ -1,70 +1,25 @@
 classes:
 
   GepKnoten:
-    attributes:
-      istschnittstelle:
-        targets:
-          - class: agxx_wastewater_node
-            attribute: ag96_is_gateway
-
-      funktionag:
-        targets:
-          - class: agxx_wastewater_node
-            attribute: ag64_function
-
-      datenbewirtschafter_wi:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag64_fk_provider
-
-      letzte_aenderung_wi:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag64_last_modification
-            foreign_key: fk_element
-
+    function:
+      schema: tww_app
+      name: fct_agxx_gepknoten_mapping_jsonb
+      parameters:
+        row: $row
 
   GepHaltung:
-    attributes:
-      lichte_breite_geplant:
-        targets:
-          - class: reach
-            attribute: ag96_clear_width_planned
-
-      nutzungsartag_ist:
-        targets:
-          - class: channel
-            attribute: usage_current
-            vl_extension: true
-
-      bemerkung_gep:
-        targets:
-          - class: agxx_wastewater_networkelement
-            attribute: ag96_remark
-
-
-  GepMassnahme:
-    attributes:
-      kategorie:
-        targets:
-          - class: measure
-            attribute: category
-            vl_extension: true
-
+    function:
+      schema: tww_app
+      name: fct_agxx_gephaltung_mapping_jsonb
+      parameters:
+        row: $row
 
   Ueberlauf_Foerderaggregat:
-    attributes:
-      bemerkung_wi:
-        targets:
-          - class: agxx_overflow
-            attribute: ag64_remark
-
-      letzte_aenderung_gep:
-        targets:
-          - class: agxx_last_modification
-            attribute: ag96_last_modification
-            foreign_key: fk_element
-
+    function:
+      schema: tww_app
+      name: fct_agxx_ueberlauf_foerderaggregat_mapping_jsonb
+      parameters:
+        row: $row
 
   VersickerungsbereichAG:
     attributes:
@@ -77,4 +32,3 @@ classes:
         targets:
           - class: infiltration_zone
             attribute: infiltration_capacity
-            vl_extension: true

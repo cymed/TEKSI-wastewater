@@ -27,16 +27,6 @@ class ValueMapping:
         }
     )
 
-    vl_extension: bool = field(
-        default=False,
-        metadata={
-            "doc": (
-                "Whether this value originates from a value-list extension "
-                "rather than the base VSA/SIA405 model."
-            )
-        },
-    )
-
 
 @dataclass(slots=True, frozen=True)
 class ForeignKeyMapping:
@@ -144,7 +134,20 @@ class ClassMapping:
             "doc": "Attribute mappings keyed by source-model attribute identifier.."
         },
     )
-
+    function: FunctionMapping | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Optional database-backed mapping function. Used when the "
+                "source attribute cannot be mapped by a simple class/attribute "
+                "target. If present, the function is responsible for deriving "
+                "the canonical mapping result from the configured source "
+                "parameters. Typical examples include AGXX structural subtype "
+                "logic such as `GepKnoten.funktionag` or "
+                "`Ueberlauf_Foerderaggregat.art`."
+            )
+        },
+    )
 
 @dataclass(slots=True, frozen=True)
 class ModelMapping:
@@ -193,3 +196,50 @@ class RelationContext:
     )
 
 
+@dataclass(slots=True, frozen=True)
+class FunctionMapping:
+    """
+    Describes a database-backed mapping function.
+
+    Function mappings are used when a source attribute cannot be mapped to a
+    canonical TWW class and attribute by simple structural metadata alone.
+
+    Typical examples are AGXX attributes whose meaning depends on several
+    source attributes or on existing database state. Instead of duplicating
+    this logic in YAML or Python, the mapping references a database function
+    that implements the authoritative transformation.
+
+    The function is expected to return a well-defined result that can be
+    consumed by the change loader, validation logic or rights evaluator.
+    """
+
+    schema: str = field(
+        metadata={
+            "doc": (
+                "Database schema containing the mapping function. "
+                "Example: `tww_app`."
+            )
+        },
+    )
+
+    name: str = field(
+        metadata={
+            "doc": (
+                "Database function name implementing the mapping logic. "
+                "Example: `fct_agxx_gepknoten_funktionag_mapping`."
+            )
+        },
+    )
+
+    parameters: Mapping[str, str] = field(
+        default_factory=dict,
+        metadata={
+            "doc": (
+                "Function parameter mapping. Keys are database function "
+                "parameter names. Values are source-model attribute names "
+                "whose values should be passed to the corresponding "
+                "parameter. Example: `{'funktionag': 'funktionag', "
+                "'ignore_ws': 'ignore_ws'}`."
+            )
+        },
+    )
