@@ -12,7 +12,7 @@ from tww_hooks.models.conditions import LocalCondition
 from tww_hooks.models.validation import ValidationSeverity
 
 
-def test_rights_parser_imports_minimal_yaml() -> None:
+def test_rights_parser_imports_minimal_yaml(rights_definition) -> None:
 
     assert rights_definition.allow_transitive_transitions is True
 
@@ -33,7 +33,7 @@ def test_rights_parser_imports_minimal_yaml() -> None:
     assert last_modification_rule.level == ValidationSeverity.INFO
 
 
-def test_rights_parser_imports_defaults() -> None:
+def test_rights_parser_imports_defaults(rights_definition) -> None:
 
     create_rules = rights_definition.defaults.crud_rules.create_rules
 
@@ -42,7 +42,7 @@ def test_rights_parser_imports_defaults() -> None:
     assert create_rules[0].attribute == "fk_provider"
 
 
-def test_rights_parser_imports_privilege_rules_with_conditions() -> None:
+def test_rights_parser_imports_privilege_rules_with_conditions(rights_definition) -> None:
 
     wastewater_structure = rights_definition.classes[
         "wastewater_structure"
@@ -70,7 +70,7 @@ def test_rights_parser_imports_privilege_rules_with_conditions() -> None:
     ]
 
 
-def test_rights_parser_imports_inherit_rules() -> None:
+def test_rights_parser_imports_inherit_rules(rights_definition) -> None:
     wastewater_structure = rights_definition.classes[
         "wastewater_structure"
     ]
@@ -87,7 +87,7 @@ def test_rights_parser_imports_inherit_rules() -> None:
     assert delete_rules[0].source == "create_rules"
 
 
-def test_rights_parser_imports_attributes_and_transitions() -> None:
+def test_rights_parser_imports_attributes_and_transitions(rights_definition) -> None:
     wastewater_structure = rights_definition.classes[
         "wastewater_structure"
     ]
@@ -127,7 +127,7 @@ def test_rights_parser_imports_attributes_and_transitions() -> None:
     )
 
 
-def test_rights_parser_imports_crud_rules_shortcut() -> None:
+def test_rights_parser_imports_crud_rules_shortcut(rights_definition) -> None:
     pipe_profile = rights_definition.classes["pipe_profile"]
 
     assert len(pipe_profile.crud_rules.create_rules) == 1
@@ -146,7 +146,7 @@ def test_rights_parser_imports_crud_rules_shortcut() -> None:
     )
 
 
-def test_rights_parser_imports_extends_and_derived_rights() -> None:
+def test_rights_parser_imports_extends_and_derived_rights(rights_definition) -> None:
 
     wastewater_node = rights_definition.classes["wastewater_node"]
 
@@ -186,7 +186,7 @@ def test_rights_parser_imports_extends_and_derived_rights() -> None:
         ),
     }
 
-def test_rights_parser_imports_ownership_update_rules() -> None:
+def test_rights_parser_imports_ownership_update_rules(rights_definition) -> None:
     maintenance = rights_definition.classes["maintenance"]
 
     assert maintenance.superclass_id == "maintenance_event"
@@ -204,7 +204,7 @@ def test_rights_parser_imports_ownership_update_rules() -> None:
     assert delete_rules[0].source == "update_rules"
 
 
-def test_wildcard_rights_parser_imports_defaults_and_classes() -> None:
+def test_wildcard_rights_parser_imports_defaults_and_classes(wildcard_rights_definition) -> None:
     assert "agxx_wastewater_networkelement" in wildcard_rights_definition.classes
 
     assert len(wildcard_rights_definition.defaults.attribute_defaults) == 2
