@@ -299,6 +299,15 @@ class DictionaryMappingCapability:
             "Value mapping is not implemented yet."
         )
 
+
+    def value_for_source(
+        self,
+        *,
+        tww_class_id: str,
+        tww_attr_id: str,
+        source_value: str,
+    ) -> ValueMapping | None:
+        pass
     
     def _load_table_mapping(self):
         """

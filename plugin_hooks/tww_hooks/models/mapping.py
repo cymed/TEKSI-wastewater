@@ -59,6 +59,54 @@ class ForeignKeyMapping:
 
 
 @dataclass(slots=True, frozen=True)
+class FunctionMapping:
+    """
+    Describes a database-backed mapping function.
+
+    Function mappings are used when a source attribute cannot be mapped to a
+    canonical TWW class and attribute by simple structural metadata alone.
+
+    Typical examples are AGXX attributes whose meaning depends on several
+    source attributes or on existing database state. Instead of duplicating
+    this logic in YAML or Python, the mapping references a database function
+    that implements the authoritative transformation.
+
+    The function is expected to return a well-defined result that can be
+    consumed by the change loader, validation logic or rights evaluator.
+    """
+
+    schema: str = field(
+        metadata={
+            "doc": (
+                "Database schema containing the mapping function. "
+                "Example: `tww_app`."
+            )
+        },
+    )
+
+    name: str = field(
+        metadata={
+            "doc": (
+                "Database function name implementing the mapping logic. "
+                "Example: `fct_agxx_gepknoten_funktionag_mapping`."
+            )
+        },
+    )
+
+    parameters: Mapping[str, str] = field(
+        default_factory=dict,
+        metadata={
+            "doc": (
+                "Function parameter mapping. Keys are database function "
+                "parameter names. Values are source-model attribute names "
+                "whose values should be passed to the corresponding "
+                "parameter. Example: `{'funktionag': 'funktionag', "
+                "'ignore_ws': 'ignore_ws'}`."
+            )
+        },
+    )
+
+@dataclass(slots=True, frozen=True)
 class AttributeMapping:
     """
     Maps a source-model attribute to the canonical internal model.
@@ -195,51 +243,3 @@ class RelationContext:
         },
     )
 
-
-@dataclass(slots=True, frozen=True)
-class FunctionMapping:
-    """
-    Describes a database-backed mapping function.
-
-    Function mappings are used when a source attribute cannot be mapped to a
-    canonical TWW class and attribute by simple structural metadata alone.
-
-    Typical examples are AGXX attributes whose meaning depends on several
-    source attributes or on existing database state. Instead of duplicating
-    this logic in YAML or Python, the mapping references a database function
-    that implements the authoritative transformation.
-
-    The function is expected to return a well-defined result that can be
-    consumed by the change loader, validation logic or rights evaluator.
-    """
-
-    schema: str = field(
-        metadata={
-            "doc": (
-                "Database schema containing the mapping function. "
-                "Example: `tww_app`."
-            )
-        },
-    )
-
-    name: str = field(
-        metadata={
-            "doc": (
-                "Database function name implementing the mapping logic. "
-                "Example: `fct_agxx_gepknoten_funktionag_mapping`."
-            )
-        },
-    )
-
-    parameters: Mapping[str, str] = field(
-        default_factory=dict,
-        metadata={
-            "doc": (
-                "Function parameter mapping. Keys are database function "
-                "parameter names. Values are source-model attribute names "
-                "whose values should be passed to the corresponding "
-                "parameter. Example: `{'funktionag': 'funktionag', "
-                "'ignore_ws': 'ignore_ws'}`."
-            )
-        },
-    )
