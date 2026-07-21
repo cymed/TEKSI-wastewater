@@ -3,25 +3,24 @@ from collections.abc import Mapping
 import pytest
 
 
+from teksi_hooks.ili_definitions import Standardoid
+from tww_hooks.models.rights import (
+    AttributeDefinition,
+    ClassDefinition,
+    RightsDefinition,
+    ResolvedClassDefinition,
+)
 from tww_hooks.parser.provider_rights_parser import ProviderRightsParser
 from tww_hooks.parser.rights_parser import RightsParser
 from tww_hooks.models.provider import Provider, ResolvedProvider
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
 
-from teksi_hooks.ili_definitions import Standardoid
-from ..models.rights import (
-    AttributeDefinition,
-    ClassDefinition,
-    RightsDefinition,
-    ResolvedClassDefinition,
-)
-
 DATA_DIR = Path(__file__).parent / "data"
 
 
 @pytest.fixture
-def definition() -> RightsDefinition:
+def rights_definition() -> RightsDefinition:
     return RightsParser().parse_file(
         DATA_DIR / "rights_parser_minimal.yaml",
     )
@@ -33,6 +32,7 @@ def providers() -> tuple[Provider, ...]:
         DATA_DIR / "provider_rights_minimal.yaml",
     )
 
+
 @pytest.fixture
 def resolved_providers(
     providers: tuple[Provider, ...],
@@ -41,10 +41,11 @@ def resolved_providers(
         providers,
     )
 
+
 @pytest.fixture
 def resolved_rights(
-    definition: RightsDefinition,
-) ->  Mapping[str, ResolvedClassDefinition]:
+    rights_definition: RightsDefinition,
+) -> Mapping[str, ResolvedClassDefinition]:
     return RightsResolver().resolve(
-        definition,
+        rights_definition,
     )

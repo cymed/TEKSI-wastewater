@@ -286,7 +286,6 @@ def test_provider_resolver_resolves_permissions(
         }
     )
 
-
 def test_provider_resolver_handles_provider_without_permissions(
     resolved_providers,
 ) -> None:
