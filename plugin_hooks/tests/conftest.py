@@ -12,7 +12,9 @@ from tww_hooks.models.rights import (
 )
 from tww_hooks.parser.provider_rights_parser import ProviderRightsParser
 from tww_hooks.parser.rights_parser import RightsParser, WildcardRightsParser
+from tww_hooks.parser.model_mapping_parser import ModelMappingParser
 from tww_hooks.models.provider import Provider, ResolvedProvider
+from tww_hooks.models.mapping import ModelMapping
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
 
@@ -53,4 +55,11 @@ def resolved_rights(
 ) -> Mapping[str, ResolvedClassDefinition]:
     return RightsResolver().resolve(
         rights_definition,
+    )
+
+
+@pytest.fixture
+def agxx_mapping() -> ModelMapping:
+    return ModelMappingParser().parse_file(
+        DATA_DIR / "agxx_mapping_minimal.yaml",
     )
