@@ -11,13 +11,18 @@ from tww_hooks.models.rights import (
     ResolvedClassDefinition,
 )
 from tww_hooks.parser.provider_rights_parser import ProviderRightsParser
-from tww_hooks.parser.rights_parser import RightsParser
+from tww_hooks.parser.rights_parser import RightsParser, WildcardRightsParser
 from tww_hooks.models.provider import Provider, ResolvedProvider
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
 
 DATA_DIR = Path(__file__).parent / "data"
 
+@pytest.fixture
+def wildcard_rights_definition() -> RightsDefinition:
+    return WildcardRightsParser().parse_file(
+        DATA_DIR / "provider_privilege_agxx.yaml",
+    )
 
 @pytest.fixture
 def rights_definition() -> RightsDefinition:

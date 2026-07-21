@@ -52,17 +52,25 @@ class ProviderRightsParser:
         self,
         raw: dict[str, Any],
     ) -> Provider:
+        permissions = tuple(
+            self._parse_permission(
+                raw_permission,
+            )
+            for raw_permission in raw.get(
+                "permissions",
+                [],
+            )
+        )
+
         return Provider(
             name=raw["name"],
             organisation_oid=Standardoid(
                 raw["organisation_oid"],
             ),
             permissions=frozenset(
-                self._parse_permission(raw_permission)
-                for raw_permission in raw.get(
-                    "permissions",
-                    [],
-                )
+                permission
+                for permission in permissions
+                if permission.privileges
             ),
         )
 

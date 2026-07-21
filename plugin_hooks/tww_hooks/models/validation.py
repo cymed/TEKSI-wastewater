@@ -202,7 +202,7 @@ class ValidationFinding:
     )
 
 
-dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True)
 class AttributeValidation:
     """
     Describes a validation rule attached to an attribute.
