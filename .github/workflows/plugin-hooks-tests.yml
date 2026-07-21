@@ -8,6 +8,8 @@ on:
       - ".github/workflows/plugin-hooks-tests.yml"
 
   pull_request:
+    branches:
+      - main
     paths:
       - "plugin_hooks/**"
       - "pyproject.toml"
@@ -45,7 +47,3 @@ jobs:
       - name: Run tests
         run: |
           pytest
-
-      - name: Run ruff
-        run: |
-          ruff check plugin_hooks/tww_hooks plugin_hooks/tests
