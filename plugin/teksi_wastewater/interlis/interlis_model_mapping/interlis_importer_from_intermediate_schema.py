@@ -9,7 +9,7 @@ from ...utils.plugin_utils import logger
 from .. import config, utils
 
 
-class InterlisImporterToIntermediateSchema:
+class InterlisImporterFromIntermediateSchema:
     def __init__(
         self,
         model,
