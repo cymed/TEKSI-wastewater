@@ -3,7 +3,7 @@ from tww_hooks.models.effects import (
     EnforceExistsEffect,
     EnforceNotExistsEffect,
 )
-from tww_hooks.parser.effectparser import EffectParser
+from tww_hooks.parser.effects_parser import EffectParser
 
 
 def test_parse_update_attribute_effect() -> None:

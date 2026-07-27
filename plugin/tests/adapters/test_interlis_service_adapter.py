@@ -1,4 +1,4 @@
-from teksi_wastewater.hooks_adapters.interlis_service_adapter import TwwInterlisServiceAdapter
+from teksi_wastewater.hooks_adapters.tww_interlis_service_adapter import TwwInterlisServiceAdapter
 
 class FakeInterlisImporterExporter:
     def __init__(self):

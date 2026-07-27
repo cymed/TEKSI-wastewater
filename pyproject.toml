@@ -6,6 +6,8 @@ requires-python = ">=3.11"
 dependencies = [
     "pyyaml",
     "teksi-hooks @ git+https://github.com/cymed/teksi_hooks.git",
+    "sqlalchemy",
+    "geoalchemy2",
 ]
 authors = [
     {name = "TEKSI"}
