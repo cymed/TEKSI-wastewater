@@ -5,7 +5,7 @@ from collections.abc import Mapping
 
 from .privilege import Privilege
 from .validation import AttributeValidation, TransitionValidation
-from .rulesets import CrudRules, ResolvedCrudRules
+from .rulesets import CrudRules, ResolvedCrudRules, StateTransitionRule
 
 
 
@@ -197,7 +197,7 @@ class ResolvedClassDefinition:
         },
     )
 
-    attributes: Mapping[str, AttributeDefinition] = field(
+    attributes: Mapping[str, ResolvedAttributeDefinition] = field(
         metadata={
             "doc": (
                 "Resolved attribute definitions keyed by canonical attribute "
@@ -206,61 +206,98 @@ class ResolvedClassDefinition:
         },
     )
 
+    transition_rules:  Mapping[str, StateTransitionRule] = field(
+        metadata={
+            "doc": (
+                "Resolved state transition rules keyed by canonical attribute "
+                "identifier."
+            )
+        },
+    )
+
+
     # add when needed for debugging
     # resolution_info: ResolutionInfo | None = None
 
 @dataclass(slots=True, frozen=True)
 class DerivedRights:
     """
-    Parsed derived-rights declaration.
+    Rights derivation definition.
 
-    A derived-rights declaration describes that rights for one class may be
-    derived from a related class through a relation. This model belongs to the
-    parsed configuration and is resolved later by the rights resolver.
+    Defines how rights of the current class can be derived from a related
+    canonical class. The relation is expressed as an attribute equality
+    between the local object and the remote object.
+
+    Examples
+    --------
+
+    Local foreign key:
+
+        local.fk_wastewater_structure
+            =
+        wastewater_structure.obj_id
+
+    YAML:
+
+        derive_rights_from:
+          - class: wastewater_structure
+            local_attribute: fk_wastewater_structure
+
+    Reverse foreign key:
+
+        obj_id
+            =
+        reach.fk_reach_point_from
+
+    YAML:
+
+        derive_rights_from:
+          - class: reach
+            remote_attribute: fk_reach_point_from
+
+    Explicit join:
+
+        local.fk_baz
+            =
+        foo.fk_bar
+
+    YAML:
+
+        derive_rights_from:
+          - class: foo
+            local_attribute: fk_baz
+            remote_attribute: fk_bar
     """
 
     class_id: str = field(
         metadata={
             "doc": (
-                "CanonicalClass id from which rights may be derived."
+                "Canonical class identifier from which rights may be "
+                "derived."
             )
         },
     )
 
-    relation: str = field(
+    local_attribute: str = field(
+        default="obj_id",
         metadata={
             "doc": (
-                "Relation name used to reach the related object whose rights "
-                "may be reused."
+                "Local attribute participating in the rights-derivation "
+                "join. Defaults to `obj_id`."
             )
         },
     )
 
-@dataclass(slots=True, frozen=True)
-class ResolvedDerivedRights:
-    """
-    Resolved derived-rights declaration.
-
-    This is the runtime counterpart of `DerivedRights`, where the referenced
-    class has already been resolved.
-    """
-
-    cls: ResolvedClassDefinition = field(
+    remote_attribute: str = field(
+        default="obj_id",
         metadata={
             "doc": (
-                "Resolved class definition from which rights may be derived."
+                "Attribute on the related canonical class participating in "
+                "the rights-derivation join. Defaults to `obj_id`."
             )
         },
     )
 
-    relation: str = field(
-        metadata={
-            "doc": (
-                "Relation name used to reach the related object whose resolved "
-                "rights may be reused."
-            )
-        },
-    )
 
 @dataclass(slots=True)
 class AttributeDefinition:
@@ -298,6 +335,48 @@ class AttributeDefinition:
                 "Transition validations for state-like attributes. These "
                 "define which value transitions are allowed and under which "
                 "privileges."
+            )
+        },
+    )
+
+@dataclass(slots=True, frozen=True)
+class ResolvedAttributeDefinition:
+    """
+    Effective runtime attribute definition.
+
+    Produced by the rights resolver after wildcard defaults, inheritance,
+    attribute defaults and future resolver expansions have been applied.
+
+    Runtime code should consume this model rather than
+    `AttributeDefinition`.
+    """
+
+    update_privileges: frozenset[Privilege] = field(
+        default_factory=frozenset,
+        metadata={
+            "doc": (
+                "Effective privileges allowed to update this attribute "
+                "after all defaults and inheritance have been resolved."
+            )
+        },
+    )
+
+    validations: tuple[AttributeValidation, ...] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Effective validation rules for this attribute after "
+                "resolution."
+            )
+        },
+    )
+
+    transitions: tuple[TransitionValidation, ...] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Effective transition validations for this attribute after "
+                "resolution."
             )
         },
     )

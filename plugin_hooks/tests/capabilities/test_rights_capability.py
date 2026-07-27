@@ -1,4 +1,7 @@
-from tww_hooks.capabilities.rights import RightsCapability
+from tww_hooks.capabilities.rights import (
+    RightsCapability,
+    DerivedRightsCapability,
+)
 from tww_hooks.models.privilege import Privilege
 
 
@@ -97,3 +100,4 @@ def test_rights_capability_try_attribute_definition_returns_none(
         "wastewater_structure",
         "does_not_exist",
     ) is None
+

@@ -3,12 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from collections.abc import Mapping
-
 from ..models.rights import (
     AttributeDefinition,
     ClassDefinition,
+    ResolvedAttributeDefinition,
     RightsDefinition,
     ResolvedClassDefinition,
+    DerivedRights,
 )
 from ..models.rulesets import (
     CrudRules,
@@ -16,17 +17,24 @@ from ..models.rulesets import (
     Rule,
     ResolvedCrudRules,
 )
+from .validation_resolver import ValidationResolver
 
 
 @dataclass(slots=True)
 class RightsResolver:
     """
-    Resolves parsed rights definitions into runtime class definitions.
+    Resolves parsed rights definitions into runtime definitions.
 
-    The resolver applies defaults, expands inherited rule references and
-    converts mutable parsed rule containers into immutable resolved rule
-    containers.
+    Responsibilities:
+
+    - apply default CRUD rules;
+    - expand inherited CRUD rules;
+    - apply wildcard attribute defaults;
+    - produce immutable resolved models;
+    - build class-level transition definitions.
     """
+
+    validation_resolver: ValidationResolver = ValidationResolver()
 
     def resolve(
         self,
@@ -45,11 +53,6 @@ class RightsResolver:
         class_definition: ClassDefinition,
         definition: RightsDefinition,
     ) -> ResolvedClassDefinition:
-        crud_rules = self._resolve_crud_rules(
-            class_definition=class_definition,
-            defaults=definition.defaults.crud_rules,
-        )
-
         attributes = self._resolve_attributes(
             class_definition=class_definition,
             definition=definition,
@@ -57,8 +60,17 @@ class RightsResolver:
 
         return ResolvedClassDefinition(
             id=class_definition.id,
-            crud_rules=crud_rules,
+            crud_rules=self._resolve_crud_rules(
+                class_definition=class_definition,
+                defaults=definition.defaults.crud_rules,
+            ),
             attributes=attributes,
+            transition_rules=(
+                self.validation_resolver
+                .resolve_class_transition_rules(
+                    attributes,
+                )
+            ),
         )
 
     def _resolve_crud_rules(
@@ -132,40 +144,119 @@ class RightsResolver:
         for rule in rules:
             if isinstance(rule, InheritRule):
                 try:
-                    inherited_rules = rule_sets[rule.source]
+                    inherited_rules = rule_sets[
+                        rule.source
+                    ]
                 except KeyError as exc:
                     raise KeyError(
-                        f"Unknown inherited rule set: {rule.source!r}"
+                        f"Unknown inherited rule set: "
+                        f"{rule.source!r}"
                     ) from exc
 
                 expanded.extend(
                     inherited_rule
                     for inherited_rule in inherited_rules
-                    if not isinstance(inherited_rule, InheritRule)
+                    if not isinstance(
+                        inherited_rule,
+                        InheritRule,
+                    )
                 )
             else:
-                expanded.append(rule)
+                expanded.append(
+                    rule,
+                )
 
-        return tuple(expanded)
+        return tuple(
+            expanded,
+        )
 
     def _resolve_attributes(
         self,
         class_definition: ClassDefinition,
         definition: RightsDefinition,
-    ) -> Mapping[str, AttributeDefinition]:
-        attributes = dict(
-            class_definition.attributes,
+    ) -> Mapping[
+        str,
+        ResolvedAttributeDefinition,
+    ]:
+        resolved: dict[
+            str,
+            ResolvedAttributeDefinition,
+        ] = {}
+
+        for (
+            attribute_name,
+            attribute_definition,
+        ) in class_definition.attributes.items():
+            resolved[
+                attribute_name
+            ] = self._resolve_attribute(
+                attribute_name=attribute_name,
+                attribute_definition=attribute_definition,
+                definition=definition,
+            )
+
+        return resolved
+
+    def _resolve_attribute(
+        self,
+        attribute_name: str,
+        attribute_definition: AttributeDefinition,
+        definition: RightsDefinition,
+    ) -> ResolvedAttributeDefinition:
+        update_privileges = (
+            attribute_definition.update_privileges
         )
 
-        for default in definition.defaults.attribute_defaults:
-            for attribute_name, attribute_definition in attributes.items():
+        if not update_privileges:
+            for default in (
+                definition.defaults.attribute_defaults
+            ):
                 if fnmatchcase(
                     attribute_name,
                     default.pattern,
                 ):
-                    if not attribute_definition.update_privileges:
-                        attribute_definition.update_privileges = (
-                            default.update_privileges
-                        )
+                    update_privileges = (
+                        default.update_privileges
+                    )
+                    break
 
-        return attributes
+        return ResolvedAttributeDefinition(
+            update_privileges=update_privileges,
+            validations=tuple(
+                attribute_definition.validations,
+            ),
+            transitions=tuple(
+                attribute_definition.transitions,
+            ),
+        )
+
+
+    def resolve_derived_rights(
+        self,
+        definition: RightsDefinition,
+    ) -> Mapping[
+        str,
+        tuple[DerivedRights, ...],
+    ]:
+        """
+        Resolve rights-derivation definitions.
+
+        The resulting mapping is keyed by canonical class identifier and
+        contains only classes that define explicit rights derivation rules.
+
+        Returns
+        -------
+        Mapping[str, tuple[DerivedRights, ...]]
+            Rights-derivation definitions keyed by class identifier.
+        """
+
+        return {
+            class_id: tuple(
+                class_definition.derive_rights_from
+            )
+            for (
+                class_id,
+                class_definition,
+            ) in definition.classes.items()
+            if class_definition.derive_rights_from
+        }

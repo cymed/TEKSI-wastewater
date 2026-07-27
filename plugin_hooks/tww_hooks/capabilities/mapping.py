@@ -220,7 +220,7 @@ class DictionaryMappingCapability:
 
         self.model_mapping = self._load_model_mapping()
  
-    def tww_table_for_ili(
+    def class_definition_for_ili(
         self,
         ili_name: str,
     ) -> str:
@@ -240,7 +240,7 @@ class DictionaryMappingCapability:
 
         return self._table_mapping[ili_name]
 
-    def tww_field_for_ili(
+    def attribute_definition_for_ili(
         self,
         ili_class: str,
         ili_attribute: str,
@@ -267,7 +267,7 @@ class DictionaryMappingCapability:
                 (ili_class, ili_attribute)
             ]
 
-    def tww_value_for_ili(
+    def attribute_value_for_ili(
         self,
         ili_class: str,
         ili_attribute: str,

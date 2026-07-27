@@ -161,7 +161,8 @@ def test_rights_parser_imports_extends_and_derived_rights(rights_definition) -> 
     derived_right = wastewater_networkelement.derive_rights_from[0]
 
     assert derived_right.class_id == "wastewater_structure"
-    assert derived_right.relation == "fk_wastewater_structure"
+    assert derived_right.local_attribute == "fk_wastewater_structure"
+    assert derived_right.remote_attribute == "obj_id"
 
     reach_point = rights_definition.classes["reach_point"]
 
@@ -170,7 +171,7 @@ def test_rights_parser_imports_extends_and_derived_rights(rights_definition) -> 
     derived_targets = {
         (
             derived.class_id,
-            derived.relation,
+            derived.remote_attribute,
         )
         for derived in reach_point.derive_rights_from
     }
@@ -185,6 +186,10 @@ def test_rights_parser_imports_extends_and_derived_rights(rights_definition) -> 
             "fk_reach_point_to",
         ),
     }
+    assert all(
+        derived.local_attribute == "obj_id"
+        for derived in reach_point.derive_rights_from
+    )
 
 def test_rights_parser_imports_ownership_update_rules(rights_definition) -> None:
     maintenance = rights_definition.classes["maintenance"]

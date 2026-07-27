@@ -233,7 +233,14 @@ class RightsParser:
         return tuple(
             DerivedRights(
                 class_id=raw["class"],
-                relation=raw["relation"],
+                local_attribute=raw.get(
+                    "local_attribute",
+                    "obj_id",
+                ),
+                remote_attribute=raw.get(
+                    "remote_attribute",
+                    "obj_id",
+                ),
             )
             for raw in raw_items
         )

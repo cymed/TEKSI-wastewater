@@ -31,7 +31,7 @@ classes:
 
     derive_rights_from:
       - class: wastewater_structure
-        relation: fk_wastewater_structure
+        local_attribute: fk_wastewater_structure
 
     update_rules:
       - inherit: create_rules
@@ -76,9 +76,11 @@ classes:
   - id: reach_point
     derive_rights_from:
       - class: reach
-        relation: fk_reach_point_from
+        remote_attribute: fk_reach_point_from
+        direction: reverse
       - class: reach
-        relation: fk_reach_point_to
+        remote_attribute: fk_reach_point_to
+
 
     
   - id: hydr_geometry
@@ -254,7 +256,7 @@ classes:
     extends: structure_part
     derive_rights_from:
       - class: wastewater_structure
-        relation: fk_wastewater_structure
+        local_attribute: fk_wastewater_structure
     # Fabrikat hat keine speziellen Rechte → Default gilt
 
   - id: flushing_nozzle

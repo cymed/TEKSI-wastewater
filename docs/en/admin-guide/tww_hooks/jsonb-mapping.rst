@@ -13,11 +13,11 @@ Effect kinds
 ``update_attribute``
    Updates one canonical attribute.
 
-``ensure_row_exists``
-   Ensures a row exists without overwriting existing attribute values.
+``enforce_exists``
+   Enforces a row exists without overwriting existing attribute values.
 
-``delete_row``
-   Deletes a row identified by its identity fields.
+``enforce_not_exists``
+   Enforces a row does not exist without overwriting existing attribute values.
 
 Example
 -------

@@ -18,7 +18,7 @@ from tww_hooks.models.mapping import ModelMapping
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
 
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = Path(__file__).parent / "data/parser"
 
 @pytest.fixture
 def wildcard_rights_definition() -> RightsDefinition:
@@ -62,4 +62,13 @@ def resolved_rights(
 def agxx_mapping() -> ModelMapping:
     return ModelMappingParser().parse_file(
         DATA_DIR / "agxx_mapping_minimal.yaml",
+    )
+
+@pytest.fixture
+def derived_rights(
+    rights_definition,
+):
+
+    return RightsResolver().resolve_derived_rights(
+        rights_definition,
     )

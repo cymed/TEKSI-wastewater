@@ -231,7 +231,7 @@ class AttributeValidation:
 @dataclass(slots=True, frozen=True)
 class TransitionValidation:
     """
-    Describes transition validation for a state-like attribute.
+    Describes transition validation for a class based on  state-like attributes.
 
     The transition graph is expressed as a set of `StateTransitionRule`
     instances. `allow_transitive` controls whether indirect paths through

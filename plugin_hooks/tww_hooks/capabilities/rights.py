@@ -5,7 +5,10 @@ from ..models.rights import ResolvedClassDefinition, AttributeDefinition
 from ..models.privilege import Privilege
 from ..models.validation import TransitionValidation, AttributeValidation
 from ..models.rulesets import Rule, ResolvedCrudRules
-
+from ..models.rights import (
+    ResolvedClassDefinition,
+    DerivedRights,
+)
 
 @dataclass(slots=True, frozen=True)
 class RightsCapability:
@@ -282,3 +285,59 @@ class RightsCapability:
         return self.class_definition(
             class_id,
         ).crud_rules.delete_rules
+
+
+@dataclass(slots=True, frozen=True)
+class DerivedRightsCapability:
+    """
+    Runtime lookup capability for rights-derivation definitions.
+
+    This capability exposes relationships through which rights may be
+    inherited from related canonical objects.
+    """
+
+    classes: Mapping[
+        str,
+        tuple[DerivedRights, ...],
+    ] = field(
+        metadata={
+            "doc": (
+                "Rights-derivation definitions keyed by canonical class "
+                "identifier."
+            )
+        },
+    )
+
+    def derived_rights(
+        self,
+        class_id: str,
+    ) -> tuple[DerivedRights, ...]:
+        """
+        Return rights-derivation definitions for a class.
+
+        Raises
+        ------
+        KeyError
+            If the class is unknown.
+        """
+
+        try:
+            return self.classes[class_id]
+        except KeyError as exc:
+            raise KeyError(
+                f"Unknown class: {class_id}"
+            ) from exc
+
+    def try_derived_rights(
+        self,
+        class_id: str,
+    ) -> tuple[DerivedRights, ...] | None:
+        """
+        Return rights-derivation definitions if the class exists.
+
+        Returns `None` if the class is unknown.
+        """
+
+        return self.classes.get(
+            class_id,
+        )
