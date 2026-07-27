@@ -18,7 +18,7 @@ from tww_hooks.models.mapping import ModelMapping
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
 
-DATA_DIR = Path(__file__).parent / "data/parser"
+DATA_DIR = Path(__file__).parent / "parser/data"
 
 @pytest.fixture
 def wildcard_rights_definition() -> RightsDefinition:
