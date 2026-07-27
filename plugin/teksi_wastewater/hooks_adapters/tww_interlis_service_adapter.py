@@ -32,8 +32,13 @@ class TwwInterlisServiceAdapter(InterlisService):
 
     def __init__(
         self,
+        importer_exporter: InterlisImporterExporter | None = None,
     ) -> None:
-        self._importer_exporter = InterlisImporterExporter()
+        self._importer_exporter = (
+            importer_exporter
+            if importer_exporter is not None
+            else InterlisImporterExporter()
+        )
 
     def _apply_context(
         self,

@@ -116,7 +116,7 @@ class TwwRelationContextProvider(RelationContextProvider):
             if mapping is not None:
                 return mapping
 
-        tww_class_id = self.dictionary_mapping.class_definition_for_ili(
+        tww_class_id = self.dictionary_mapping.class_mapping_for_ili(
             ili_class_name,
         )
 
