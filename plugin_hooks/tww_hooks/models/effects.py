@@ -1,11 +1,11 @@
-from enum import StrEnum
-
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
+from enum import StrEnum
+
+
 
 @dataclass(slots=True, frozen=True)
 class EffectDocument:
