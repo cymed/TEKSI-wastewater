@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from .privilege import Privilege
 from .validation import AttributeValidation, TransitionValidation
 from .rulesets import CrudRules, ResolvedCrudRules, StateTransitionRule
+from .canonical_object import CanonicalObjectIdentity
 
 
 
@@ -298,6 +299,41 @@ class DerivedRights:
         },
     )
 
+
+@dataclass(slots=True, frozen=True)
+class ResolvedDerivedRights:
+    """
+    Result of a derived-rights resolution.
+
+    Represents the canonical objects participating in a rights-derivation
+    relationship after join evaluation has been performed.
+    """
+
+    local_objects: tuple[
+        CanonicalObjectIdentity,
+        ...
+    ] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Canonical local objects participating in the resolved "
+                "rights-derivation relationship."
+            )
+        },
+    )
+
+    remote_objects: tuple[
+        CanonicalObjectIdentity,
+        ...
+    ] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Canonical remote objects from which rights may be "
+                "derived."
+            )
+        },
+    )
 
 @dataclass(slots=True)
 class AttributeDefinition:

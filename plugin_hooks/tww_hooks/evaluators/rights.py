@@ -65,7 +65,7 @@ class RightsEvaluator:
         rights: RightsCapability,
         provider: ResolvedProviderCapability,
         conditions: ConditionsCapability,
-        derived_rights: DerivedRightsCapability
+        derived_rights: DerivedRightsCapability,
     ):
         self.rights = rights
         self.provider = provider
