@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from collections.abc import Mapping
 from ..models.rights import (
@@ -34,7 +34,10 @@ class RightsResolver:
     - build class-level transition definitions.
     """
 
-    validation_resolver: ValidationResolver = ValidationResolver()
+    validation_resolver: ValidationResolver = field(
+        default_factory=ValidationResolver,
+        )
+                   
 
     def resolve(
         self,
