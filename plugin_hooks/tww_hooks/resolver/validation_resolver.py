@@ -102,9 +102,24 @@ class ValidationResolver:
         ] = set()
 
         for transition_validation in attribute.transitions:
-            rules.update(
-                transition_validation.ruleset,
-            )
+            for rule in transition_validation.ruleset:
+                rules.add(
+                    rule,
+                )
+
+                if (
+                    rule.bilateral
+                    and rule.from_value is not None
+                    and rule.to_value is not None
+                ):
+                    rules.add(
+                        StateTransitionRule(
+                            privileges=rule.privileges,
+                            from_value=rule.to_value,
+                            to_value=rule.from_value,
+                            bilateral=False,
+                        )
+                    )
 
         return frozenset(
             rules,
@@ -114,12 +129,12 @@ class ValidationResolver:
         self,
         attributes: Mapping[
             str,
-            ResolvedAttributeDefinition,
+            AttributeDefinition,
         ],
-    ) -> dict[
+    ) -> Mapping[
         str,
         frozenset[StateTransitionRule],
-    ]:
+        ]:
         rules: dict[
             str,
             frozenset[StateTransitionRule],

@@ -31,7 +31,7 @@ class FakeModel:
 def dictionary_mapping():
     mapping = Mock(spec=DictionaryMappingCapability)
 
-    mapping.class_definition_for_ili.return_value = (
+    mapping.class_mapping_for_ili.return_value = (
         "wastewater_node"
     )
 

@@ -9,7 +9,7 @@ from ..capabilities.conditions import (
     ConditionEvaluationContext,
 )
 from ..capabilities.privilege import ResolvedProviderCapability
-from ..capabilities.rights import RightsCapability
+from ..capabilities.rights import RightsCapability,DerivedRightsCapability
 
 from ..models.rulesets import (
     Rule,
@@ -65,10 +65,12 @@ class RightsEvaluator:
         rights: RightsCapability,
         provider: ResolvedProviderCapability,
         conditions: ConditionsCapability,
+        derived_rights: DerivedRightsCapability
     ):
         self.rights = rights
         self.provider = provider
         self.conditions = conditions
+        self.derived_rights = derived_rights
 
     def can_update_attribute(
         self,
