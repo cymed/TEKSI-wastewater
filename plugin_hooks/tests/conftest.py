@@ -18,7 +18,8 @@ from tww_hooks.models.provider import Provider, ResolvedProvider
 from tww_hooks.models.mapping import ModelMapping
 
 from tww_hooks.capabilities.conditions import ConditionsCapability
-from tww_hooks.capabilities.rights import RightsCapability, ResolvedProviderCapability,DerivedRightsCapability
+from tww_hooks.capabilities.rights import RightsCapability, DerivedRightsCapability
+from tww_hooks.capabilities.privilege import ResolvedProviderCapability
 
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
