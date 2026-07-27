@@ -9,7 +9,6 @@ import requests
 
 from ..utils.database_utils import DatabaseUtils
 from . import config
-from .gui.interlis_import_selection_dialog import InterlisImportSelectionDialog
 from .interlis_model_mapping.interlis_exporter_to_intermediate_schema import (
     InterlisExporterToIntermediateSchema,
     InterlisExporterToIntermediateSchemaError,
