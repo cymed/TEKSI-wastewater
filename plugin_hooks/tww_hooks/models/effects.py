@@ -7,6 +7,11 @@ from enum import StrEnum
 
 
 
+class EffectKind(StrEnum):
+    UPDATE_ATTRIBUTE = "update_attribute"
+    ENFORCE_EXISTS = "enforce_exists"
+    ENFORCE_NOT_EXISTS = "enforce_not_exists"
+    
 @dataclass(slots=True, frozen=True)
 class EffectDocument:
     version: int
@@ -21,7 +26,10 @@ class EffectSource:
 
 @dataclass(slots=True, frozen=True)
 class Effect:
-    kind: EffectKind
+    kind: EffectKind = field(
+        default=EffectKind.UPDATE_ATTRIBUTE,
+        init=False,
+    )
 
 @dataclass(slots=True, frozen=True)
 class UpdateAttributeEffect(Effect):
@@ -40,7 +48,3 @@ class EnforceNotExistsEffect(Effect):
     tww_class_id: str
     tww_identity: Mapping[str, Any]
 
-class EffectKind(StrEnum):
-    UPDATE_ATTRIBUTE = "update_attribute"
-    ENFORCE_EXISTS = "enforce_exists"
-    ENFORCE_NOT_EXISTS = "enforce_not_exists"

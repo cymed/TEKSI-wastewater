@@ -10,6 +10,7 @@ from ..models.effects import (
     EffectDocument,
     EffectSource,
     Effect,
+    EffectKind,
     UpdateAttributeEffect,
     EnforceExistsEffect,
     EnforceNotExistsEffect,
@@ -92,6 +93,7 @@ class EffectParser:
 
         if kind == "update_attribute":
             return UpdateAttributeEffect(
+                kind=EffectKind.UPDATE_ATTRIBUTE,
                 tww_class_id=data["tww_class_id"],
                 tww_identity=data["tww_identity"],
                 tww_attribute_id=data["tww_attribute_id"],
@@ -100,12 +102,14 @@ class EffectParser:
 
         if kind == "enforce_exists":
             return EnforceExistsEffect(
+                kind=EffectKind.ENFORCE_EXISTS,
                 tww_class_id=data["tww_class_id"],
                 tww_identity=data["tww_identity"],
             )
 
         if kind == "enforce_not_exists":
             return EnforceNotExistsEffect(
+                kind=EffectKind.ENFORCE_NOT_EXISTS,
                 tww_class_id=data["tww_class_id"],
                 tww_identity=data["tww_identity"],
             )

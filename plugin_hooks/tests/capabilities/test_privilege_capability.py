@@ -54,5 +54,5 @@ def test_provider_capability_returns_empty_for_unknown_dataowner(
     )
 
     assert capability.privileges_for(
-        Standardoid("ch999999unknown"),
+        Standardoid("ch999999unknown0"),
     ) == frozenset()
