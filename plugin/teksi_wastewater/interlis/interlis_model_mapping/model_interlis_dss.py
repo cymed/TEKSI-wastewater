@@ -2,7 +2,7 @@ from .. import config
 from .model_interlis_sia405_abwasser import ModelInterlisSia405Abwasser
 
 
-class ModelInterlisDss(ModelInterlisSia405Abwasser, schema = None):
+class ModelInterlisDss(ModelInterlisSia405Abwasser):
     def __init__(self, schema):
         super().__init__(schema)
 

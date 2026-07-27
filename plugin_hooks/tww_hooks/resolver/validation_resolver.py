@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from ..models.rights import (
@@ -108,3 +109,31 @@ class ValidationResolver:
         return frozenset(
             rules,
         )
+    
+    def resolve_class_transition_rules(
+        self,
+        attributes: Mapping[
+            str,
+            ResolvedAttributeDefinition,
+        ],
+    ) -> dict[
+        str,
+        frozenset[StateTransitionRule],
+    ]:
+        rules: dict[
+            str,
+            frozenset[StateTransitionRule],
+        ] = {}
+
+        for (
+            attribute_id,
+            attribute,
+        ) in attributes.items():
+            resolved = self.resolve_transition_rules(
+                attribute,
+            )
+
+            if resolved:
+                rules[attribute_id] = resolved
+
+        return rules

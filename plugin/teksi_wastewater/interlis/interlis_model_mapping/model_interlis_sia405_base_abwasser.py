@@ -2,10 +2,9 @@ from .. import config
 from .model_base import ModelBase
 
 
-class ModelInterlisSia405BaseAbwasser(ModelBase, schema = None):
+class ModelInterlisSia405BaseAbwasser(ModelBase):
     def __init__(self, schema):
-        self.schema=schema
-        super().__init__(self.schema)
+        super().__init__(schema)
 
         class baseclass(self.Base):
             __tablename__ = "baseclass"
