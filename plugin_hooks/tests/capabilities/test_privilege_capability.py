@@ -1,6 +1,6 @@
 from teksi_hooks.ili_definitions import Standardoid
 
-from tww_hooks.capabilities.provider import ResolvedProviderCapability
+from tww_hooks.capabilities.privilege import ResolvedProviderCapability
 from tww_hooks.models.privilege import Privilege
 
 
