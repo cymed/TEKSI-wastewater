@@ -22,7 +22,7 @@ class TwwInterlisContext(InterlisContext):
     to_quarantine_only: bool = False
 
 
-class TWWInterlisServiceAdapter(InterlisService):
+class TwwInterlisServiceAdapter(InterlisService):
     """
     Plugin-side adapter for the existing INTERLIS importer/exporter.
 

@@ -13,10 +13,18 @@ from tww_hooks.models.rights import (
 from tww_hooks.parser.provider_rights_parser import ProviderRightsParser
 from tww_hooks.parser.rights_parser import RightsParser, WildcardRightsParser
 from tww_hooks.parser.model_mapping_parser import ModelMappingParser
+
 from tww_hooks.models.provider import Provider, ResolvedProvider
 from tww_hooks.models.mapping import ModelMapping
+
+from tww_hooks.capabilities.conditions import ConditionsCapability
+from tww_hooks.capabilities.rights import RightsCapability, ResolvedProviderCapability,DerivedRightsCapability
+
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
+
+
+from tww_hooks.evaluators.rights import RightsEvaluator
 
 DATA_DIR = Path(__file__).parent / "parser/data"
 
@@ -71,4 +79,25 @@ def derived_rights(
 
     return RightsResolver().resolve_derived_rights(
         rights_definition,
+    )
+
+@pytest.fixture
+def evaluator(
+    resolved_rights,
+    resolved_providers,
+    derived_rights,
+):
+    return RightsEvaluator(
+        rights=RightsCapability(
+            classes=resolved_rights,
+        ),
+        provider=ResolvedProviderCapability(
+            provider=resolved_providers[
+                Standardoid("ch000000geping01")
+            ],
+        ),
+        conditions=ConditionsCapability(),
+        derived_rights=DerivedRightsCapability(
+            classes=derived_rights,
+        ),
     )

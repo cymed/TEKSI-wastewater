@@ -247,8 +247,8 @@ class TransitionValidation:
     )
 
     allow_transitive: bool = field(
+        default= True,
         metadata={
-            "default": True,
             "doc": (
                 "Whether transitive transitions are allowed. If true, a "
                 "transition may be accepted when a path exists through the "
