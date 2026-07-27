@@ -1,8 +1,10 @@
 from teksi_hooks.ili_definitions import Standardoid
 
+from tww_hooks.models.rights import CanonicalDerivedRights
+
 from tww_hooks.capabilities.conditions import ConditionsCapability
 from tww_hooks.capabilities.privilege import ResolvedProviderCapability
-from tww_hooks.capabilities.rights import RightsCapability
+from tww_hooks.capabilities.rights import RightsCapability, DerivedRightsCapability, SubclassRightsCapability
 from tww_hooks.evaluators.rights import RightsEvaluationContext,RightsEvaluator
 
 from tww_hooks.models.privilege import Privilege
@@ -17,7 +19,7 @@ def test_rights_evaluator_allows_attribute_update_with_required_privilege(
 ) -> None:
     evaluator = RightsEvaluator(
         rights=RightsCapability(
-            classes=resolved_rights,
+            rights=resolved_rights,
         ),
         provider=ResolvedProviderCapability(
             provider=resolved_providers[
@@ -40,7 +42,7 @@ def test_rights_evaluator_rejects_attribute_update_without_required_privilege(
 ) -> None:
     evaluator = RightsEvaluator(
         rights=RightsCapability(
-            classes=resolved_rights,
+            rights=resolved_rights,
         ),
         provider=ResolvedProviderCapability(
             provider=resolved_providers[
@@ -62,7 +64,7 @@ def test_rights_evaluator_applies_privilege_rule(
 ) -> None:
     evaluator = RightsEvaluator(
         rights=RightsCapability(
-            classes=resolved_rights,
+            rights=resolved_rights,
         ),
         provider=ResolvedProviderCapability(
             provider=resolved_providers[
@@ -97,7 +99,7 @@ def test_rights_evaluator_applies_ownership_rule_for_update_using_old_values(
 ) -> None:
     evaluator = RightsEvaluator(
         rights=RightsCapability(
-            classes=resolved_rights,
+            rights=resolved_rights,
         ),
         provider=ResolvedProviderCapability(
             provider=resolved_providers[
@@ -134,7 +136,7 @@ def test_rights_evaluator_can_update_class_with_privilege_rule(
 ) -> None:
     evaluator = RightsEvaluator(
         rights=RightsCapability(
-            classes=resolved_rights,
+            rights=resolved_rights,
         ),
         provider=ResolvedProviderCapability(
             provider=resolved_providers[
@@ -164,7 +166,7 @@ def test_rights_evaluator_can_update_class_with_ownership_rule(
 ) -> None:
     evaluator = RightsEvaluator(
         rights=RightsCapability(
-            classes=resolved_rights,
+            rights=resolved_rights,
         ),
         provider=ResolvedProviderCapability(
             provider=resolved_providers[
@@ -273,5 +275,82 @@ def test_rights_evaluator_accepts_any_matching_derived_right(
 
     assert evaluator.can_update(
         "reach_point",
+        context,
+    )
+
+def test_rights_evaluator_resolves_derived_rights(
+    evaluator,
+):
+    context = RightsEvaluationContext(
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
+        operation=ChangeOperation.UPDATE,
+        old_values={
+            "fk_wastewater_structure":
+                "ch000000ws000001",
+        },
+    )
+
+    derived = evaluator._resolve_derived_rights(
+        "wastewater_networkelement",
+        context,
+    )
+
+    assert len(
+        derived.remote_objects,
+    ) == 1
+
+    assert (
+        derived.remote_objects[0].class_id
+        == "wastewater_structure"
+    )
+
+def test_rights_evaluator_inherits_update_rights_from_subclass(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+) -> None:
+    evaluator = RightsEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        provider=ResolvedProviderCapability(
+            provider=resolved_providers[
+                Standardoid("ch000000geping01")
+            ],
+        ),
+        conditions=ConditionsCapability(),
+        derived_rights=DerivedRightsCapability(
+            classes={},
+        ),
+        subclass_rights=SubclassRightsCapability(
+            parent_classes={
+                "maintenance_event": (
+                    "maintenance",
+                ),
+            },
+        ),
+    )
+
+    context = RightsEvaluationContext(
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
+        operation=ChangeOperation.UPDATE,
+        old_values={
+            "fk_provider":
+                "ch000000geping01",
+        },
+    )
+
+    assert evaluator.can_update(
+        "maintenance_event",
         context,
     )

@@ -4,6 +4,18 @@ from dataclasses import dataclass
 from typing import Any
 from collections.abc import Mapping, Sequence
 
+from __future__ import annotations
+
+from ..models.canonical_object import (
+    CanonicalObject,
+    CanonicalObjectIdentity,
+)
+from ..models.rights import (
+    DerivedRights,
+    CanonicalDerivedRights,
+)
+
+
 
 @dataclass(slots=True, frozen=True)
 class RelatedObject:
@@ -73,6 +85,28 @@ class RelationLookupCapability:
         -------
         Sequence[RelatedObject]
             Matching related objects.
+        """
+
+        raise NotImplementedError
+
+
+    def resolve_derived_rights(
+        self,
+        *,
+        local_objects: tuple[
+            CanonicalObjectIdentity,
+            ...
+        ],
+        relation: DerivedRights,
+    ) -> CanonicalDerivedRights:
+        raise NotImplementedError
+
+    def current_object(
+        self,
+        identity: CanonicalObjectIdentity,
+    ) -> CanonicalObject | None:
+        """
+        Return the current canonical object or `None` if it no longer exists.
         """
 
         raise NotImplementedError

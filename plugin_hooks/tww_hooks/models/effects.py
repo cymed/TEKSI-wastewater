@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from collections.abc import Mapping
+from datetime import datetime, UTC
 from typing import Any
 from enum import StrEnum
 
+from .canonical_object import CanonicalObjectIdentity
 
 
 class EffectKind(StrEnum):
@@ -12,13 +14,24 @@ class EffectKind(StrEnum):
     ENFORCE_EXISTS = "enforce_exists"
     ENFORCE_NOT_EXISTS = "enforce_not_exists"
     
+
 @dataclass(slots=True, frozen=True)
 class EffectDocument:
 
     version: int = field(
+        default=1,
         metadata={
             "doc": (
                 "Version of the effect-document contract."
+            )
+        },
+    )
+
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(UTC),
+        metadata={
+            "doc": (
+                "Timestamp when the effect document was created."
             )
         },
     )
@@ -32,9 +45,10 @@ class EffectDocument:
     )
 
     effects: tuple[Effect, ...] = field(
+        default_factory=tuple,
         metadata={
             "doc": (
-                "Semantic effects generated from the source object."
+                "Effects generated from the source object."
             )
         },
     )
@@ -86,18 +100,10 @@ class UpdateAttributeEffect(Effect):
         },
     )
 
-    tww_class_id: str = field(
+    identity: CanonicalObjectIdentity = field(
         metadata={
             "doc": (
-                "Canonical TWW class identifier being modified."
-            )
-        },
-    )
-
-    tww_identity: Mapping[str, Any] = field(
-        metadata={
-            "doc": (
-                "Canonical identity attributes used to locate the target "
+                "Canonical object identity used to locate the target "
                 "object."
             )
         },
@@ -132,18 +138,10 @@ class EnforceExistsEffect(Effect):
         },
     )
 
-    tww_class_id: str = field(
+    identity: CanonicalObjectIdentity = field(
         metadata={
             "doc": (
-                "Canonical TWW class identifier that must exist."
-            )
-        },
-    )
-
-    tww_identity: Mapping[str, Any] = field(
-        metadata={
-            "doc": (
-                "Canonical identity attributes identifying the required "
+                "Canonical object identity used to locate the target "
                 "object."
             )
         },
@@ -161,19 +159,11 @@ class EnforceNotExistsEffect(Effect):
             )
         },
     )
-
-    tww_class_id: str = field(
+  
+    identity: CanonicalObjectIdentity = field(
         metadata={
             "doc": (
-                "Canonical TWW class identifier that must not exist."
-            )
-        },
-    )
-
-    tww_identity: Mapping[str, Any] = field(
-        metadata={
-            "doc": (
-                "Canonical identity attributes identifying the prohibited "
+                "Canonical object identity used to locate the target "
                 "object."
             )
         },

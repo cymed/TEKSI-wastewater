@@ -90,7 +90,7 @@ def evaluator(
 ):
     return RightsEvaluator(
         rights=RightsCapability(
-            classes=resolved_rights,
+            rights=resolved_rights,
         ),
         provider=ResolvedProviderCapability(
             provider=resolved_providers[
@@ -99,6 +99,6 @@ def evaluator(
         ),
         conditions=ConditionsCapability(),
         derived_rights=DerivedRightsCapability(
-            classes=derived_rights,
+            rights=derived_rights,
         ),
     )

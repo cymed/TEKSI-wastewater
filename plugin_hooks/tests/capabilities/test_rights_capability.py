@@ -9,7 +9,7 @@ def test_rights_capability_returns_class_definition(
     resolved_rights,
 ) -> None:
     capability = RightsCapability(
-        classes=resolved_rights,
+        rights=resolved_rights,
     )
 
     cls = capability.class_definition(
@@ -23,7 +23,7 @@ def test_rights_capability_returns_attribute_definition(
     resolved_rights,
 ) -> None:
     capability = RightsCapability(
-        classes=resolved_rights,
+        rights=resolved_rights,
     )
 
     attribute = capability.attribute_definition(
@@ -43,7 +43,7 @@ def test_rights_capability_returns_update_privileges(
     resolved_rights,
 ) -> None:
     capability = RightsCapability(
-        classes=resolved_rights,
+        rights=resolved_rights,
     )
 
     assert capability.update_privileges(
@@ -61,7 +61,7 @@ def test_rights_capability_returns_crud_rules(
     resolved_rights,
 ) -> None:
     capability = RightsCapability(
-        classes=resolved_rights,
+        rights=resolved_rights,
     )
 
     assert len(
@@ -81,7 +81,7 @@ def test_rights_capability_try_class_definition_returns_none(
     resolved_rights,
 ) -> None:
     capability = RightsCapability(
-        classes=resolved_rights,
+        rights=resolved_rights,
     )
 
     assert capability.try_class_definition(
@@ -93,7 +93,7 @@ def test_rights_capability_try_attribute_definition_returns_none(
     resolved_rights,
 ) -> None:
     capability = RightsCapability(
-        classes=resolved_rights,
+        rights=resolved_rights,
     )
 
     assert capability.try_attribute_definition(

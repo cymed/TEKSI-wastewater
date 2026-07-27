@@ -9,8 +9,12 @@ from ..capabilities.conditions import (
     ConditionEvaluationContext,
 )
 from ..capabilities.privilege import ResolvedProviderCapability
-from ..capabilities.rights import RightsCapability,DerivedRightsCapability
+from ..capabilities.rights import RightsCapability,DerivedRightsCapability, SubclassRightsCapability
+from ..capabilities.relation_lookup import RelationLookupCapability
 
+
+from ..models.rights import CanonicalDerivedRights
+from ..models.canonical_object import CanonicalObjectIdentity
 from ..models.rulesets import (
     Rule,
     PrivilegeRule,
@@ -66,11 +70,15 @@ class RightsEvaluator:
         provider: ResolvedProviderCapability,
         conditions: ConditionsCapability,
         derived_rights: DerivedRightsCapability,
+        relation_lookup: RelationLookupCapability,
+        subclass_rights: SubclassRightsCapability,
     ):
         self.rights = rights
         self.provider = provider
         self.conditions = conditions
         self.derived_rights = derived_rights
+        self.relation_lookup = relation_lookup
+        self.subclass_rights = subclass_rights
 
     def can_update_attribute(
         self,
@@ -116,12 +124,22 @@ class RightsEvaluator:
         class_id: str,
         context: RightsEvaluationContext,
     ) -> bool:
-        """
-        Check whether the provider may update an object of the class.
-        """
+        if self._can_apply_any_rule(
+            self.rights.update_rules(
+                class_id,
+            ),
+            context,
+        ):
+            return True
 
-        return self._can_apply_any_rule(
-            self.rights.update_rules(class_id),
+        if self._can_update_via_derived_rights(
+            class_id,
+            context,
+        ):
+            return True
+
+        return self._can_update_via_subclass_rights(
+            class_id,
             context,
         )
 
@@ -262,4 +280,109 @@ class RightsEvaluator:
                 "provider_oid": context.provider_oid,
                 "dataowner_oid": context.dataowner_oid,
             },
+        )
+
+    def _resolve_derived_rights(
+        self,
+        class_id: str,
+        context: RightsEvaluationContext,
+    ) -> CanonicalDerivedRights:
+        """
+        Resolve related objects from which rights may be derived.
+
+        The returned structure describes the resolved object graph but does
+        not itself evaluate any CRUD permissions.
+        """
+
+        definitions = self.derived_rights.try_derived_rights(
+            class_id,
+        )
+
+        if not definitions:
+            return CanonicalDerivedRights()
+
+        local_object = CanonicalObjectIdentity(
+            class_id=class_id,
+            attributes={
+                key: value
+                for key, value in {
+                    **context.old_values,
+                    **context.new_values,
+                }.items()
+                if value is not None
+            },
+        )
+
+        local_objects = (
+            local_object,
+        )
+
+        remote_objects: list[
+            CanonicalObjectIdentity
+        ] = []
+
+        for definition in definitions:
+            resolved = self.relation_lookup.resolve_derived_rights(
+                local_objects=local_objects,
+                relation=definition,
+            )
+
+            remote_objects.extend(
+                resolved.remote_objects,
+            )
+
+        return CanonicalDerivedRights(
+            local_objects=local_objects,
+            remote_objects=tuple(
+                remote_objects,
+            ),
+        )
+
+    def _can_update_via_derived_rights(
+        self,
+        class_id: str,
+        context: RightsEvaluationContext,
+    ) -> bool:
+        derived = self._resolve_derived_rights(
+            class_id,
+            context,
+        )
+
+        return any(
+            self._can_apply_any_rule(
+                self.rights.update_rules(
+                    remote_object.class_id,
+                ),
+                context,
+            )
+            for remote_object in derived.remote_objects
+        )
+
+    def _can_update_via_subclass_rights(
+        self,
+        class_id: str,
+        context: RightsEvaluationContext,
+    ) -> bool:
+        """
+        Check whether update rights may be inherited from subclasses.
+
+        A parent class may opt into subclass-based rights evaluation via
+        `rights_from_subclass`.
+        """
+
+        subclasses = self.subclass_rights.try_subclasses(
+            class_id,
+        )
+
+        if not subclasses:
+            return False
+
+        return any(
+            self._can_apply_any_rule(
+                self.rights.update_rules(
+                    subclass_id,
+                ),
+                context,
+            )
+            for subclass_id in subclasses
         )

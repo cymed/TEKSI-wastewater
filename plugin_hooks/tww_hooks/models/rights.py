@@ -9,6 +9,50 @@ from .rulesets import CrudRules, ResolvedCrudRules, StateTransitionRule
 from .canonical_object import CanonicalObjectIdentity
 
 
+@dataclass(slots=True, frozen=True)
+class ResolvedRights:
+    """
+    Fully resolved rights configuration.
+
+    This object aggregates all resolver outputs required by runtime
+    capabilities and evaluators.
+    """
+
+    classes: Mapping[
+        str,
+        ResolvedClassDefinition,
+    ] = field(
+        metadata={
+            "doc": (
+                "Resolved class definitions keyed by canonical "
+                "class identifier."
+            )
+        },
+    )
+
+    derived_rights: Mapping[
+        str,
+        tuple[DerivedRights, ...],
+    ] = field(
+        metadata={
+            "doc": (
+                "Rights derivation definitions keyed by canonical "
+                "class identifier."
+            )
+        },
+    )
+
+    subclass_rights: Mapping[
+        str,
+        tuple[str, ...],
+    ] = field(
+        metadata={
+            "doc": (
+                "Subclass rights mappings keyed by canonical parent "
+                "class identifier."
+            )
+        },
+    )
 
 @dataclass(slots=True)
 class RightsDefinition:
@@ -301,7 +345,7 @@ class DerivedRights:
 
 
 @dataclass(slots=True, frozen=True)
-class ResolvedDerivedRights:
+class CanonicalDerivedRights:
     """
     Result of a derived-rights resolution.
 

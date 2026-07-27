@@ -11,6 +11,7 @@ from ..models.rights import (
     ResolvedClassDefinition,
     DerivedRights,
 )
+
 from ..models.rulesets import (
     CrudRules,
     InheritRule,
@@ -233,6 +234,48 @@ class RightsResolver:
             ),
         )
 
+    def resolve_subclass_rights(
+        self,
+        definition: RightsDefinition,
+    ) -> Mapping[
+        str,
+        tuple[str, ...],
+    ]:
+        """
+        Resolve subclass-based rights inheritance.
+
+        Returns a mapping of parent class identifiers to child classes whose
+        rights should be considered during authorization evaluation.
+        """
+
+        subclasses: dict[
+            str,
+            list[str],
+        ] = {}
+
+        for child in definition.classes.values():
+            if not child.superclass_id:
+                continue
+
+            if not child.rights_from_subclass:
+                continue
+
+            subclasses.setdefault(
+                child.superclass_id,
+                [],
+            ).append(
+                child.id,
+            )
+
+        return {
+            parent_class: tuple(
+                child_classes,
+            )
+            for (
+                parent_class,
+                child_classes,
+            ) in subclasses.items()
+        }
 
     def resolve_derived_rights(
         self,

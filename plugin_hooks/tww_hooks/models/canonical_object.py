@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 
@@ -26,12 +27,8 @@ class CanonicalObjectIdentity:
             )
         },
     )
-
 @dataclass(slots=True, frozen=True)
 class CanonicalObject:
-    """
-    Canonical TWW object.
-    """
 
     identity: CanonicalObjectIdentity = field(
         metadata={
@@ -46,6 +43,15 @@ class CanonicalObject:
         metadata={
             "doc": (
                 "Canonical attribute values."
+            )
+        },
+    )
+
+    last_modification: datetime | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Current last_modification value."
             )
         },
     )

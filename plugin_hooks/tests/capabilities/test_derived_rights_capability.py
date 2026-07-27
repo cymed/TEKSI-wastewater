@@ -5,7 +5,7 @@ def test_derived_rights_capability_returns_networkelement_definition(
     derived_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        classes=derived_rights,
+        rights=derived_rights,
     )
 
     definitions = capability.derived_rights(
@@ -35,7 +35,7 @@ def test_derived_rights_capability_returns_reach_point_definitions(
     derived_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        classes=derived_rights,
+        rights=derived_rights,
     )
 
     definitions = capability.derived_rights(
@@ -70,7 +70,7 @@ def test_derived_rights_capability_returns_multiple_sources(
     derived_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        classes=derived_rights,
+        rights=derived_rights,
     )
 
     definitions = capability.derived_rights(
@@ -86,7 +86,7 @@ def test_derived_rights_capability_try_returns_none_for_unknown_class(
     derived_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        classes=derived_rights,
+        rights=derived_rights,
     )
 
     assert capability.try_derived_rights(
@@ -98,7 +98,7 @@ def test_derived_rights_capability_raises_for_unknown_class(
     derived_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        classes=derived_rights,
+        rights=derived_rights,
     )
 
     try:

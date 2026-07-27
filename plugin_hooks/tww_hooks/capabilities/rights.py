@@ -1,14 +1,22 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from ..models.rights import ResolvedClassDefinition, AttributeDefinition
 from ..models.privilege import Privilege
-from ..models.validation import TransitionValidation, AttributeValidation
-from ..models.rulesets import Rule, ResolvedCrudRules
 from ..models.rights import (
-    ResolvedClassDefinition,
+    AttributeDefinition,
     DerivedRights,
+    ResolvedClassDefinition,
+    ResolvedRights,
 )
+from ..models.rulesets import (
+    ResolvedCrudRules,
+    Rule,
+)
+from ..models.validation import (
+    AttributeValidation,
+    TransitionValidation,
+)
+
 
 @dataclass(slots=True, frozen=True)
 class RightsCapability:
@@ -28,15 +36,14 @@ class RightsCapability:
     - Which validations exist for attribute Z?
     """
 
-    classes: Mapping[str, ResolvedClassDefinition] = field(
+    rights: ResolvedRights = field(
         metadata={
             "doc": (
-                "Resolved class definitions keyed by canonical class "
-                "identifier."
+                "Fully resolved runtime rights configuration."
             )
         },
     )
-
+    
     def class_definition(
         self,
         class_id: str,
@@ -51,7 +58,7 @@ class RightsCapability:
         """
 
         try:
-            return self.classes[class_id]
+            return self.rights.classes[class_id]
         except KeyError as exc:
             raise KeyError(
                 f"Unknown class: {class_id}"
@@ -65,7 +72,7 @@ class RightsCapability:
         Return the resolved class definition if it exists, otherwise `None`.
         """
 
-        return self.classes.get(class_id)
+        return self.rights.classes.get(class_id)
 
     def attribute_definition(
         self,
@@ -286,7 +293,6 @@ class RightsCapability:
             class_id,
         ).crud_rules.delete_rules
 
-
 @dataclass(slots=True, frozen=True)
 class DerivedRightsCapability:
     """
@@ -295,15 +301,10 @@ class DerivedRightsCapability:
     This capability exposes relationships through which rights may be
     inherited from related canonical objects.
     """
-
-    classes: Mapping[
-        str,
-        tuple[DerivedRights, ...],
-    ] = field(
+    rights: ResolvedRights = field(
         metadata={
             "doc": (
-                "Rights-derivation definitions keyed by canonical class "
-                "identifier."
+                "Fully resolved runtime rights configuration."
             )
         },
     )
@@ -322,7 +323,7 @@ class DerivedRightsCapability:
         """
 
         try:
-            return self.classes[class_id]
+            return self.rights.derived_rights[class_id]
         except KeyError as exc:
             raise KeyError(
                 f"Unknown class: {class_id}"
@@ -338,6 +339,60 @@ class DerivedRightsCapability:
         Returns `None` if the class is unknown.
         """
 
-        return self.classes.get(
+        return self.rights.derived_rights.get(
+            class_id,
+        )
+
+@dataclass(slots=True, frozen=True)
+class SubclassRightsCapability:
+    """
+    Runtime lookup capability for subclass-based rights inheritance.
+
+    The capability exposes child classes whose rights may be considered
+    when evaluating permissions on a parent class.
+    """
+
+    rights: ResolvedRights = field(
+        metadata={
+            "doc": (
+                "Fully resolved runtime rights configuration."
+            )
+        },
+    )
+
+    def subclasses(
+        self,
+        class_id: str,
+    ) -> tuple[str, ...]:
+        """
+        Return subclasses contributing rights to the supplied class.
+
+        Raises
+        ------
+        KeyError
+            If the class is unknown.
+        """
+
+        try:
+            return self.rights.subclass_rights[class_id]
+        except KeyError as exc:
+            raise KeyError(
+                f"Unknown class: {class_id}"
+            ) from exc
+
+    def try_subclasses(
+        self,
+        class_id: str,
+    ) -> tuple[str, ...] | None:
+        """
+        Return subclasses if the class exists.
+
+        Returns
+        -------
+        tuple[str, ...] | None
+            Contributing subclasses or `None` if the class is unknown.
+        """
+
+        return self.rights.subclass_rights.get(
             class_id,
         )

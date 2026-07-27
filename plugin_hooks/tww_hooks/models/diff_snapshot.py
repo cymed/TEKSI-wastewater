@@ -118,7 +118,5 @@ class DiffSnapshot:
 
 @dataclass(slots=True, frozen=True)
 class SnapshotValidationFinding:
-
     identity: CanonicalObjectIdentity
-
     state: SnapshotState
