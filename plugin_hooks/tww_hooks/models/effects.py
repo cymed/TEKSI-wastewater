@@ -28,7 +28,6 @@ class EffectSource:
 class Effect:
     kind: EffectKind = field(
         default=EffectKind.UPDATE_ATTRIBUTE,
-        init=False,
     )
 
 @dataclass(slots=True, frozen=True)

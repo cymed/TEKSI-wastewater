@@ -217,10 +217,8 @@ class DictionaryMappingCapability:
         self._table_mapping = self._load_table_mapping()
         self._attribute_mapping = self._load_attribute_mapping()
         self._value_mapping = self._load_value_mapping()
-
-        self.model_mapping = self._load_model_mapping()
  
-    def class_definition_for_ili(
+    def class_mapping_for_ili(
         self,
         ili_name: str,
     ) -> str:
@@ -240,7 +238,7 @@ class DictionaryMappingCapability:
 
         return self._table_mapping[ili_name]
 
-    def attribute_definition_for_ili(
+    def attribute_mapping_for_ili(
         self,
         ili_class: str,
         ili_attribute: str,
@@ -267,7 +265,7 @@ class DictionaryMappingCapability:
                 (ili_class, ili_attribute)
             ]
 
-    def attribute_value_for_ili(
+    def value_mapping_for_ili(
         self,
         ili_class: str,
         ili_attribute: str,
@@ -298,16 +296,6 @@ class DictionaryMappingCapability:
         raise NotImplementedError(
             "Value mapping is not implemented yet."
         )
-
-
-    def value_for_source(
-        self,
-        *,
-        tww_class_id: str,
-        tww_attr_id: str,
-        source_value: str,
-    ) -> ValueMapping | None:
-        pass
     
     def _load_table_mapping(self):
         """
@@ -332,8 +320,7 @@ class DictionaryMappingCapability:
             ili_name: tablename
             for ili_name, tablename in rows
         }
-
-    
+ 
     def _load_attribute_mapping(self):
         """
         Load INTERLIS attribute to canonical TWW field mappings.
@@ -382,7 +369,6 @@ class DictionaryMappingCapability:
             )
 
         return mapping
-
     
     def _load_value_mapping(self):
         """
