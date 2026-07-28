@@ -57,7 +57,7 @@ def test_relation_context_provider_uses_dictionary_mapping_for_dss(
     )
 
     provider = TwwRelationContextProvider(
-        ili_model="DSS_2020_V1",
+        ili_model="DSS_2020_1_LV95",
         dictionary_mapping=dictionary_mapping,
         model_mapping=empty_model_mapping,
     )
@@ -74,7 +74,7 @@ def test_relation_context_provider_uses_dictionary_mapping_for_dss(
         "wastewater_node"
     )
 
-    dictionary_mapping.class_definition_for_ili.assert_called_once_with(
+    dictionary_mapping.class_mapping_for_ili.assert_called_once_with(
         "FakeRelation",
     )
 
@@ -117,7 +117,7 @@ def test_relation_context_provider_prefers_explicit_agxx_mapping(
         "agxx_wastewater_node"
     )
 
-    dictionary_mapping.class_definition_for_ili.assert_not_called()
+    dictionary_mapping.class_mapping_for_ili.assert_not_called()
 
 
 def test_relation_context_provider_falls_back_to_dictionary_for_unmapped_agxx_class(
@@ -150,7 +150,7 @@ def test_relation_context_provider_falls_back_to_dictionary_for_unmapped_agxx_cl
         "wastewater_node"
     )
 
-    dictionary_mapping.class_definition_for_ili.assert_called_once_with(
+    dictionary_mapping.class_mapping_for_ili.assert_called_once_with(
         "FakeRelation",
     )
 

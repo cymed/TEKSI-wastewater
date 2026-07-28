@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from typing import Any
 from collections.abc import Mapping, Sequence
 
-from __future__ import annotations
-
 from ..models.canonical_object import (
     CanonicalObject,
     CanonicalObjectIdentity,

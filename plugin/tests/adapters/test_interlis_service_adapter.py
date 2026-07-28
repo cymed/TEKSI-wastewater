@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from teksi_wastewater.hooks_adapters.tww_interlis_service_adapter import TwwInterlisServiceAdapter
+from teksi_hooks.services import InterlisContext
+
 
 class FakeInterlisImporterExporter:
     def __init__(self):
@@ -19,8 +23,13 @@ def test_interlis_service_adapter_delegates_import():
         importer_exporter=fake,
     )
 
+
+
     adapter.import_xtf(
-        xtf_file="/tmp/input.xtf",
+        xtf_file=Path("/tmp/input.xtf"),
+        context=InterlisContext(
+            schema="test",
+        ),
     )
 
     assert fake.import_calls == [
