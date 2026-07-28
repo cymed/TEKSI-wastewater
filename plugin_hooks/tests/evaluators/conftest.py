@@ -1,3 +1,5 @@
+from typing import Sequence
+
 import pytest
 from tww_hooks.capabilities.relation_lookup import RelationLookupCapability
 
