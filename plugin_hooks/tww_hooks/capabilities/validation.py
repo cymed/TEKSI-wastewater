@@ -6,9 +6,9 @@ from datetime import datetime
 from ..models.validation import (
     ValidationContext,
     ValidationFinding,
-    ValidationSeverity,
     AttributeValidation
 )
+from tww_hooks.exceptions import Severity
 
 
 @dataclass(slots=True)
@@ -38,7 +38,7 @@ class ValidationResult:
 
     def add(
         self,
-        severity: ValidationSeverity,
+        severity: Severity,
         message: str,
     ) -> None:
         """
@@ -61,7 +61,7 @@ class ValidationResult:
         """
 
         self.add(
-            ValidationSeverity.ERROR,
+            Severity.ERROR,
             message,
         )
 
@@ -74,7 +74,7 @@ class ValidationResult:
         """
 
         self.add(
-            ValidationSeverity.WARNING,
+            Severity.WARNING,
             message,
         )
 
@@ -87,13 +87,13 @@ class ValidationResult:
         """
 
         self.add(
-            ValidationSeverity.INFO,
+            Severity.INFO,
             message,
         )
 
     def has(
         self,
-        severity: ValidationSeverity,
+        severity: Severity,
     ) -> bool:
         """
         Return whether at least one finding with the given severity exists.
@@ -113,7 +113,7 @@ class ValidationResult:
         """
 
         return self.has(
-            ValidationSeverity.ERROR,
+            Severity.ERROR,
         )
 
 class ValidationRegistry:

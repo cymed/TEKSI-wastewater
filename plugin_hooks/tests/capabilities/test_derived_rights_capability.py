@@ -2,10 +2,10 @@ from tww_hooks.capabilities.rights import DerivedRightsCapability
 
 
 def test_derived_rights_capability_returns_networkelement_definition(
-    derived_rights,
+    resolved_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        rights=derived_rights,
+        rights=resolved_rights,
     )
 
     definitions = capability.derived_rights(
@@ -32,10 +32,10 @@ def test_derived_rights_capability_returns_networkelement_definition(
 
 
 def test_derived_rights_capability_returns_reach_point_definitions(
-    derived_rights,
+    resolved_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        rights=derived_rights,
+        rights=resolved_rights,
     )
 
     definitions = capability.derived_rights(
@@ -67,10 +67,10 @@ def test_derived_rights_capability_returns_reach_point_definitions(
 
 
 def test_derived_rights_capability_returns_multiple_sources(
-    derived_rights,
+    resolved_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        rights=derived_rights,
+        rights=resolved_rights,
     )
 
     definitions = capability.derived_rights(
@@ -83,10 +83,10 @@ def test_derived_rights_capability_returns_multiple_sources(
 
 
 def test_derived_rights_capability_try_returns_none_for_unknown_class(
-    derived_rights,
+    resolved_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        rights=derived_rights,
+        rights=resolved_rights,
     )
 
     assert capability.try_derived_rights(
@@ -95,10 +95,10 @@ def test_derived_rights_capability_try_returns_none_for_unknown_class(
 
 
 def test_derived_rights_capability_raises_for_unknown_class(
-    derived_rights,
+    resolved_rights,
 ) -> None:
     capability = DerivedRightsCapability(
-        rights=derived_rights,
+        rights=resolved_rights,
     )
 
     try:

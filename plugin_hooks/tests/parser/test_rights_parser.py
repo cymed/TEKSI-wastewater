@@ -8,8 +8,7 @@ from tww_hooks.models.rulesets import (
     OwnershipRule,
     PrivilegeRule,
 )
-from tww_hooks.models.conditions import LocalCondition
-from tww_hooks.models.validation import ValidationSeverity
+from tww_hooks.models.conditions import LocalConditionfrom tww_hooks.exceptions import Severity
 
 
 def test_rights_parser_imports_minimal_yaml(rights_definition) -> None:
@@ -30,7 +29,7 @@ def test_rights_parser_imports_minimal_yaml(rights_definition) -> None:
     ][0]
 
     assert last_modification_rule.id == "newer_than_existing"
-    assert last_modification_rule.level == ValidationSeverity.INFO
+    assert last_modification_rule.level == Severity.INFO
 
 
 def test_rights_parser_imports_defaults(rights_definition) -> None:

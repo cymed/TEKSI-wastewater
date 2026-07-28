@@ -16,6 +16,8 @@ from ..models.effects import (
     EnforceNotExistsEffect,
 )
 
+from ..models.canonical_object import CanonicalObjectIdentity
+
 
 @dataclass(slots=True)
 class EffectParser:
@@ -81,8 +83,19 @@ class EffectParser:
     ) -> EffectSource:
         return EffectSource(
             model=data["model"],
-            class_id=data["class"],
+            class_id=data["class_id"],
             object_id=data["object_id"],
+        )
+
+    def _parse_identity(
+        self,
+        data: dict[str, Any],
+    ) -> CanonicalObjectIdentity:
+        identity = data["identity"]
+
+        return CanonicalObjectIdentity(
+            class_id=identity["class_id"],
+            attributes=identity["attributes"],
         )
 
     def _parse_effect(
@@ -93,22 +106,29 @@ class EffectParser:
 
         if kind == "update_attribute":
             return UpdateAttributeEffect(
-                tww_class_id=data["tww_class_id"],
-                tww_identity=data["tww_identity"],
-                tww_attribute_id=data["tww_attribute_id"],
-                value=data.get("value"),
+                identity=self._parse_identity(
+                    data,
+                ),
+                tww_attribute_id=data[
+                    "tww_attribute_id"
+                ],
+                value=data.get(
+                    "value",
+                ),
             )
 
         if kind == "enforce_exists":
             return EnforceExistsEffect(
-                tww_class_id=data["tww_class_id"],
-                tww_identity=data["tww_identity"],
+                identity=self._parse_identity(
+                    data,
+                ),
             )
 
         if kind == "enforce_not_exists":
             return EnforceNotExistsEffect(
-                tww_class_id=data["tww_class_id"],
-                tww_identity=data["tww_identity"],
+                identity=self._parse_identity(
+                    data,
+                ),
             )
 
         raise ValueError(

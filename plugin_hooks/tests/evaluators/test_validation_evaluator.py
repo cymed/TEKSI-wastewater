@@ -1,4 +1,5 @@
 
+from unittest.mock import Mock
 import pytest
 
 from tww_hooks.capabilities.rights import RightsCapability
@@ -11,9 +12,65 @@ from tww_hooks.models.validation import (
     AttributeValidation,
     ValidationContext,
     ValidationFinding,
-    ValidationSeverity,
 )
 
+from tww_hooks.capabilities.validation import (
+    ValidationRegistry,
+)
+from tww_hooks.models.canonical_object import (
+    CanonicalObject,
+    CanonicalObjectIdentity,
+)
+from tww_hooks.models.effects import (
+    UpdateAttributeEffect,
+)
+from tww_hooks.services.change_builder import (
+    ChangeBuilder,
+)
+
+from tww_hooks.exceptions import Severity
+
+def test_validation_evaluator_uses_registry(
+    resolved_rights,
+) -> None:
+    registry = Mock(
+        spec=ValidationRegistry,
+    )
+
+    validator = Mock(
+        return_value=(
+            ValidationFinding(
+                code="test",
+                severity=Severity.WARNING,
+                message="test",
+                attribute_name="status_survey_year",
+            ),
+        )
+    )
+
+    registry.validation.return_value = validator
+
+    evaluator = ValidationEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        registry=registry,
+    )
+
+    findings = evaluator.validate_attribute(
+        class_id="wastewater_structure",
+        attribute_name="status_survey_year",
+        old_value=2024,
+        new_value=2020,
+    )
+
+    registry.validation.assert_called_once_with(
+        "cannot_decrease",
+    )
+
+    validator.assert_called_once()
+
+    assert len(findings) == 1
 
 def test_validation_evaluator_accepts_allowed_transition(
     resolved_rights,
@@ -167,7 +224,7 @@ def test_validation_evaluator_uses_transitive_transition_flag(
     def test_validation_finding_is_created() -> None:
         finding = ValidationFinding(
             code="newer_than_existing",
-            severity=ValidationSeverity.WARNING,
+            severity=Severity.WARNING,
             message="Value is older than existing value.",
             attribute_name="status",
         )
@@ -179,7 +236,7 @@ def test_validation_evaluator_accepts_newer_than_existing(
 ) -> None:
     validation = AttributeValidation(
         id="newer_than_existing",
-        level=ValidationSeverity.WARNING,
+        level=Severity.WARNING,
     )
 
     findings = registry.validation(
@@ -200,7 +257,7 @@ def test_validation_evaluator_rejects_older_than_existing(
 ) -> None:
     validation = AttributeValidation(
         id="newer_than_existing",
-        level=ValidationSeverity.WARNING,
+        level=Severity.WARNING,
     )
 
     findings = registry.validation(
@@ -225,7 +282,7 @@ def test_validation_evaluator_accepts_non_decreasing_value(
 ) -> None:
     validation = AttributeValidation(
         id="cannot_decrease",
-        level=ValidationSeverity.WARNING,
+        level=Severity.WARNING,
     )
 
     findings = registry.validation(
@@ -246,7 +303,7 @@ def test_validation_evaluator_rejects_decreasing_value(
 ) -> None:
     validation = AttributeValidation(
         id="cannot_decrease",
-        level=ValidationSeverity.WARNING,
+        level=Severity.WARNING,
     )
 
     findings = registry.validation(
@@ -307,7 +364,7 @@ def test_validation_evaluator_executes_cannot_decrease(
 
     assert (
         findings[0].severity
-        == ValidationSeverity.WARNING
+        == Severity.WARNING
     )
 
 def test_validation_evaluator_accepts_non_decreasing_value(
@@ -326,6 +383,97 @@ def test_validation_evaluator_accepts_non_decreasing_value(
         attribute_name="status_survey_year",
         old_value=2020,
         new_value=2024,
+    )
+
+    assert findings == ()
+
+
+def test_validation_evaluator_validates_change(
+    resolved_rights,
+    registry,
+) -> None:
+    current = CanonicalObject(
+        identity=CanonicalObjectIdentity(
+            class_id="wastewater_structure",
+            attributes={
+                "obj_id": "ch987654WS123456",
+            },
+        ),
+        values={
+            "status_survey_year": 2024,
+        },
+    )
+
+    change = ChangeBuilder().build(
+        current_object=current,
+        effects=(
+            UpdateAttributeEffect(
+                identity=current.identity,
+                tww_attribute_id="status_survey_year",
+                value=2020,
+            ),
+        ),
+    )
+
+    findings = ValidationEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        registry=registry,
+    ).validate_change(
+        class_id="wastewater_structure",
+        change=change,
+    )
+
+    assert len(findings) == 1
+
+    finding = findings[0]
+
+    assert (
+        finding.code
+        == "cannot_decrease"
+    )
+
+    assert (
+        finding.attribute_name
+        == "status_survey_year"
+    )
+
+def test_validation_evaluator_accepts_valid_change(
+    resolved_rights,
+    registry,
+) -> None:
+    current = CanonicalObject(
+        identity=CanonicalObjectIdentity(
+            class_id="wastewater_structure",
+            attributes={
+                "obj_id": "ch987654WS123456",
+            },
+        ),
+        values={
+            "status_survey_year": 2020,
+        },
+    )
+
+    change = ChangeBuilder().build(
+        current_object=current,
+        effects=(
+            UpdateAttributeEffect(
+                identity=current.identity,
+                tww_attribute_id="status_survey_year",
+                value=2024,
+            ),
+        ),
+    )
+
+    findings = ValidationEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        registry=registry,
+    ).validate_change(
+        class_id="wastewater_structure",
+        change=change,
     )
 
     assert findings == ()

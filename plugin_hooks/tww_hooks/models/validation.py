@@ -7,6 +7,7 @@ from typing import Any
 
 from .privilege import Privilege
 from .rulesets import StateTransitionRule
+from ..exceptions import Severity, Finding
 
 
 
@@ -202,17 +203,9 @@ class ChangeOperation(StrEnum):
     UPDATE = "update"
     DELETE = "delete"
 
-class ValidationSeverity(StrEnum):
-    """
-    Severity levels used by validation findings.
-    """
-
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
 
 @dataclass(slots=True, frozen=True)
-class ValidationFinding:
+class ValidationFinding(Finding):
     """
     One validation finding emitted during validation.
     """
@@ -221,22 +214,6 @@ class ValidationFinding:
         metadata={
             "doc": (
                 "Stable machine-readable validation identifier."
-            )
-        },
-    )
-
-    severity: ValidationSeverity = field(
-        metadata={
-            "doc": (
-                "Severity level assigned to the finding."
-            )
-        },
-    )
-
-    message: str = field(
-        metadata={
-            "doc": (
-                "Human-readable description of the validation issue."
             )
         },
     )
@@ -270,7 +247,7 @@ class AttributeValidation:
         },
     )
 
-    level: ValidationSeverity = field(
+    level: Severity = field(
         metadata={
             "doc": (
                 "Severity emitted when this validation produces a finding."

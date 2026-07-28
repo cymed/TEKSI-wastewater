@@ -21,9 +21,11 @@ def test_parse_update_attribute_effect() -> None:
           "effects": [
             {
               "kind": "update_attribute",
-              "tww_class_id": "agxx_wastewater_node",
-              "tww_identity": {
-                "fk_wastewater_node": "ch123456AG987654"
+              "identity": {
+                "class_id": "agxx_wastewater_node",
+                "attributes": {
+                  "fk_wastewater_node": "ch123456AG987654"
+                }
               },
               "tww_attribute_id": "ag64_function",
               "value": 1234
@@ -45,7 +47,13 @@ def test_parse_update_attribute_effect() -> None:
         UpdateAttributeEffect,
     )
 
-    assert effect.tww_class_id == "agxx_wastewater_node"
+
+    assert effect.identity == {
+        "class_id": "agxx_wastewater_node",
+        "attributes": {
+            "fk_wastewater_node": "ch123456AG987654"
+          }
+        }
     assert effect.tww_attribute_id == "ag64_function"
     assert effect.value == 1234
 
@@ -65,9 +73,11 @@ def test_parse_enforce_exists_effect() -> None:
           "effects": [
             {
               "kind": "enforce_exists",
-              "tww_class_id": "agxx_wastewater_node",
-              "tww_identity": {
-                "fk_wastewater_node": "ch123456AG987654"
+              "identity": {
+                "class_id": "agxx_wastewater_node",
+                "attributes": {
+                  "fk_wastewater_node": "ch123456AG987654"
+                }
               }
             }
           ]
@@ -82,10 +92,12 @@ def test_parse_enforce_exists_effect() -> None:
         EnforceExistsEffect,
     )
 
-    assert effect.tww_class_id == "agxx_wastewater_node"
-    assert effect.tww_identity == {
-        "fk_wastewater_node": "ch123456AG987654",
-    }
+    assert effect.identity == {
+        "class_id": "agxx_wastewater_node",
+        "attributes": {
+            "fk_wastewater_node": "ch123456AG987654"
+          }
+        }
 
 
 def test_parse_enforce_not_exists_effect() -> None:
@@ -101,11 +113,13 @@ def test_parse_enforce_not_exists_effect() -> None:
             "object_id": "ch123456AG987654"
           },
           "effects": [
-            {
+           {
               "kind": "enforce_not_exists",
-              "tww_class_id": "agxx_wastewater_node",
-              "tww_identity": {
-                "fk_wastewater_node": "ch123456AG987654"
+              "identity": {
+                "class_id": "agxx_wastewater_node",
+                "attributes": {
+                  "fk_wastewater_node": "ch123456AG987654"
+                }
               }
             }
           ]
@@ -120,7 +134,13 @@ def test_parse_enforce_not_exists_effect() -> None:
         EnforceNotExistsEffect,
     )
 
-    assert effect.tww_class_id == "agxx_wastewater_node"
+
+    assert effect.identity == {
+        "class_id": "agxx_wastewater_node",
+        "attributes": {
+            "fk_wastewater_node": "ch123456AG987654"
+          }
+        }
 
 
 def test_reject_unknown_effect_kind() -> None:

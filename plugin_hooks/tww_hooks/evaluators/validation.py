@@ -6,8 +6,9 @@ from ..capabilities.validation import ValidationRegistry
 from ..models.validation import (
     ValidationContext,
     ValidationFinding,
-    ValidationSeverity,
+    Change,
 )
+from tww_hooks.exceptions import Severity
 
 
 @dataclass(slots=True)
@@ -48,7 +49,7 @@ class ValidationEvaluator:
         return (
             ValidationFinding(
                 code="invalid_transition",
-                severity=ValidationSeverity.ERROR,
+                severity=Severity.ERROR,
                 message=(
                     f"Transition "
                     f"{old_value!r} -> {new_value!r} "
@@ -179,6 +180,46 @@ class ValidationEvaluator:
                     validation=validation,
                     context=context,
                 )
+            )
+
+        return tuple(
+            findings,
+        )
+
+    def validate_change(
+        self,
+        *,
+        class_id: str,
+        change: Change,
+    ) -> tuple[
+        ValidationFinding,
+        ...
+    ]:
+        findings: list[
+            ValidationFinding
+        ] = []
+
+        for attribute_change in change.changed_attributes:
+            findings.extend(
+                self.validate_attribute(
+                    class_id=class_id,
+                    attribute_name=attribute_change.attribute_name,
+                    old_value=attribute_change.old_value,
+                    new_value=attribute_change.new_value,
+                )
+            )
+
+            if self.rights.try_transition_rules(
+                class_id,
+                attribute_change.attribute_name,
+            ):
+                findings.extend(
+                    self.validate_transition(
+                        class_id=class_id,
+                        attribute_name=attribute_change.attribute_name,
+                        old_value=attribute_change.old_value,
+                        new_value=attribute_change.new_value,
+                    )
             )
 
         return tuple(

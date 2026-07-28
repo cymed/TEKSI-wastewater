@@ -33,8 +33,8 @@ from ..models.rulesets import (
 from ..models.validation import (
     AttributeValidation,
     TransitionValidation,
-    ValidationSeverity,
 )
+from tww_hooks.exceptions import Severity
 
 
 @dataclass(slots=True)
@@ -457,7 +457,7 @@ class RightsParser:
         return [
             AttributeValidation(
                 id=raw["id"],
-                level=ValidationSeverity(
+                level=Severity(
                     raw["level"],
                 ),
             )

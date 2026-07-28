@@ -28,18 +28,38 @@ Example
      "version": 1,
      "source": {
        "model": "agxx",
-       "class": "GepKnoten",
+       "class_id": "GepKnoten",
        "object_id": "ch123456AG987654"
      },
      "effects": [
-       {
-         "kind": "update_attribute",
-         "tww_class_id": "agxx_wastewater_node",
-         "tww_identity": {
-           "fk_wastewater_node": "ch123456AG987654"
-         },
-         "tww_attribute_id": "ag64_function",
-         "value_id": 1234
-       }
+        {
+          "kind": "update_attribute",
+          "identity": {
+            "class_id": "agxx_wastewater_node",
+            "attributes": {
+              "fk_wastewater_node": "ch123456AG987654"
+            }
+          },
+          "tww_attribute_id": "ag64_function",
+          "value": 1234
+        },
+        {
+          "kind": "enforce_exists",
+          "identity": {
+            "class_id": "agxx_wastewater_node",
+            "attributes": {
+              "fk_wastewater_node": "ch123456AG876543"
+            }
+          }
+        },
+        {
+          "kind": "enforce_not_exists",
+          "identity": {
+            "class_id": "agxx_wastewater_node",
+            "attributes": {
+              "fk_wastewater_node": "ch123456AG765432"
+            }
+          }
+        }
      ]
    }

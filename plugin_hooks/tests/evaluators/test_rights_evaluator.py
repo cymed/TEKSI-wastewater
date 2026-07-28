@@ -335,14 +335,10 @@ def test_rights_evaluator_inherits_update_rights_from_subclass(
         ),
         conditions=ConditionsCapability(),
         derived_rights=DerivedRightsCapability(
-            classes={},
+            rights=resolved_rights,
         ),
         subclass_rights=SubclassRightsCapability(
-            parent_classes={
-                "maintenance_event": (
-                    "maintenance",
-                ),
-            },
+            rights=resolved_rights,
         ),
     )
 

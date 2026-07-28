@@ -10,33 +10,33 @@ from tww_hooks.models.rulesets import ResolvedCrudRules
 def test_rights_resolver_resolves_classes(
     resolved_rights,
 ) -> None:
-    assert "wastewater_structure" in resolved_rights
-    assert "wastewater_networkelement" in resolved_rights
-    assert "wastewater_node" in resolved_rights
-    assert "maintenance" in resolved_rights
-    assert "pipe_profile" in resolved_rights
+    assert "wastewater_structure"in resolved_rights.classes
+    assert "wastewater_networkelement"in resolved_rights.classes
+    assert "wastewater_node"in resolved_rights.classes
+    assert "maintenance"in resolved_rights.classes
+    assert "pipe_profile"in resolved_rights.classes
 
 
 def test_rights_resolver_returns_resolved_crud_rules(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["wastewater_structure"]
+    resolved = resolved_rights.classes["wastewater_structure"]
 
     assert isinstance(
-        cls.crud_rules,
+        resolved.crud_rules,
         ResolvedCrudRules,
     )
 
     assert isinstance(
-        cls.crud_rules.create_rules,
+        resolved.crud_rules.create_rules,
         tuple,
     )
     assert isinstance(
-        cls.crud_rules.update_rules,
+        resolved.crud_rules.update_rules,
         tuple,
     )
     assert isinstance(
-        cls.crud_rules.delete_rules,
+        resolved.crud_rules.delete_rules,
         tuple,
     )
 
@@ -44,29 +44,29 @@ def test_rights_resolver_returns_resolved_crud_rules(
 def test_rights_resolver_expands_inherit_rules(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["wastewater_structure"]
+    resolved = resolved_rights.classes["wastewater_structure"]
 
-    assert len(cls.crud_rules.create_rules) == 2
-    assert len(cls.crud_rules.update_rules) == 2
-    assert len(cls.crud_rules.delete_rules) == 2
+    assert len(resolved.crud_rules.create_rules) == 2
+    assert len(resolved.crud_rules.update_rules) == 2
+    assert len(resolved.crud_rules.delete_rules) == 2
 
     assert all(
         not isinstance(rule, InheritRule)
-        for rule in cls.crud_rules.update_rules
+        for rule in resolved.crud_rules.update_rules
     )
 
     assert all(
         not isinstance(rule, InheritRule)
-        for rule in cls.crud_rules.delete_rules
+        for rule in resolved.crud_rules.delete_rules
     )
 
 
 def test_rights_resolver_preserves_privilege_rules(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["wastewater_structure"]
+    resolved = resolved_rights.classes["wastewater_structure"]
 
-    first_rule = cls.crud_rules.create_rules[0]
+    first_rule = resolved.crud_rules.create_rules[0]
 
     assert isinstance(
         first_rule,
@@ -83,11 +83,11 @@ def test_rights_resolver_preserves_privilege_rules(
 def test_rights_resolver_applies_default_create_rules(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["maintenance_event"]
+    resolved = resolved_rights.classes["maintenance_event"]
 
-    assert len(cls.crud_rules.create_rules) == 1
+    assert len(resolved.crud_rules.create_rules) == 1
 
-    rule = cls.crud_rules.create_rules[0]
+    rule = resolved.crud_rules.create_rules[0]
 
     assert isinstance(
         rule,
@@ -99,17 +99,17 @@ def test_rights_resolver_applies_default_create_rules(
 def test_rights_resolver_expands_crud_rules_shortcut(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["pipe_profile"]
+    resolved = resolved_rights.classes["pipe_profile"]
 
-    assert len(cls.crud_rules.create_rules) == 1
-    assert len(cls.crud_rules.read_rules) == 1
-    assert len(cls.crud_rules.update_rules) == 1
-    assert len(cls.crud_rules.delete_rules) == 1
+    assert len(resolved.crud_rules.create_rules) == 1
+    assert len(resolved.crud_rules.read_rules) == 1
+    assert len(resolved.crud_rules.update_rules) == 1
+    assert len(resolved.crud_rules.delete_rules) == 1
 
-    create_rule = cls.crud_rules.create_rules[0]
-    read_rule = cls.crud_rules.read_rules[0]
-    update_rule = cls.crud_rules.update_rules[0]
-    delete_rule = cls.crud_rules.delete_rules[0]
+    create_rule = resolved.crud_rules.create_rules[0]
+    read_rule = resolved.crud_rules.read_rules[0]
+    update_rule = resolved.crud_rules.update_rules[0]
+    delete_rule = resolved.crud_rules.delete_rules[0]
 
     assert isinstance(
         create_rule,
@@ -131,9 +131,9 @@ def test_rights_resolver_expands_crud_rules_shortcut(
 def test_rights_resolver_preserves_attribute_privileges(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["wastewater_structure"]
+    resolved = resolved_rights.classes["wastewater_structure"]
 
-    status = cls.attributes["status"]
+    status = resolved.attributes["status"]
 
     assert status.update_privileges == frozenset(
         {
@@ -146,9 +146,9 @@ def test_rights_resolver_preserves_attribute_privileges(
 def test_rights_resolver_preserves_attribute_transitions(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["wastewater_structure"]
+    resolved = resolved_rights.classes["wastewater_structure"]
 
-    status = cls.attributes["status"]
+    status = resolved.attributes["status"]
 
     assert len(status.transitions) == 1
 
@@ -161,13 +161,13 @@ def test_rights_resolver_preserves_attribute_transitions(
 def test_rights_resolver_preserves_ownership_rules(
     resolved_rights,
 ) -> None:
-    cls = resolved_rights["maintenance"]
+    resolved = resolved_rights.classes["maintenance"]
 
-    assert len(cls.crud_rules.update_rules) == 1
-    assert len(cls.crud_rules.delete_rules) == 1
+    assert len(resolved.crud_rules.update_rules) == 1
+    assert len(resolved.crud_rules.delete_rules) == 1
 
-    update_rule = cls.crud_rules.update_rules[0]
-    delete_rule = cls.crud_rules.delete_rules[0]
+    update_rule = resolved.crud_rules.update_rules[0]
+    delete_rule = resolved.crud_rules.delete_rules[0]
 
     assert isinstance(
         update_rule,
