@@ -19,7 +19,7 @@ from tww_hooks.models.provider import Provider, ResolvedProvider
 from tww_hooks.models.mapping import ModelMapping
 
 from tww_hooks.capabilities.conditions import ConditionsCapability
-from tww_hooks.capabilities.rights import RightsCapability, DerivedRightsCapability
+from tww_hooks.capabilities.rights import RightsCapability, DerivedRightsCapability, SubclassRightsCapability
 from tww_hooks.capabilities.privilege import ResolvedProviderCapability
 from tww_hooks.capabilities.validation import (
     ValidationRegistry,
@@ -95,7 +95,7 @@ def derived_rights(
 def evaluator(
     resolved_rights,
     resolved_providers,
-    derived_rights,
+    relation_lookup,
 ):
     return RightsEvaluator(
         rights=RightsCapability(
@@ -107,8 +107,12 @@ def evaluator(
             ],
         ),
         conditions=ConditionsCapability(),
+        relation_lookup=relation_lookup,
         derived_rights=DerivedRightsCapability(
-            rights=derived_rights,
+            rights=resolved_rights,
+        ),
+        subclass_rights=SubclassRightsCapability(
+            rights=resolved_rights,
         ),
     )
 

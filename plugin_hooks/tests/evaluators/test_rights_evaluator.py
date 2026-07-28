@@ -25,29 +25,8 @@ def test_validation_finding_is_created():
     assert finding.code == "newer_than_existing"
 
 def test_rights_evaluator_allows_attribute_update_with_required_privilege(
-    resolved_rights,
-    resolved_providers,
-    relation_lookup,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000geping01")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-        relation_lookup=relation_lookup,
-
-        derived_rights=DerivedRightsCapability(
-            rights=resolved_rights,
-        ),
-        subclass_rights=SubclassRightsCapability(
-            rights=resolved_rights,
-),
-    )
 
     assert evaluator.can_update_attribute(
         dataowner_oid=Standardoid("ch000000awgde001"),
@@ -57,20 +36,9 @@ def test_rights_evaluator_allows_attribute_update_with_required_privilege(
 
 
 def test_rights_evaluator_rejects_attribute_update_without_required_privilege(
-    resolved_rights,
-    resolved_providers,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000awverbnd")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-    )
+
 
     assert not evaluator.can_update_attribute(
         dataowner_oid=Standardoid("ch000000awverbnd"),
@@ -79,20 +47,8 @@ def test_rights_evaluator_rejects_attribute_update_without_required_privilege(
     )
 
 def test_rights_evaluator_applies_privilege_rule(
-    resolved_rights,
-    resolved_providers,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000geping01")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-    )
 
     rule = PrivilegeRule(
         privileges=frozenset(
@@ -114,21 +70,8 @@ def test_rights_evaluator_applies_privilege_rule(
     )
 
 def test_rights_evaluator_applies_ownership_rule_for_update_using_old_values(
-    resolved_rights,
-    resolved_providers,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000geping01")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-    )
-
     rule = OwnershipRule(
         attribute="fk_provider",
     )
@@ -151,21 +94,8 @@ def test_rights_evaluator_applies_ownership_rule_for_update_using_old_values(
     )
 
 def test_rights_evaluator_can_update_class_with_privilege_rule(
-    resolved_rights,
-    resolved_providers,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000geping01")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-    )
-
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid("ch000000awgde001"),
         provider_oid=Standardoid("ch000000geping01"),
@@ -181,21 +111,8 @@ def test_rights_evaluator_can_update_class_with_privilege_rule(
     )
 
 def test_rights_evaluator_can_update_class_with_ownership_rule(
-    resolved_rights,
-    resolved_providers,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000geping01")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-    )
-
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid("ch000000awgde001"),
         provider_oid=Standardoid("ch000000geping01"),
@@ -330,28 +247,8 @@ def test_rights_evaluator_resolves_derived_rights(
     )
 
 def test_rights_evaluator_inherits_update_rights_from_subclass(
-    resolved_rights,
-    resolved_providers,
-    relation_lookup,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000geping01")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-        derived_rights=DerivedRightsCapability(
-            rights=resolved_rights,
-        ),
-        subclass_rights=SubclassRightsCapability(
-            rights=resolved_rights,
-        ),
-    )
-
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid(
             "ch000000awgde001",
@@ -372,29 +269,8 @@ def test_rights_evaluator_inherits_update_rights_from_subclass(
     )
 
 def test_rights_evaluator_returns_false_without_subclass_mapping(
-    resolved_rights,
-    resolved_providers,
-    relation_lookup,
+    evaluator,
 ) -> None:
-    evaluator = RightsEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        provider=ResolvedProviderCapability(
-            provider=resolved_providers[
-                Standardoid("ch000000geping01")
-            ],
-        ),
-        conditions=ConditionsCapability(),
-        derived_rights=DerivedRightsCapability(
-            classes={},
-        ),
-        relation_lookup=relation_lookup,
-        subclass_rights=SubclassRightsCapability(
-            parent_classes={},
-        ),
-    )
-
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid(
             "ch000000awgde001",

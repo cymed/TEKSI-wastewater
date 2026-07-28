@@ -58,7 +58,7 @@ def test_validator_rejects_unknown_version() -> None:
 
     assert (
         "Unsupported effect document version"
-        in findings[0]
+        in findings[0].message
     )
 
 def test_validator_rejects_missing_identity_attributes() -> None:
@@ -88,7 +88,7 @@ def test_validator_rejects_missing_identity_attributes() -> None:
 
     assert (
         "Effect identity is missing identity attributes."
-        in findings
+        in findings[0].message
     )
 
 def test_validator_rejects_missing_attribute_id() -> None:
@@ -121,7 +121,7 @@ def test_validator_rejects_missing_attribute_id() -> None:
 
     assert (
         "Update effect missing tww_attribute_id."
-        in findings
+        in findings[0].message
     )
 
 def test_validator_rejects_missing_identity_class() -> None:
@@ -154,5 +154,5 @@ def test_validator_rejects_missing_identity_class() -> None:
 
     assert (
         "Effect identity is missing class_id."
-        in findings
+        in findings[0].message
     )
