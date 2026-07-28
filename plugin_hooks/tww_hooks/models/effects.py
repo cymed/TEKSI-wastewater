@@ -18,15 +18,6 @@ class EffectKind(StrEnum):
 @dataclass(slots=True, frozen=True)
 class EffectDocument:
 
-    version: int = field(
-        default=1,
-        metadata={
-            "doc": (
-                "Version of the effect-document contract."
-            )
-        },
-    )
-
     source: EffectSource = field(
         metadata={
             "doc": (
@@ -52,6 +43,16 @@ class EffectDocument:
             )
         },
     )
+
+    version: int = field(
+        default=1,
+        metadata={
+            "doc": (
+                "Version of the effect-document contract."
+            )
+        },
+    )
+
 
 @dataclass(slots=True, frozen=True)
 class EffectSource:

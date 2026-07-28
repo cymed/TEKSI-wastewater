@@ -1,3 +1,4 @@
+import pytest
 from tww_hooks.capabilities.rights import (
     RightsCapability,
     DerivedRightsCapability,
@@ -101,3 +102,39 @@ def test_rights_capability_try_attribute_definition_returns_none(
         "does_not_exist",
     ) is None
 
+def test_rights_capability_returns_transition_rules(
+    resolved_rights,
+) -> None:
+    capability = RightsCapability(
+        rights=resolved_rights,
+    )
+
+    rules = capability.transition_rules(
+        "wastewater_structure",
+        "status",
+    )
+
+    assert rules
+
+    assert any(
+        rule.from_value == "planned"
+        and rule.to_value == "active"
+        for rule in rules
+    )
+
+
+
+def test_rights_capability_rejects_unknown_transition_attribute(
+    resolved_rights,
+) -> None:
+    capability = RightsCapability(
+        rights=resolved_rights,
+    )
+
+    with pytest.raises(
+        KeyError,
+    ):
+        capability.transition_rules(
+            "wastewater_structure",
+            "does_not_exist",
+        )
