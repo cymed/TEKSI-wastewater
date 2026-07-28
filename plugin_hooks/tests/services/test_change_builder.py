@@ -13,6 +13,26 @@ from tww_hooks.models.validation import (
 from tww_hooks.services.change_builder import (
     ChangeBuilder,
 )
+
+
+@pytest.fixture
+def wastewater_structure() -> CanonicalObject:
+    return CanonicalObject(
+        identity=CanonicalObjectIdentity(
+            class_id="wastewater_structure",
+            attributes={
+                "obj_id": "ch987654WS123456",
+            },
+        ),
+        values={
+            "status": "other.planned",
+            "remark": "",
+            "status_survey_year": 2020,
+            "fk_provider": "ch000000geping01",
+        },
+    )
+
+
 def test_change_builder_builds_insert() -> None:
     builder = ChangeBuilder()
 
@@ -43,77 +63,27 @@ def test_change_builder_builds_insert() -> None:
         "status": "operational",
     }
 
-def test_change_builder_builds_update() -> None:
+
+def test_change_builder_builds_update(
+    wastewater_structure,
+) -> None:
     builder = ChangeBuilder()
 
-    current = CanonicalObject(
-        identity=CanonicalObjectIdentity(
-            class_id="wastewater_structure",
-            attributes={
-                "obj_id": "ch987654WS123456",
-            },
-        ),
-        values={
-            "status": "other.planned",
-        },
-    )
-
     change = builder.build(
-        current_object=current,
+        current_object=wastewater_structure,
         effects=(
             UpdateAttributeEffect(
-                identity=current.identity,
-                tww_attribute_id="status",
-                value="operational",
-            ),
-        ),
-    )
-
-    assert (
-        change.operation
-        == ChangeOperation.UPDATE
-    )
-
-    assert change.old_values == {
-        "status": "other.planned",
-    }
-
-    assert change.new_values == {
-        "status": "operational",
-    }
-
-def test_change_builder_applies_multiple_update_effects() -> None:
-    builder = ChangeBuilder()
-
-    current = CanonicalObject(
-        identity=CanonicalObjectIdentity(
-            class_id="wastewater_structure",
-            attributes={
-                "obj_id": "ch987654WS123456",
-            },
-        ),
-        values={
-            "status": "other.planned",
-            "remark": "",
-            "status_survey_year": 2020,
-        },
-    )
-
-    change = builder.build(
-        current_object=current,
-        effects=(
-            UpdateAttributeEffect(
-                identity=current.identity,
+                identity=wastewater_structure.identity,
                 tww_attribute_id="status",
                 value="operational",
             ),
             UpdateAttributeEffect(
-                identity=current.identity,
+                identity=wastewater_structure.identity,
                 tww_attribute_id="remark",
                 value="Survey completed",
             ),
             UpdateAttributeEffect(
-                identity=current.identity,
+                identity=wastewater_structure.identity,
                 tww_attribute_id="status_survey_year",
                 value=2024,
             ),
@@ -125,36 +95,79 @@ def test_change_builder_applies_multiple_update_effects() -> None:
         == ChangeOperation.UPDATE
     )
 
+    assert change.old_values == {
+        "status": "other.planned",
+        "remark": "",
+        "status_survey_year": 2020,
+        "fk_provider": "ch000000geping01",
+    }
+
     assert change.new_values == {
         "status": "operational",
         "remark": "Survey completed",
         "status_survey_year": 2024,
+        "fk_provider": "ch000000geping01",
     }
 
     assert len(
         change.changed_attributes,
     ) == 3
 
-def test_change_builder_populates_changed_attributes() -> None:
+
+def test_change_builder_preserves_unchanged_attributes(
+    wastewater_structure,
+) -> None:
     builder = ChangeBuilder()
 
-    current = CanonicalObject(
-        identity=CanonicalObjectIdentity(
-            class_id="wastewater_structure",
-            attributes={
-                "obj_id": "ch987654WS123456",
-            },
-        ),
-        values={
-            "status": "planned",
-        },
-    )
-
     change = builder.build(
-        current_object=current,
+        current_object=wastewater_structure,
         effects=(
             UpdateAttributeEffect(
-                identity=current.identity,
+                identity=wastewater_structure.identity,
+                tww_attribute_id="status",
+                value="operational",
+            ),
+        ),
+    )
+
+    assert (
+        change.new_values["fk_provider"]
+        == "ch000000geping01"
+    )
+
+    changed_attributes = {
+        attribute_change.attribute_name
+        for attribute_change in change.changed_attributes
+    }
+
+    assert "status" in changed_attributes
+
+    assert (
+        "fk_provider"
+        not in changed_attributes
+    )
+
+    assert (
+        "remark"
+        not in changed_attributes
+    )
+
+    assert (
+        "status_survey_year"
+        not in changed_attributes
+    )
+
+
+def test_change_builder_changed_attributes_contain_expected_values(
+    wastewater_structure,
+) -> None:
+    builder = ChangeBuilder()
+
+    change = builder.build(
+        current_object=wastewater_structure,
+        effects=(
+            UpdateAttributeEffect(
+                identity=wastewater_structure.identity,
                 tww_attribute_id="status",
                 value="operational",
             ),
@@ -178,7 +191,7 @@ def test_change_builder_populates_changed_attributes() -> None:
 
     assert (
         changed.old_value
-        == "planned"
+        == "other.planned"
     )
 
     assert (
@@ -186,51 +199,6 @@ def test_change_builder_populates_changed_attributes() -> None:
         == "operational"
     )
 
-def test_change_builder_preserves_unchanged_attributes() -> None:
-    builder = ChangeBuilder()
-
-    current = CanonicalObject(
-        identity=CanonicalObjectIdentity(
-            class_id="wastewater_structure",
-            attributes={
-                "obj_id": "ch987654WS123456",
-            },
-        ),
-        values={
-            "status": "other.planned",
-            "remark": "",
-            "fk_provider":
-                "ch000000geping01",
-        },
-    )
-
-    change = builder.build(
-        current_object=current,
-        effects=(
-            UpdateAttributeEffect(
-                identity=current.identity,
-                tww_attribute_id="status",
-                value="operational",
-            ),
-        ),
-    )
-
-    assert (
-        change.new_values["fk_provider"]
-        == "ch000000geping01"
-    )
-
-    changed_attributes = {
-        change.attribute_name
-        for change in change.changed_attributes
-    }
-
-    assert "status" in changed_attributes
-
-    assert (
-        "fk_provider"
-        not in changed_attributes
-    )
 
 def test_change_builder_rejects_empty_effects() -> None:
     builder = ChangeBuilder()

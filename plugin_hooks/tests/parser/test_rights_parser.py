@@ -8,7 +8,8 @@ from tww_hooks.models.rulesets import (
     OwnershipRule,
     PrivilegeRule,
 )
-from tww_hooks.models.conditions import LocalConditionfrom tww_hooks.exceptions import Severity
+from tww_hooks.models.conditions import LocalCondition
+from tww_hooks.exceptions import Severity
 
 
 def test_rights_parser_imports_minimal_yaml(rights_definition) -> None:

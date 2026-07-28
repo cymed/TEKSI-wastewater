@@ -10,8 +10,12 @@ from ..models.effects import (
     EnforceExistsEffect,
     EnforceNotExistsEffect,
 )
-from ..models.validation import ValidationFinding,ValidationSeverity
-from ..exceptions import EffectValidationError
+from ..models.validation import ValidationFinding
+from ..models.canonical_object import (
+    CanonicalObjectIdentity,
+)
+
+from ..exceptions import EffectValidationError, Severity
 
 DOCUMENT_MAX_VERSION = 1
 
@@ -35,7 +39,7 @@ class EffectDocumentValidator:
                 findings.append(
                     ValidationFinding(
                     code="invalid_version",
-                    severity=ValidationSeverity.ERROR,
+                    severity=Severity.ERROR,
                     message=(
                         f"Unsupported effect document version: "
                         f"{document.version}"
@@ -48,7 +52,7 @@ class EffectDocumentValidator:
                 findings.append(
                     ValidationFinding(
                     code="missing_attribute",
-                    severity=ValidationSeverity.ERROR,
+                    severity=Severity.ERROR,
                     message=(
                         "Effect identity is missing class_id "
                     ),
@@ -59,7 +63,7 @@ class EffectDocumentValidator:
                 findings.append(
                     ValidationFinding(
                     code="missing_attribute",
-                    severity=ValidationSeverity.ERROR,
+                    severity=Severity.ERROR,
                     message=(
                         "Effect identity is missing identity "
                         "attributes."
@@ -75,7 +79,7 @@ class EffectDocumentValidator:
                     findings.append(
                         ValidationFinding(
                         code="missing_attribute",
-                        severity=ValidationSeverity.ERROR,
+                        severity=Severity.ERROR,
                         message=(
                             "Update effect missing "
                             "tww_attribute_id."
@@ -96,7 +100,7 @@ class EffectDocumentValidator:
                 findings.append(
                     ValidationFinding(
                         code="unsupported_effect",
-                        severity=ValidationSeverity.ERROR,
+                        severity=Severity.ERROR,
                         message=(
                             f"Unsupported effect type: "
                             f"{type(effect).__name__}"
@@ -123,7 +127,7 @@ class EffectDocumentValidator:
         findings: list[ValidationFinding] = []
 
         effects_by_identity: dict[
-            object,
+            CanonicalObjectIdentity,
             list[Effect],
         ] = defaultdict(
             list,
@@ -165,8 +169,8 @@ class EffectDocumentValidator:
                 findings.append(
                     ValidationFinding(
                         code="contradicting_effects",
-                        attribute_name=None
-                        severity=ValidationSeverity.ERROR,
+                        attribute_name=None,
+                        severity=Severity.ERROR,
                         message=(
                             "Object cannot be required to "
                             "exist and to not exist at the "
@@ -179,8 +183,8 @@ class EffectDocumentValidator:
                 findings.append(
                     ValidationFinding(
                         code="contradicting_effects",
-                        attribute_name=None
-                        severity=ValidationSeverity.ERROR,
+                        attribute_name=None,
+                        severity=Severity.ERROR,
                         message=(
                             "Object cannot be updated and "
                             "required to not exist at the "

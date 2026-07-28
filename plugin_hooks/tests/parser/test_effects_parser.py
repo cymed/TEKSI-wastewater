@@ -1,3 +1,4 @@
+import pytest
 from tww_hooks.models.effects import (
     UpdateAttributeEffect,
     EnforceExistsEffect,
@@ -15,7 +16,7 @@ def test_parse_update_attribute_effect() -> None:
           "version": 1,
           "source": {
             "model": "agxx",
-            "class": "GepKnoten",
+            "class_id": "GepKnoten",
             "object_id": "ch123456AG987654"
           },
           "effects": [
@@ -67,7 +68,7 @@ def test_parse_enforce_exists_effect() -> None:
           "version": 1,
           "source": {
             "model": "agxx",
-            "class": "GepKnoten",
+            "class_id": "GepKnoten",
             "object_id": "ch123456AG987654"
           },
           "effects": [
@@ -109,7 +110,7 @@ def test_parse_enforce_not_exists_effect() -> None:
           "version": 1,
           "source": {
             "model": "agxx",
-            "class": "GepKnoten",
+            "class_id": "GepKnoten",
             "object_id": "ch123456AG987654"
           },
           "effects": [
@@ -153,7 +154,7 @@ def test_reject_unknown_effect_kind() -> None:
               "version": 1,
               "source": {
                 "model": "agxx",
-                "class": "GepKnoten",
+                "class_id": "GepKnoten",
                 "object_id": "ch123456AG987654"
               },
               "effects": [
@@ -184,7 +185,7 @@ def test_reject_unsupported_version() -> None:
               "version": 99,
               "source": {
                 "model": "agxx",
-                "class": "GepKnoten",
+                "class_id": "GepKnoten",
                 "object_id": "ch123456AG987654"
               },
               "effects": []
@@ -210,25 +211,25 @@ def test_parse_multiple_effects() -> None:
           "version": 1,
           "source": {
             "model": "agxx",
-            "class": "GepKnoten",
+            "class_id": "GepKnoten",
             "object_id": "ch123456AG987654"
           },
           "effects": [
             {
               "kind": "enforce_exists",
-              "tww_class_id": "agxx_wastewater_node",
-              "tww_identity": {
-                "fk_wastewater_node": "ch123456AG987654"
+              "identity": {
+              "class_id": "agxx_wastewater_node",
+              "attributes": {
+              "fk_wastewater_node": "ch123456AG987654"
               }
             },
             {
               "kind": "update_attribute",
-              "tww_class_id": "agxx_wastewater_node",
-              "tww_identity": {
-                "fk_wastewater_node": "ch123456AG987654"
-              },
-              "tww_attribute_id": "ag64_function",
-              "value": 1234
+              "identity": {
+              "class_id": "agxx_wastewater_node",
+              "attributes": {
+              "fk_wastewater_node": "ch123456AG876543"
+              }
             }
           ]
         }
@@ -248,3 +249,40 @@ def test_parse_multiple_effects() -> None:
         document.effects[1],
         UpdateAttributeEffect,
     )
+
+def test_reject_contradicting_effects() -> None:
+    parser = EffectParser()
+    with pytest.raises(
+        ValueError,
+    ):
+        parser.parse_json(
+        """
+        {
+          "version": 1,
+          "source": {
+            "model": "agxx",
+            "class_id": "GepKnoten",
+            "object_id": "ch123456AG987654"
+          },
+          "effects": [
+            {
+              "kind": "enforce_not_exists",
+              "identity": {
+              "class_id": "agxx_wastewater_node",
+              "attributes": {
+              "fk_wastewater_node": "ch123456AG987654"
+              }
+            },
+            {
+              "kind": "update_attribute",
+              "identity": {
+              "class_id": "agxx_wastewater_node",
+              "attributes": {
+              "fk_wastewater_node": "ch123456AG987654"
+              }
+            }
+          ]
+        }
+        """
+    )
+
