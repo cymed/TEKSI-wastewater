@@ -118,8 +118,8 @@ def test_rights_capability_returns_transition_rules(
     assert rules
 
     assert any(
-        rule.from_value == "planned"
-        and rule.to_value == "active"
+        rule.from_value == "other.planned"
+        and rule.to_value == "operational"
         for rule in rules
     )
 

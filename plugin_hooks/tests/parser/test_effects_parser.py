@@ -232,6 +232,7 @@ def test_parse_multiple_effects() -> None:
               "attributes": {
               "fk_wastewater_node": "ch123456AG987654"
               }
+             }
             },
             {
               "kind": "update_attribute",
@@ -240,6 +241,7 @@ def test_parse_multiple_effects() -> None:
               "attributes": {
               "fk_wastewater_node": "ch123456AG876543"
               }
+             }
             }
           ]
         }
@@ -282,6 +284,7 @@ def test_reject_contradicting_effects() -> None:
               "attributes": {
               "fk_wastewater_node": "ch123456AG987654"
               }
+             }
             },
             {
               "kind": "update_attribute",
@@ -290,6 +293,7 @@ def test_reject_contradicting_effects() -> None:
               "attributes": {
               "fk_wastewater_node": "ch123456AG987654"
               }
+             }
             }
           ]
         }

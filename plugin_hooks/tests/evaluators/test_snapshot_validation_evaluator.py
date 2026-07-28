@@ -16,7 +16,7 @@ from tww_hooks.models.diff_snapshot import (
     SnapshotState,
 )
 
-def test_snapshot_validation_accepts_current_object() -> None:
+def test_snapshot_validation_accepts_current_object(relation_lookup) -> None:
     identity = CanonicalObjectIdentity(
         class_id="wastewater_structure",
         attributes={
@@ -49,10 +49,11 @@ def test_snapshot_validation_accepts_current_object() -> None:
     )
     
     relation_lookup.objects = {
-        identity: CanonicalObject(
-            identity=identity,
-            last_modification=last_modification,
-        ),
+        relation_lookup._key(identity):
+            CanonicalObject(
+                identity=identity,
+                last_modification=last_modification,
+            )
     }
 
     evaluator = SnapshotValidationEvaluator(
@@ -66,7 +67,7 @@ def test_snapshot_validation_accepts_current_object() -> None:
     assert findings == ()
 
 
-def test_snapshot_validation_detects_modified_object() -> None:
+def test_snapshot_validation_detects_modified_object(relation_lookup) -> None:
     identity = CanonicalObjectIdentity(
         class_id="wastewater_structure",
         attributes={
@@ -97,7 +98,8 @@ def test_snapshot_validation_detects_modified_object() -> None:
     )
 
     relation_lookup.objects = {
-        identity: CanonicalObject(
+        relation_lookup._key(identity):
+        CanonicalObject(
             identity=identity,
             last_modification=datetime(
                 2025,

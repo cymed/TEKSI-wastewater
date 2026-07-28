@@ -96,8 +96,10 @@ class RelationLookupCapability:
                     relation.local_attribute
                 ]
             except KeyError:
+                print("KEY ERROR")
                 continue
 
+            print("VALUE:  ", value)
             remote_objects.extend(
                 self.canonical_objects(
                     local_class_id=(
