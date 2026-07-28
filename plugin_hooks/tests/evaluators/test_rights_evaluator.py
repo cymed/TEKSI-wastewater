@@ -9,14 +9,15 @@ from tww_hooks.evaluators.rights import RightsEvaluationContext,RightsEvaluator
 
 from tww_hooks.models.privilege import Privilege
 from tww_hooks.models.rulesets import PrivilegeRule
-from tww_hooks.models.validation import ChangeOperation, ValidationFinding, ValidationSeverity
+from tww_hooks.models.validation import ChangeOperation, ValidationFinding
 from tww_hooks.models.rulesets import OwnershipRule
 
+from tww_hooks.exceptions import Severity
 
 def test_validation_finding_is_created():
     finding = ValidationFinding(
         code="newer_than_existing",
-        severity=ValidationSeverity.WARNING,
+        severity=Severity.WARNING,
         message="Value is older than existing value.",
         attribute_name="status",
     )
