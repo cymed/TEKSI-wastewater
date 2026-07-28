@@ -21,7 +21,7 @@ from tww_hooks.models.mapping import ModelMapping
 from tww_hooks.capabilities.conditions import ConditionsCapability
 from tww_hooks.capabilities.rights import RightsCapability, DerivedRightsCapability
 from tww_hooks.capabilities.privilege import ResolvedProviderCapability
-from tww_hooks.capabilities.validation_registry import (
+from tww_hooks.capabilities.validation import (
     ValidationRegistry,
 )
 
