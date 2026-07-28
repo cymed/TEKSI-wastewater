@@ -293,34 +293,39 @@ class RightsCapability:
             class_id,
         ).crud_rules.delete_rules
 
-def transition_rules(
-    self,
-    class_id: str,
-    attribute_name: str,
-) -> frozenset:
-    """
-    Return resolved transition rules for a canonical attribute.
+    def transition_rules(
+        self,
+        class_id: str,
+        attribute_name: str,
+    ) -> frozenset:
+        """
+        Return resolved transition rules for a canonical attribute.
 
-    Raises
-    ------
-    KeyError
-        If the class or attribute is unknown.
-    """
+        Raises
+        ------
+        KeyError
+            If the class or attribute is unknown.
+        """
 
-    cls = self.class_definition(
-        class_id,
-    )
+        cls = self.class_definition(
+            class_id,
+        )
 
-    try:
-        return cls.transition_rules[
-            attribute_name
-        ]
-    except KeyError as exc:
-        raise KeyError(
-            f"Unknown transition attribute "
-            f"{attribute_name!r} "
-            f"for class {class_id!r}"
-        ) from exc
+        try:
+            return cls.transition_rules[
+                attribute_name
+            ]
+        except KeyError as exc:
+            raise KeyError(
+                f"Unknown transition attribute "
+                f"{attribute_name!r} "
+                f"for class {class_id!r}"
+            ) from exc
+
+    def allow_transitive_transitions(
+        self,
+    ) -> bool:
+        return self.rights.allow_transitive_transitions
 
 @dataclass(slots=True, frozen=True)
 class DerivedRightsCapability:

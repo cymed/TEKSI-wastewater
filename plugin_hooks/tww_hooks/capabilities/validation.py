@@ -1,8 +1,13 @@
 from dataclasses import dataclass, field
+from typing import Callable
+from datetime import datetime
+
 
 from ..models.validation import (
+    ValidationContext,
     ValidationFinding,
     ValidationSeverity,
+    AttributeValidation
 )
 
 
@@ -109,4 +114,102 @@ class ValidationResult:
 
         return self.has(
             ValidationSeverity.ERROR,
+        )
+
+class ValidationRegistry:
+    def validation(
+        self,
+        validation_id: str,
+    ) -> Callable:
+
+        if validation_id == "newer_than_existing":
+            return self._validate_newer_than_existing
+
+        if validation_id == "cannot_decrease":
+            return self._validate_cannot_decrease
+
+        raise NotImplementedError(
+            f"Unknown validation: {validation_id}"
+        )
+
+    def _validate_newer_than_existing(
+        self,
+        *,
+        validation: AttributeValidation,
+        context: ValidationContext,
+    ) -> tuple[
+        ValidationFinding,
+        ...
+    ]:
+        if (
+            context.old_value is None
+            or context.new_value is None
+        ):
+            return ()
+
+        old_dt = self._as_datetime(
+            context.old_value,
+        )
+
+        new_dt = self._as_datetime(
+            context.new_value,
+        )
+
+        if new_dt >= old_dt:
+            return ()
+
+        return (
+            ValidationFinding(
+                code=validation.id,
+                severity=validation.level,
+                message=(
+                    "New value must be newer than the "
+                    "existing value."
+                ),
+                attribute_name=context.attribute_name,
+            ),
+        )
+
+    def _validate_cannot_decrease(
+        self,
+        *,
+        validation: AttributeValidation,
+        context: ValidationContext,
+    ) -> tuple[
+        ValidationFinding,
+        ...
+    ]:
+        if (
+            context.old_value is None
+            or context.new_value is None
+        ):
+            return ()
+
+        if context.new_value >= context.old_value:
+            return ()
+
+        return (
+            ValidationFinding(
+                code=validation.id,
+                severity=validation.level,
+                message=(
+                    "New value must not be smaller than "
+                    "the existing value."
+                ),
+                attribute_name=context.attribute_name,
+            ),
+        )
+
+    def _as_datetime(
+        self,
+        value,
+    ) -> datetime:
+        if isinstance(
+            value,
+            datetime,
+        ):
+            return value
+
+        return datetime.fromisoformat(
+            str(value),
         )

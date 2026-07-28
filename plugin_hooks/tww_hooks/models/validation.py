@@ -10,7 +10,39 @@ from .rulesets import StateTransitionRule
 
 
 
+from dataclasses import dataclass, field
+from typing import Any
 
+
+@dataclass(slots=True, frozen=True)
+class ValidationContext:
+    """
+    Runtime context supplied to validation implementations.
+    """
+
+    attribute_name: str = field(
+        metadata={
+            "doc": (
+                "Canonical attribute identifier being validated."
+            )
+        },
+    )
+
+    old_value: Any = field(
+        metadata={
+            "doc": (
+                "Existing attribute value before the change."
+            )
+        },
+    )
+
+    new_value: Any = field(
+        metadata={
+            "doc": (
+                "New attribute value after the change."
+            )
+        },
+    )
 
 
 dataclass(slots=True, frozen=True)

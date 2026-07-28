@@ -3,6 +3,7 @@ from collections.abc import Mapping
 import pytest
 
 
+
 from teksi_hooks.ili_definitions import Standardoid
 from tww_hooks.models.rights import (
     AttributeDefinition,
@@ -20,6 +21,9 @@ from tww_hooks.models.mapping import ModelMapping
 from tww_hooks.capabilities.conditions import ConditionsCapability
 from tww_hooks.capabilities.rights import RightsCapability, DerivedRightsCapability
 from tww_hooks.capabilities.privilege import ResolvedProviderCapability
+from tww_hooks.capabilities.validation_registry import (
+    ValidationRegistry,
+)
 
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.resolver.provider_resolver import ProviderResolver
@@ -41,6 +45,11 @@ def rights_definition() -> RightsDefinition:
         DATA_DIR / "rights_parser_minimal.yaml",
     )
 
+@pytest.fixture
+def rights_definition_non_transitive() -> RightsDefinition:
+    return RightsParser().parse_file(
+        DATA_DIR / "rights_parser_minimal_non_transitive.yaml",
+    )
 
 @pytest.fixture
 def providers() -> tuple[Provider, ...]:
@@ -102,3 +111,8 @@ def evaluator(
             rights=derived_rights,
         ),
     )
+
+
+@pytest.fixture
+def registry() -> ValidationRegistry:
+    return ValidationRegistry()

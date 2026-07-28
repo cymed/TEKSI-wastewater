@@ -4,6 +4,7 @@ from tww_hooks.capabilities.rights import (
     DerivedRightsCapability,
 )
 from tww_hooks.models.privilege import Privilege
+from tww_hooks.resolver.rights_resolver import RightsResolver
 
 
 def test_rights_capability_returns_class_definition(
@@ -138,3 +139,22 @@ def test_rights_capability_rejects_unknown_transition_attribute(
             "wastewater_structure",
             "does_not_exist",
         )
+
+def test_rights_capability_try_transition_rules_returns_none(
+    rights_definition,
+    resolved_rights
+) -> None:
+    RightsResolver().resolve(
+        rights_definition,
+    )
+    capability = RightsCapability(
+        rights=resolved_rights,
+    )
+
+    assert (
+        capability.try_transition_rules(
+            "wastewater_structure",
+            "does_not_exist",
+        )
+        is None
+    )

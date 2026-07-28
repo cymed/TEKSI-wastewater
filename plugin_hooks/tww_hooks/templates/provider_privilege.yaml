@@ -176,6 +176,9 @@ classes:
         update: [DBW_GEP]
       status_survey_year:
         update: [FI_BU]
+        rules:
+        - id: cannot_decrease
+          level: warning
       condition_score:
         update: [FI_BU]
 

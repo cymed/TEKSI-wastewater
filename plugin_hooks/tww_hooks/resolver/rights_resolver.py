@@ -61,6 +61,8 @@ class RightsResolver:
             subclass_rights=self.resolve_subclass_rights(
                 definition,
             ),
+            allow_transitive_transitions=
+                definition.allow_transitive_transitions,
         )
 
     def _resolve_class(

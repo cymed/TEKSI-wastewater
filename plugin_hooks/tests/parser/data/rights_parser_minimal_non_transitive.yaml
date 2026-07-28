@@ -1,5 +1,5 @@
 settings:
-  allow_transitive_transitions: true
+  allow_transitive_transitions: false
 
   defaults:
     create_rules:

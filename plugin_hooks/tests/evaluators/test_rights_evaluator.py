@@ -9,9 +9,19 @@ from tww_hooks.evaluators.rights import RightsEvaluationContext,RightsEvaluator
 
 from tww_hooks.models.privilege import Privilege
 from tww_hooks.models.rulesets import PrivilegeRule
-from tww_hooks.models.validation import ChangeOperation
+from tww_hooks.models.validation import ChangeOperation, ValidationFinding, ValidationSeverity
 from tww_hooks.models.rulesets import OwnershipRule
 
+
+def test_validation_finding_is_created():
+    finding = ValidationFinding(
+        code="newer_than_existing",
+        severity=ValidationSeverity.WARNING,
+        message="Value is older than existing value.",
+        attribute_name="status",
+    )
+
+    assert finding.code == "newer_than_existing"
 
 def test_rights_evaluator_allows_attribute_update_with_required_privilege(
     resolved_rights,
@@ -351,6 +361,49 @@ def test_rights_evaluator_inherits_update_rights_from_subclass(
     )
 
     assert evaluator.can_update(
+        "maintenance_event",
+        context,
+    )
+
+def test_rights_evaluator_returns_false_without_subclass_mapping(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+) -> None:
+    evaluator = RightsEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        provider=ResolvedProviderCapability(
+            provider=resolved_providers[
+                Standardoid("ch000000geping01")
+            ],
+        ),
+        conditions=ConditionsCapability(),
+        derived_rights=DerivedRightsCapability(
+            classes={},
+        ),
+        relation_lookup=relation_lookup,
+        subclass_rights=SubclassRightsCapability(
+            parent_classes={},
+        ),
+    )
+
+    context = RightsEvaluationContext(
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
+        operation=ChangeOperation.UPDATE,
+        old_values={
+            "fk_provider":
+                "ch000000geping01",
+        },
+    )
+
+    assert not evaluator._can_update_via_subclass_rights(
         "maintenance_event",
         context,
     )

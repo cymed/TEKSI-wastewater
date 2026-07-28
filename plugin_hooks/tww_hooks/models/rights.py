@@ -54,6 +54,16 @@ class ResolvedRights:
         },
     )
 
+    allow_transitive_transitions : bool = field(
+        default= True,
+        metadata={
+            "doc": (
+                "Whether rights mappings allow for transitive "
+                "transitions. Defaults to True."
+            )
+        },
+    )
+
 @dataclass(slots=True)
 class RightsDefinition:
     """
