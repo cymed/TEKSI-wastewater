@@ -34,6 +34,6 @@ def test_interlis_service_adapter_delegates_import():
 
     assert fake.import_calls == [
         {
-            "xtf_file": "/tmp/input.xtf",
+            "xtf_file_input": "/tmp/input.xtf",
         }
     ]

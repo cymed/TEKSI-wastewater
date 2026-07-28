@@ -2,7 +2,7 @@
 
 from datetime import datetime, UTC
 
-from tww_hooks.evaluators.snapshot_validation import (
+from tww_hooks.evaluators.snapshot import (
     SnapshotValidationEvaluator,
 )
 from tww_hooks.models.canonical_object import (

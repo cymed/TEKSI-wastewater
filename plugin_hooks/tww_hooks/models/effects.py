@@ -27,15 +27,6 @@ class EffectDocument:
         },
     )
 
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(UTC),
-        metadata={
-            "doc": (
-                "Timestamp when the effect document was created."
-            )
-        },
-    )
-
     source: EffectSource = field(
         metadata={
             "doc": (
@@ -49,6 +40,15 @@ class EffectDocument:
         metadata={
             "doc": (
                 "Effects generated from the source object."
+            )
+        },
+    )
+
+    created_at: datetime = field(
+        default_factory=lambda: datetime.now(UTC),
+        metadata={
+            "doc": (
+                "Timestamp when the effect document was created."
             )
         },
     )

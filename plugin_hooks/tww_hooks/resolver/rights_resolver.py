@@ -10,6 +10,7 @@ from ..models.rights import (
     RightsDefinition,
     ResolvedClassDefinition,
     DerivedRights,
+    ResolvedRights,
 )
 
 from ..models.rulesets import (
@@ -37,20 +38,30 @@ class RightsResolver:
 
     validation_resolver: ValidationResolver = field(
         default_factory=ValidationResolver,
-        )
-                   
+        )              
 
     def resolve(
         self,
         definition: RightsDefinition,
-    ) -> Mapping[str, ResolvedClassDefinition]:
-        return {
-            class_id: self._resolve_class(
-                class_definition=class_definition,
-                definition=definition,
-            )
-            for class_id, class_definition in definition.classes.items()
-        }
+    ) -> ResolvedRights:
+        return ResolvedRights(
+            classes={
+                class_id: self._resolve_class(
+                    class_definition=class_definition,
+                    definition=definition,
+                )
+                for (
+                    class_id,
+                    class_definition,
+                ) in definition.classes.items()
+            },
+            derived_rights=self.resolve_derived_rights(
+                definition,
+            ),
+            subclass_rights=self.resolve_subclass_rights(
+                definition,
+            ),
+        )
 
     def _resolve_class(
         self,

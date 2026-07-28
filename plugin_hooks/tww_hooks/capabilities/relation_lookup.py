@@ -44,7 +44,7 @@ class RelationLookupCapability:
     implementation-independent.
     """
 
-    def related_objects(
+    def canonical_objects(
         self,
         *,
         local_class_id: str,
@@ -81,7 +81,7 @@ class RelationLookupCapability:
 
         Returns
         -------
-        Sequence[RelatedObject]
+        Sequence[CanonicalObject]
             Matching related objects.
         """
 

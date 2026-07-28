@@ -185,10 +185,18 @@ class ValidationFinding:
     One validation finding emitted during validation.
     """
 
+    code: str = field(
+        metadata={
+            "doc": (
+                "Stable machine-readable validation identifier."
+            )
+        },
+    )
+
     severity: ValidationSeverity = field(
         metadata={
             "doc": (
-                "Severity of the finding."
+                "Severity level assigned to the finding."
             )
         },
     )
@@ -196,7 +204,17 @@ class ValidationFinding:
     message: str = field(
         metadata={
             "doc": (
-                "Human-readable validation message."
+                "Human-readable description of the validation issue."
+            )
+        },
+    )
+
+    attribute_name: str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Affected canonical attribute identifier if the finding "
+                "applies to a specific attribute."
             )
         },
     )
