@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
 from ..models.canonical_object import (
     CanonicalObject,
@@ -12,21 +11,6 @@ from ..models.rights import (
     DerivedRights,
     CanonicalDerivedRights,
 )
-
-
-
-@dataclass(slots=True, frozen=True)
-class RelatedObject:
-    """
-    Canonical related object reference.
-
-    This structure is intentionally lightweight and contains only the
-    information required by rights evaluation and future diff processing.
-    """
-
-    class_id: str
-
-    identity: Mapping[str, Any]
 
 
 class RelationLookupCapability:
@@ -52,7 +36,9 @@ class RelationLookupCapability:
         local_attribute: str,
         remote_attribute: str,
         value: Any,
-    ) -> Sequence:
+    ) -> Sequence[
+        CanonicalObjectIdentity
+    ]:
         """
         Return related objects matching the supplied join condition.
 
@@ -81,12 +67,11 @@ class RelationLookupCapability:
 
         Returns
         -------
-        Sequence[CanonicalObject]
+        Sequence[CanonicalObjectIdentity]
             Matching related objects.
         """
 
         raise NotImplementedError
-
 
     def resolve_derived_rights(
         self,
@@ -97,7 +82,48 @@ class RelationLookupCapability:
         ],
         relation: DerivedRights,
     ) -> CanonicalDerivedRights:
-        raise NotImplementedError
+        """
+        Resolve rights inheritance through a configured relation.
+        """
+
+        remote_objects: list[
+            CanonicalObjectIdentity
+        ] = []
+
+        for local_object in local_objects:
+            try:
+                value = local_object.attributes[
+                    relation.local_attribute
+                ]
+            except KeyError:
+                continue
+
+            remote_objects.extend(
+                self.canonical_objects(
+                    local_class_id=(
+                        local_object.class_id
+                    ),
+                    remote_class_id=(
+                        relation.class_id
+                    ),
+                    local_attribute=(
+                        relation.local_attribute
+                    ),
+                    remote_attribute=(
+                        relation.remote_attribute
+                    ),
+                    value=value,
+                )
+            )
+
+        return CanonicalDerivedRights(
+            local_objects=tuple(
+                local_objects,
+            ),
+            remote_objects=tuple(
+                remote_objects,
+            ),
+        )
 
     def current_object(
         self,
@@ -105,6 +131,10 @@ class RelationLookupCapability:
     ) -> CanonicalObject | None:
         """
         Return the current canonical object or `None` if it no longer exists.
+
+        CanonicalObjectIdentity
+                ↓
+        Current database object
         """
 
         raise NotImplementedError

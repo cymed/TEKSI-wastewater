@@ -27,6 +27,7 @@ def test_validation_finding_is_created():
 def test_rights_evaluator_allows_attribute_update_with_required_privilege(
     resolved_rights,
     resolved_providers,
+    relation_lookup,
 ) -> None:
     evaluator = RightsEvaluator(
         rights=RightsCapability(
@@ -38,6 +39,14 @@ def test_rights_evaluator_allows_attribute_update_with_required_privilege(
             ],
         ),
         conditions=ConditionsCapability(),
+        relation_lookup=relation_lookup,
+
+        derived_rights=DerivedRightsCapability(
+            rights=resolved_rights,
+        ),
+        subclass_rights=SubclassRightsCapability(
+            rights=resolved_rights,
+),
     )
 
     assert evaluator.can_update_attribute(
