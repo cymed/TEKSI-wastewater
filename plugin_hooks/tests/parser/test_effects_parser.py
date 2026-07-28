@@ -4,6 +4,7 @@ from tww_hooks.models.effects import (
     EnforceExistsEffect,
     EnforceNotExistsEffect,
 )
+from tww_hooks.models.canonical_object import CanonicalObjectIdentity
 from tww_hooks.parser.effects_parser import EffectParser
 
 
@@ -49,12 +50,15 @@ def test_parse_update_attribute_effect() -> None:
     )
 
 
-    assert effect.identity == {
-        "class_id": "agxx_wastewater_node",
-        "attributes": {
-            "fk_wastewater_node": "ch123456AG987654"
-          }
-        }
+    assert effect.identity == (
+        CanonicalObjectIdentity(
+            class_id="agxx_wastewater_node",
+            attributes={
+                "fk_wastewater_node":
+                    "ch123456AG987654",
+            },
+        )
+    )
     assert effect.tww_attribute_id == "ag64_function"
     assert effect.value == 1234
 
@@ -93,12 +97,15 @@ def test_parse_enforce_exists_effect() -> None:
         EnforceExistsEffect,
     )
 
-    assert effect.identity == {
-        "class_id": "agxx_wastewater_node",
-        "attributes": {
-            "fk_wastewater_node": "ch123456AG987654"
-          }
-        }
+    assert effect.identity == (
+        CanonicalObjectIdentity(
+            class_id="agxx_wastewater_node",
+            attributes={
+                "fk_wastewater_node":
+                    "ch123456AG987654",
+            },
+        )
+    )
 
 
 def test_parse_enforce_not_exists_effect() -> None:
@@ -136,12 +143,15 @@ def test_parse_enforce_not_exists_effect() -> None:
     )
 
 
-    assert effect.identity == {
-        "class_id": "agxx_wastewater_node",
-        "attributes": {
-            "fk_wastewater_node": "ch123456AG987654"
-          }
-        }
+    assert effect.identity == (
+        CanonicalObjectIdentity(
+            class_id="agxx_wastewater_node",
+            attributes={
+                "fk_wastewater_node":
+                    "ch123456AG987654",
+            },
+        )
+    )
 
 
 def test_reject_unknown_effect_kind() -> None:

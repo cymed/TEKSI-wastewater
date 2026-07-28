@@ -31,7 +31,6 @@ class EffectDocumentValidator:
     def validate(
         self,
         document: EffectDocument,
-        raise_errors: bool = True,
     ) -> tuple[ValidationFinding, ...]:
         findings: list[ValidationFinding] = []
 
@@ -114,10 +113,29 @@ class EffectDocumentValidator:
                 document,
             )
         )
-        if raise_errors:
-            EffectValidationError.raise_if_errors(findings,)
         return tuple(
             findings,
+        )
+
+    def validate_or_raise(
+        self,
+        document: EffectDocument,
+    ) -> tuple[ValidationFinding, ...]:
+        findings=self.validate(document)
+        EffectValidationError.raise_if_errors(findings,)
+        return findings
+
+    def _identity_key(
+        self,
+        identity: CanonicalObjectIdentity,
+    ) -> tuple:
+        return (
+            identity.class_id,
+            tuple(
+                sorted(
+                    identity.attributes.items(),
+                ),
+            ),
         )
     
     def _validate_conflicting_effects(
@@ -127,7 +145,7 @@ class EffectDocumentValidator:
         findings: list[ValidationFinding] = []
 
         effects_by_identity: dict[
-            CanonicalObjectIdentity,
+            str,
             list[Effect],
         ] = defaultdict(
             list,
@@ -135,10 +153,10 @@ class EffectDocumentValidator:
 
         for effect in document.effects:
             effects_by_identity[
-                effect.identity
-            ].append(
-                effect,
-            )
+                self._identity_key(
+                    effect.identity,
+                )
+            ].append(effect)
 
         for identity, effects in effects_by_identity.items():
             has_update = any(

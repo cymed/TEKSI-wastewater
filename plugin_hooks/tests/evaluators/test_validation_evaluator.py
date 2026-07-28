@@ -74,11 +74,13 @@ def test_validation_evaluator_uses_registry(
 
 def test_validation_evaluator_accepts_allowed_transition(
     resolved_rights,
+    registry,
 ) -> None:
     evaluator = ValidationEvaluator(
         rights=RightsCapability(
             rights=resolved_rights,
         ),
+        registry=registry,
     )
 
     findings = evaluator.validate_transition(
@@ -92,11 +94,13 @@ def test_validation_evaluator_accepts_allowed_transition(
 
 def test_validation_evaluator_accepts_bilateral_transition(
     resolved_rights,
+    registry,
 ) -> None:
     evaluator = ValidationEvaluator(
         rights=RightsCapability(
             rights=resolved_rights,
         ),
+        registry=registry,
     )
 
     findings = evaluator.validate_transition(
@@ -110,11 +114,13 @@ def test_validation_evaluator_accepts_bilateral_transition(
 
 def test_validation_evaluator_rejects_invalid_transition(
     resolved_rights,
+    registry,
 ) -> None:
     evaluator = ValidationEvaluator(
         rights=RightsCapability(
             rights=resolved_rights,
         ),
+        registry=registry,
     )
 
     findings = evaluator.validate_transition(
@@ -132,11 +138,13 @@ def test_validation_evaluator_rejects_invalid_transition(
 
 def test_validation_evaluator_accepts_transitive_transition(
     resolved_rights,
+    registry
 ) -> None:
     evaluator = ValidationEvaluator(
         rights=RightsCapability(
             rights=resolved_rights,
         ),
+        registry=registry,
     )
 
     findings = evaluator.validate_transition(
@@ -150,11 +158,13 @@ def test_validation_evaluator_accepts_transitive_transition(
 
 def test_validation_evaluator_rejects_invalid_transition(
     resolved_rights,
+    registry
 ) -> None:
     evaluator = ValidationEvaluator(
         rights=RightsCapability(
             rights=resolved_rights,
         ),
+        registry=registry,
     )
 
     findings = evaluator.validate_transition(
@@ -176,11 +186,13 @@ def test_validation_evaluator_rejects_invalid_transition(
 
 def test_validation_evaluator_ignores_attribute_without_transition_rules(
     resolved_rights,
+    registry,
 ) -> None:
     evaluator = ValidationEvaluator(
         rights=RightsCapability(
             rights=resolved_rights,
         ),
+        registry=registry,
     )
 
     findings = evaluator.validate_transition(
@@ -194,6 +206,7 @@ def test_validation_evaluator_ignores_attribute_without_transition_rules(
 
 def test_validation_evaluator_uses_transitive_transition_flag(
     rights_definition_non_transitive,
+    registry,
 ) -> None:
     resolved_rights=RightsResolver().resolve(
         rights_definition_non_transitive,
@@ -202,6 +215,7 @@ def test_validation_evaluator_uses_transitive_transition_flag(
         rights=RightsCapability(
             rights=resolved_rights,
         ),
+        registry=registry,
     )
 
     findings = evaluator.validate_transition(

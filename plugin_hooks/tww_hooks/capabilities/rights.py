@@ -322,6 +322,22 @@ class RightsCapability:
                 f"for class {class_id!r}"
             ) from exc
 
+    def try_transition_rules(
+    self,
+    class_id: str,
+    attribute_name: str,
+    ):
+        cls = self.try_class_definition(
+            class_id,
+        )
+
+        if cls is None:
+            return None
+
+        return cls.transition_rules.get(
+            attribute_name,
+        )
+
     def allow_transitive_transitions(
         self,
     ) -> bool:
