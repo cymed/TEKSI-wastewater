@@ -289,6 +289,47 @@ def test_rights_evaluator_inherits_rights_from_wastewater_structure(
     )
 
 
+def test_rights_evaluator_resolves_derived_rights_from_reach(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
+    context = RightsEvaluationContext(
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
+        operation=ChangeOperation.UPDATE,
+        old_values={
+            "obj_id": "ch000000rp000001",
+        },
+    )
+
+    derived = evaluator._resolve_derived_rights(
+        "reach_point",
+        context,
+    )
+
+    assert len(
+        derived.remote_objects,
+    ) >= 1
+
+    assert {
+        obj.class_id
+        for obj in derived.remote_objects
+    } == {
+        "reach",
+    }
+
+
 def test_rights_evaluator_inherits_rights_from_reach(
     resolved_rights,
     resolved_providers,
