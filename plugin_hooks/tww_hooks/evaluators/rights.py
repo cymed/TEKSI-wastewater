@@ -299,7 +299,7 @@ class RightsEvaluator:
                 ),
                 context,
             )
-            for related_object in derived.related_objects
+            for related_object in derived.remote_objects
         )
 
     def _can_update_via_subclass_rights(
@@ -375,7 +375,7 @@ class RightsEvaluator:
                     local_class_id=class_id,
                     related_class_id=relation.class_id,
                     local_attribute=relation.local_attribute,
-                    related_attribute=relation.related_attribute,
+                    related_attribute=relation.remote_attribute,
                     value=value,
                 )
             )

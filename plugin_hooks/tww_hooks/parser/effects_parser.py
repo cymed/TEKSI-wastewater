@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +18,8 @@ from ..models.effects import (
 
 from ..models.canonical_object import CanonicalObjectIdentity
 
+from ..evaluators.effects import EffectDocumentValidator
+
 
 @dataclass(slots=True)
 class EffectParser:
@@ -26,6 +28,9 @@ class EffectParser:
 
     Converts JSON effect documents into strongly typed effect models.
     """
+    validator: EffectDocumentValidator = field(
+        default_factory=EffectDocumentValidator,
+    )
 
     SUPPORTED_VERSION = 1
 
@@ -52,17 +57,8 @@ class EffectParser:
         self,
         data: dict[str, Any],
     ) -> EffectDocument:
-        version = data.get(
-            "version",
-        )
-
-        if version != self.SUPPORTED_VERSION:
-            raise ValueError(
-                f"Unsupported effect document version: {version!r}"
-            )
-
-        return EffectDocument(
-            version=version,
+        document = EffectDocument(
+            version=data["version"],
             source=self._parse_source(
                 data["source"],
             ),
@@ -70,12 +66,15 @@ class EffectParser:
                 self._parse_effect(
                     effect,
                 )
-                for effect in data.get(
-                    "effects",
-                    [],
-                )
+                for effect in data["effects"]
             ),
         )
+
+        self.validator.validate_or_raise(
+            document,
+        )
+
+        return document
 
     def _parse_source(
         self,
