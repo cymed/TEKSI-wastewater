@@ -358,7 +358,7 @@ class RightsEvaluator:
             },
         )
 
-        related_objects: list[
+        remote_objects: list[
             CanonicalObjectIdentity
         ] = []
 
@@ -370,7 +370,7 @@ class RightsEvaluator:
             except KeyError:
                 continue
 
-            related_objects.extend(
+            remote_objects.extend(
                 self.relation_lookup.canonical_objects(
                     local_class_id=class_id,
                     related_class_id=relation.class_id,
@@ -384,7 +384,7 @@ class RightsEvaluator:
             local_objects=(
                 local_object,
             ),
-            related_objects=tuple(
-                related_objects,
+            remote_objects=tuple(
+                remote_objects,
             ),
         )

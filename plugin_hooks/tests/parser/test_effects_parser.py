@@ -7,6 +7,9 @@ from tww_hooks.models.effects import (
 from tww_hooks.models.canonical_object import CanonicalObjectIdentity
 from tww_hooks.parser.effects_parser import EffectParser
 
+from tww_hooks.exceptions import (
+    EffectValidationError,
+)
 
 def test_parse_update_attribute_effect() -> None:
     parser = EffectParser()
@@ -188,7 +191,9 @@ def test_reject_unknown_effect_kind() -> None:
 def test_reject_unsupported_version() -> None:
     parser = EffectParser()
 
-    try:
+    with pytest.raises(
+        EffectValidationError,
+    ):
         parser.parse_json(
             """
             {
@@ -201,14 +206,6 @@ def test_reject_unsupported_version() -> None:
               "effects": []
             }
             """
-        )
-    except ValueError as exc:
-        assert "Unsupported effect document version" in str(
-            exc,
-        )
-    else:
-        raise AssertionError(
-            "Expected ValueError"
         )
 
 
