@@ -1,54 +1,103 @@
-from teksi_hooks.ili_definitions import Standardoid
+from dataclasses import replace
 
-from tww_hooks.models.rights import CanonicalDerivedRights
+from teksi_hooks.ili_definitions import Standardoid
 
 from tww_hooks.capabilities.conditions import ConditionsCapability
 from tww_hooks.capabilities.privilege import ResolvedProviderCapability
-from tww_hooks.capabilities.rights import RightsCapability, DerivedRightsCapability, SubclassRightsCapability
-from tww_hooks.evaluators.rights import RightsEvaluationContext,RightsEvaluator
-
+from tww_hooks.capabilities.rights import (
+    DerivedRightsCapability,
+    RightsCapability,
+    SubclassRightsCapability,
+)
+from tww_hooks.evaluators.rights import (
+    RightsEvaluationContext,
+    RightsEvaluator,
+)
 from tww_hooks.models.privilege import Privilege
-from tww_hooks.models.rulesets import PrivilegeRule
-from tww_hooks.models.validation import ChangeOperation, ValidationFinding
-from tww_hooks.models.rulesets import OwnershipRule
+from tww_hooks.models.rulesets import (
+    OwnershipRule,
+    PrivilegeRule,
+)
+from tww_hooks.models.validation import ChangeOperation
 
-from tww_hooks.exceptions import Severity
 
-def test_validation_finding_is_created():
-    finding = ValidationFinding(
-        code="newer_than_existing",
-        severity=Severity.WARNING,
-        message="Value is older than existing value.",
-        attribute_name="status",
+def _make_evaluator(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+    provider_oid="ch000000geping01",
+):
+    return RightsEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        provider=ResolvedProviderCapability(
+            provider=resolved_providers[
+                Standardoid(provider_oid)
+            ],
+        ),
+        conditions=ConditionsCapability(),
+        relation_lookup=relation_lookup,
+        derived_rights=DerivedRightsCapability(
+            rights=resolved_rights,
+        ),
+        subclass_rights=SubclassRightsCapability(
+            rights=resolved_rights,
+        ),
     )
 
-    assert finding.code == "newer_than_existing"
 
 def test_rights_evaluator_allows_attribute_update_with_required_privilege(
-    evaluator,
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
 
     assert evaluator.can_update_attribute(
-        dataowner_oid=Standardoid("ch000000awgde001"),
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
         class_id="wastewater_structure",
         attribute_name="status",
     )
 
 
 def test_rights_evaluator_rejects_attribute_update_without_required_privilege(
-    evaluator,
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
-
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+        provider_oid="ch000000awverbnd",
+    )
 
     assert not evaluator.can_update_attribute(
-        dataowner_oid=Standardoid("ch000000awverbnd"),
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
         class_id="wastewater_structure",
         attribute_name="gross_costs",
     )
 
+
 def test_rights_evaluator_applies_privilege_rule(
-    evaluator,
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
 
     rule = PrivilegeRule(
         privileges=frozenset(
@@ -59,8 +108,12 @@ def test_rights_evaluator_applies_privilege_rule(
     )
 
     context = RightsEvaluationContext(
-        dataowner_oid=Standardoid("ch000000awgde001"),
-        provider_oid=Standardoid("ch000000geping01"),
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
         operation=ChangeOperation.UPDATE,
     )
 
@@ -69,16 +122,29 @@ def test_rights_evaluator_applies_privilege_rule(
         context,
     )
 
+
 def test_rights_evaluator_applies_ownership_rule_for_update_using_old_values(
-    evaluator,
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
     rule = OwnershipRule(
         attribute="fk_provider",
     )
 
     context = RightsEvaluationContext(
-        dataowner_oid=Standardoid("ch000000awgde001"),
-        provider_oid=Standardoid("ch000000geping01"),
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
         operation=ChangeOperation.UPDATE,
         old_values={
             "fk_provider": "ch000000geping01",
@@ -93,12 +159,25 @@ def test_rights_evaluator_applies_ownership_rule_for_update_using_old_values(
         context,
     )
 
+
 def test_rights_evaluator_can_update_class_with_privilege_rule(
-    evaluator,
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
     context = RightsEvaluationContext(
-        dataowner_oid=Standardoid("ch000000awgde001"),
-        provider_oid=Standardoid("ch000000geping01"),
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
         operation=ChangeOperation.UPDATE,
         old_values={
             "status": "other.planned",
@@ -110,12 +189,25 @@ def test_rights_evaluator_can_update_class_with_privilege_rule(
         context,
     )
 
+
 def test_rights_evaluator_can_update_class_with_ownership_rule(
-    evaluator,
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
     context = RightsEvaluationContext(
-        dataowner_oid=Standardoid("ch000000awgde001"),
-        provider_oid=Standardoid("ch000000geping01"),
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
         operation=ChangeOperation.UPDATE,
         old_values={
             "fk_provider": "ch000000geping01",
@@ -127,97 +219,18 @@ def test_rights_evaluator_can_update_class_with_ownership_rule(
         context,
     )
 
-def test_rights_evaluator_inherits_rights_from_wastewater_structure(
-    evaluator,
-) -> None:
-    context = RightsEvaluationContext(
-        dataowner_oid=Standardoid(
-            "ch000000awgde001"
-        ),
-        provider_oid=Standardoid(
-            "ch000000geping01"
-        ),
-        operation=ChangeOperation.UPDATE,
-        old_values={
-            "fk_wastewater_structure":
-                "ch000000ws000001",
-        },
-    )
-
-    assert evaluator.can_update(
-        "wastewater_networkelement",
-        context,
-    )
-
-def test_rights_evaluator_inherits_rights_from_reach(
-    evaluator,
-) -> None:
-    context = RightsEvaluationContext(
-        dataowner_oid=Standardoid(
-            "ch000000awgde001"
-        ),
-        provider_oid=Standardoid(
-            "ch000000geping01"
-        ),
-        operation=ChangeOperation.UPDATE,
-        old_values={
-            "obj_id":
-                "ch000000rp000001",
-        },
-    )
-
-    assert evaluator.can_update(
-        "reach_point",
-        context,
-    )
-
-def test_rights_evaluator_accepts_any_matching_derived_right(
-    evaluator,
-) -> None:
-    context = RightsEvaluationContext(
-        dataowner_oid=Standardoid(
-            "ch000000awgde001"
-        ),
-        provider_oid=Standardoid(
-            "ch000000geping01"
-        ),
-        operation=ChangeOperation.UPDATE,
-        old_values={
-            "obj_id":
-                "ch000000rp000001",
-        },
-    )
-
-    assert evaluator.can_update(
-        "reach_point",
-        context,
-    )
-
-def test_rights_evaluator_accepts_any_matching_derived_right(
-    evaluator,
-) -> None:
-    context = RightsEvaluationContext(
-        dataowner_oid=Standardoid(
-            "ch000000awgde001"
-        ),
-        provider_oid=Standardoid(
-            "ch000000geping01"
-        ),
-        operation=ChangeOperation.UPDATE,
-        old_values={
-            "obj_id":
-                "ch000000rp000001",
-        },
-    )
-
-    assert evaluator.can_update(
-        "reach_point",
-        context,
-    )
 
 def test_rights_evaluator_resolves_derived_rights(
-    evaluator,
-):
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid(
             "ch000000awgde001",
@@ -227,8 +240,7 @@ def test_rights_evaluator_resolves_derived_rights(
         ),
         operation=ChangeOperation.UPDATE,
         old_values={
-            "fk_wastewater_structure":
-                "ch000000ws000001",
+            "fk_wastewater_structure": "ch000000ws000001",
         },
     )
 
@@ -246,9 +258,18 @@ def test_rights_evaluator_resolves_derived_rights(
         == "wastewater_structure"
     )
 
-def test_rights_evaluator_inherits_update_rights_from_subclass(
-    evaluator,
+
+def test_rights_evaluator_inherits_rights_from_wastewater_structure(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid(
             "ch000000awgde001",
@@ -258,8 +279,106 @@ def test_rights_evaluator_inherits_update_rights_from_subclass(
         ),
         operation=ChangeOperation.UPDATE,
         old_values={
-            "fk_provider":
-                "ch000000geping01",
+            "fk_wastewater_structure": "ch000000ws000001",
+        },
+    )
+
+    assert evaluator.can_update(
+        "wastewater_networkelement",
+        context,
+    )
+
+
+def test_rights_evaluator_inherits_rights_from_reach(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
+    context = RightsEvaluationContext(
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
+        operation=ChangeOperation.UPDATE,
+        old_values={
+            "obj_id": "ch000000rp000001",
+        },
+    )
+
+    assert evaluator.can_update(
+        "reach_point",
+        context,
+    )
+
+
+def test_rights_evaluator_accepts_any_matching_derived_right(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
+    context = RightsEvaluationContext(
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
+        operation=ChangeOperation.UPDATE,
+        old_values={
+            "obj_id": "ch000000rp000001",
+        },
+    )
+
+    assert evaluator.can_update(
+        "reach_point",
+        context,
+    )
+
+
+def test_rights_evaluator_inherits_update_rights_from_subclass(
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
+) -> None:
+    resolved_with_subclass_rights = replace(
+        resolved_rights,
+        subclass_rights={
+            "maintenance_event": (
+                "maintenance",
+            ),
+        },
+    )
+
+    evaluator = _make_evaluator(
+        resolved_with_subclass_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
+    context = RightsEvaluationContext(
+        dataowner_oid=Standardoid(
+            "ch000000awgde001",
+        ),
+        provider_oid=Standardoid(
+            "ch000000geping01",
+        ),
+        operation=ChangeOperation.UPDATE,
+        old_values={
+            "fk_provider": "ch000000geping01",
         },
     )
 
@@ -268,9 +387,18 @@ def test_rights_evaluator_inherits_update_rights_from_subclass(
         context,
     )
 
+
 def test_rights_evaluator_returns_false_without_subclass_mapping(
-    evaluator,
+    resolved_rights,
+    resolved_providers,
+    relation_lookup,
 ) -> None:
+    evaluator = _make_evaluator(
+        resolved_rights,
+        resolved_providers,
+        relation_lookup,
+    )
+
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid(
             "ch000000awgde001",
@@ -280,8 +408,7 @@ def test_rights_evaluator_returns_false_without_subclass_mapping(
         ),
         operation=ChangeOperation.UPDATE,
         old_values={
-            "fk_provider":
-                "ch000000geping01",
+            "fk_provider": "ch000000geping01",
         },
     )
 

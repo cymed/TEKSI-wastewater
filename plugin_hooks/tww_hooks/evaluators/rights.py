@@ -13,7 +13,7 @@ from ..capabilities.rights import RightsCapability,DerivedRightsCapability, Subc
 from ..capabilities.relation_lookup import RelationLookupCapability
 
 
-from ..models.rights import CanonicalDerivedRights
+from ..models.rights import CanonicalDerivedRights, DerivedRights
 from ..models.canonical_object import CanonicalObjectIdentity
 from ..models.rulesets import (
     Rule,
@@ -385,4 +385,62 @@ class RightsEvaluator:
                 context,
             )
             for subclass_id in subclasses
+        )
+
+
+    def _resolve_derived_rights(
+        self,
+        class_id: str,
+        context: RightsEvaluationContext,
+    ) -> CanonicalDerivedRights:
+        definitions = (
+            self.derived_rights.try_derived_rights(
+                class_id,
+            )
+        )
+
+        if not definitions:
+            return CanonicalDerivedRights()
+
+        local_object = CanonicalObjectIdentity(
+            class_id=class_id,
+            attributes={
+                key: value
+                for key, value in {
+                    **context.old_values,
+                    **context.new_values,
+                }.items()
+                if value is not None
+            },
+        )
+
+        remote_objects: list[
+            CanonicalObjectIdentity
+        ] = []
+
+        for relation in definitions:
+            try:
+                value = local_object.attributes[
+                    relation.local_attribute
+                ]
+            except KeyError:
+                continue
+
+            remote_objects.extend(
+                self.relation_lookup.canonical_objects(
+                    local_class_id=class_id,
+                    remote_class_id=relation.class_id,
+                    local_attribute=relation.local_attribute,
+                    remote_attribute=relation.remote_attribute,
+                    value=value,
+                )
+            )
+
+        return CanonicalDerivedRights(
+            local_objects=(
+                local_object,
+            ),
+            remote_objects=tuple(
+                remote_objects,
+            ),
         )

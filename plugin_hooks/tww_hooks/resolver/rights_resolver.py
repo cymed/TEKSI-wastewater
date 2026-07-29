@@ -55,7 +55,7 @@ class RightsResolver:
                     class_definition,
                 ) in definition.classes.items()
             },
-            derived_rights=self.resolve_derived_rights(
+            derived_rights=self.resolve_derived_rights_config(
                 definition,
             ),
             subclass_rights=self.resolve_subclass_rights(
@@ -290,7 +290,7 @@ class RightsResolver:
             ) in subclasses.items()
         }
 
-    def resolve_derived_rights(
+    def resolve_derived_rights_config(
         self,
         definition: RightsDefinition,
     ) -> Mapping[

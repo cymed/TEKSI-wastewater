@@ -87,7 +87,7 @@ def derived_rights(
     rights_definition,
 ):
 
-    return RightsResolver().resolve_derived_rights(
+    return RightsResolver().resolve_derived_rights_config(
         rights_definition,
     )
 

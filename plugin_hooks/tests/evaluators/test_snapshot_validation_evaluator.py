@@ -1,7 +1,8 @@
-# tests/evaluators/test_snapshot_validation_evaluator.py
-
 from datetime import datetime, UTC
 
+from tww_hooks.capabilities.relation_lookup import (
+    InMemoryRelationLookupCapability,
+)
 from tww_hooks.evaluators.snapshot import (
     SnapshotValidationEvaluator,
 )
@@ -16,22 +17,27 @@ from tww_hooks.models.diff_snapshot import (
     SnapshotState,
 )
 
-def test_snapshot_validation_accepts_current_object(relation_lookup) -> None:
-    identity = CanonicalObjectIdentity(
-        class_id="wastewater_structure",
-        attributes={
-            "obj_id": "ch000000ws000001",
-        },
+
+def _identity_key(
+    identity: CanonicalObjectIdentity,
+) -> tuple:
+    return (
+        identity.class_id,
+        tuple(
+            sorted(
+                identity.attributes.items(),
+            )
+        ),
     )
 
-    last_modification = datetime(
-        2025,
-        1,
-        1,
-        tzinfo=UTC,
-    )
 
-    snapshot = DiffSnapshot(
+def _snapshot(
+    objects: tuple[
+        SnapshotObject,
+        ...
+    ],
+) -> DiffSnapshot:
+    return DiffSnapshot(
         metadata=SnapshotMetadata(
             created_at=datetime.now(
                 UTC,
@@ -40,6 +46,23 @@ def test_snapshot_validation_accepts_current_object(relation_lookup) -> None:
             source_class_id="GepKnoten",
             source_object_id="ch123456AG987654",
         ),
+        objects=objects,
+    )
+
+
+def test_snapshot_validation_accepts_current_object() -> None:
+    identity = CanonicalObjectIdentity(
+        class_id="wastewater_structure",
+        attributes={
+            "obj_id": "ch000000ws000001",
+        },
+    )
+
+    last_modification=datetime(
+        2025,1,1,tzinfo=UTC,
+    ),
+
+    snapshot = _snapshot(
         objects=(
             SnapshotObject(
                 identity=identity,
@@ -47,14 +70,15 @@ def test_snapshot_validation_accepts_current_object(relation_lookup) -> None:
             ),
         ),
     )
-    
-    relation_lookup.objects = {
-        relation_lookup._key(identity):
+
+    relation_lookup = InMemoryRelationLookupCapability(
+        related_objects=(
             CanonicalObject(
                 identity=identity,
                 last_modification=last_modification,
-            )
-    }
+            ),
+        ),
+    )
 
     evaluator = SnapshotValidationEvaluator(
         relation_lookup=relation_lookup,
@@ -67,7 +91,7 @@ def test_snapshot_validation_accepts_current_object(relation_lookup) -> None:
     assert findings == ()
 
 
-def test_snapshot_validation_detects_modified_object(relation_lookup) -> None:
+def test_snapshot_validation_detects_modified_object() -> None:
     identity = CanonicalObjectIdentity(
         class_id="wastewater_structure",
         attributes={
@@ -75,40 +99,27 @@ def test_snapshot_validation_detects_modified_object(relation_lookup) -> None:
         },
     )
 
-    snapshot = DiffSnapshot(
-        metadata=SnapshotMetadata(
-            created_at=datetime.now(
-                UTC,
-            ),
-            source_model="ag64",
-            source_class_id="GepKnoten",
-            source_object_id="ch123456AG987654",
-        ),
+    snapshot = _snapshot(
         objects=(
             SnapshotObject(
                 identity=identity,
                 last_modification=datetime(
-                    2025,
-                    1,
-                    1,
-                    tzinfo=UTC,
+                    2025,1,1,tzinfo=UTC,
                 ),
             ),
         ),
     )
 
-    relation_lookup.objects = {
-        relation_lookup._key(identity):
-        CanonicalObject(
-            identity=identity,
-            last_modification=datetime(
-                2025,
-                1,
-                2,
-                tzinfo=UTC,
+    relation_lookup = InMemoryRelationLookupCapability(
+        related_objects=(
+            CanonicalObject(
+                identity=identity,
+                last_modification=datetime(
+                    2025,1,2,tzinfo=UTC,
+                ),
             ),
         ),
-    }
+    )
 
     evaluator = SnapshotValidationEvaluator(
         relation_lookup=relation_lookup,
@@ -130,7 +141,7 @@ def test_snapshot_validation_detects_modified_object(relation_lookup) -> None:
     )
 
 
-def test_snapshot_validation_detects_deleted_object(relation_lookup) -> None:
+def test_snapshot_validation_detects_deleted_object() -> None:
     identity = CanonicalObjectIdentity(
         class_id="wastewater_structure",
         attributes={
@@ -138,30 +149,21 @@ def test_snapshot_validation_detects_deleted_object(relation_lookup) -> None:
         },
     )
 
-    snapshot = DiffSnapshot(
-        metadata=SnapshotMetadata(
-            created_at=datetime.now(
-                UTC,
-            ),
-            source_model="ag64",
-            source_class_id="GepKnoten",
-            source_object_id="ch123456AG987654",
-        ),
+    snapshot = _snapshot(
         objects=(
             SnapshotObject(
                 identity=identity,
                 last_modification=datetime(
-                    2025,
-                    1,
-                    1,
-                    tzinfo=UTC,
+                    2025,1,1,tzinfo=UTC,
                 ),
             ),
         ),
     )
 
+    relation_lookup = InMemoryRelationLookupCapability()
+
     evaluator = SnapshotValidationEvaluator(
-        relation_lookup
+        relation_lookup=relation_lookup,
     )
 
     findings = evaluator.validate(
@@ -178,6 +180,7 @@ def test_snapshot_validation_detects_deleted_object(relation_lookup) -> None:
         findings[0].state
         == SnapshotState.DELETED
     )
+
 
 def test_snapshot_validation_handles_multiple_objects() -> None:
     current_identity = CanonicalObjectIdentity(
@@ -201,62 +204,86 @@ def test_snapshot_validation_handles_multiple_objects() -> None:
         },
     )
 
-    snapshot = DiffSnapshot(
-        metadata=SnapshotMetadata(
-            source_model="ag64",
-            source_class_id="GepKnoten",
-            source_object_id="ch123456AG987654",
-        ),
+    snapshot = _snapshot(
         objects=(
             SnapshotObject(
                 identity=current_identity,
-                last_modification=1,
+                last_modification=datetime(
+                    2025,1,1,tzinfo=UTC,
+                ),
             ),
             SnapshotObject(
                 identity=modified_identity,
-                last_modification=1,
+                last_modification=datetime(
+                    2025,1,1,tzinfo=UTC,
+                ),
             ),
             SnapshotObject(
                 identity=deleted_identity,
-                last_modification=1,
+                last_modification=datetime(
+                    2025,1,1,tzinfo=UTC,
+                ),
             ),
         ),
     )
 
-    lookup = FakeRelationLookupCapability(
-        objects={
-            current_identity: CanonicalObject(
+    relation_lookup = InMemoryRelationLookupCapability(
+        related_objects=(
+            CanonicalObject(
                 identity=current_identity,
-                last_modification=1,
+                last_modification=datetime(
+                    2025,1,1,tzinfo=UTC,
+                ),
             ),
-            modified_identity: CanonicalObject(
+            CanonicalObject(
                 identity=modified_identity,
-                last_modification=2,
+                last_modification=datetime(
+                    2025,1,2,tzinfo=UTC,
+                ),
             ),
-        },
+        ),
     )
 
     evaluator = SnapshotValidationEvaluator(
-        relation_lookup=lookup,
+        relation_lookup=relation_lookup,
     )
 
     findings = evaluator.validate(
         snapshot,
     )
 
-    assert len(findings) == 2
+    assert len(
+        findings,
+    ) == 2
 
     states = {
-        finding.identity: finding.state
+        _identity_key(
+            finding.identity,
+        ): finding.state
         for finding in findings
     }
 
     assert (
-        states[modified_identity]
+        states[
+            _identity_key(
+                modified_identity,
+            )
+        ]
         == SnapshotState.MODIFIED
     )
 
     assert (
-        states[deleted_identity]
+        states[
+            _identity_key(
+                deleted_identity,
+            )
+        ]
         == SnapshotState.DELETED
+    )
+
+    assert (
+        _identity_key(
+            current_identity,
+        )
+        not in states
     )

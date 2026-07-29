@@ -53,7 +53,7 @@ class EffectDocumentValidator:
                     code="missing_attribute",
                     severity=Severity.ERROR,
                     message=(
-                        "Effect identity is missing class_id "
+                        "Effect identity is missing class_id."
                     ),
                 )
                 )

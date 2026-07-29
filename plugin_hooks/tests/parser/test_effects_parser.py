@@ -240,7 +240,9 @@ def test_parse_multiple_effects() -> None:
               "class_id": "agxx_wastewater_node",
               "attributes": {
               "fk_wastewater_node": "ch123456AG876543"
-              }
+              },
+              "tww_attribute_id": "ag64_function",
+              "value": 1234
              }
             }
           ]
@@ -292,7 +294,9 @@ def test_reject_contradicting_effects() -> None:
               "class_id": "agxx_wastewater_node",
               "attributes": {
               "fk_wastewater_node": "ch123456AG987654"
-              }
+              },
+              "tww_attribute_id": "ag64_function",
+              "value": 1234
              }
             }
           ]

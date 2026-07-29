@@ -1,73 +1,71 @@
 from typing import Sequence
 
 import pytest
-from tww_hooks.capabilities.relation_lookup import RelationLookupCapability
+from tww_hooks.capabilities.relation_lookup import InMemoryRelationLookupCapability
 
-from tww_hooks.models.rights import CanonicalDerivedRights
 from tww_hooks.models.canonical_object import CanonicalObjectIdentity,CanonicalObject
 
-class FakeRelationLookupCapability(
-    RelationLookupCapability,
-):
-    def __init__(
-        self,
-        *,
-        derived_rights: CanonicalDerivedRights,
-        objects: dict[
-            tuple,
-            CanonicalObject,
-        ],
-    ):
-        self.derived_rights = derived_rights
-        self.objects = objects
-
-    @staticmethod
-    def _key(
-        identity: CanonicalObjectIdentity,
-    ) -> tuple:
-        return (
-            identity.class_id,
-            tuple(
-                sorted(
-                    identity.attributes.items(),
-                ),
-            ),
-        )
-
-    def current_object(
-        self,
-        identity: CanonicalObjectIdentity,
-    ) -> CanonicalObject | None:
-        return self.objects.get(
-            self._key(
-                identity,
-            ),
-        )
-
-    def canonical_objects(
-        self,
-        *,
-        local_class_id: str,
-        remote_class_id: str,
-        local_attribute: str,
-        remote_attribute: str,
-        value,
-    ) -> Sequence[
-        CanonicalObject
-    ]:
-        return self.derived_rights.remote_objects
-
-    def resolve_derived_rights(
-        self,
-        *,
-        local_objects,
-        relation,
-    ) -> CanonicalDerivedRights:
-        return self.derived_rights
 
 @pytest.fixture
 def relation_lookup():
-    return FakeRelationLookupCapability(
-        derived_rights=CanonicalDerivedRights(),
-        objects={},
+    """
+    In-memory lookup preloaded for derived-right evaluator tests.
+    """
+
+    return InMemoryRelationLookupCapability(
+        local_objects=(
+            CanonicalObject(
+                identity=CanonicalObjectIdentity(
+                    class_id="wastewater_networkelement",
+                    attributes={
+                        "obj_id": "ch987654NE123456",
+                    },
+                ),
+                values={
+                    "fk_wastewater_structure": "ch000000ws000001",
+                },
+            ),
+            CanonicalObject(
+                identity=CanonicalObjectIdentity(
+                    class_id="reach_point",
+                    attributes={
+                        "obj_id": "ch000000rp000001",
+                    },
+                ),
+                values={},
+            ),
+        ),
+        related_objects=(
+            CanonicalObject(
+                identity=CanonicalObjectIdentity(
+                    class_id="wastewater_structure",
+                    attributes={
+                        "obj_id": "ch000000ws000001",
+                    },
+                ),
+                values={},
+            ),
+            CanonicalObject(
+                identity=CanonicalObjectIdentity(
+                    class_id="reach",
+                    attributes={
+                        "obj_id": "ch000000re000001",
+                    },
+                ),
+                values={
+                    "fk_reach_point_from": "ch000000rp000001",
+                },
+            ),
+            CanonicalObject(
+                identity=CanonicalObjectIdentity(
+                    class_id="reach",
+                    attributes={
+                        "obj_id": "ch000000re000002",
+                    },
+                ),
+                values={
+                    "fk_reach_point_to": "ch000000rp000001",
+                },
+            ),
+        ),
     )
