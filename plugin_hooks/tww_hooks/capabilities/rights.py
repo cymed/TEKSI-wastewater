@@ -338,6 +338,7 @@ class RightsCapability:
             attribute_name,
         )
 
+    @property
     def allow_transitive_transitions(
         self,
     ) -> bool:

@@ -282,62 +282,6 @@ class RightsEvaluator:
             },
         )
 
-    def _resolve_derived_rights(
-        self,
-        class_id: str,
-        context: RightsEvaluationContext,
-    ) -> CanonicalDerivedRights:
-        """
-        Resolve related objects from which rights may be derived.
-
-        The returned structure describes the resolved object graph but does
-        not itself evaluate any CRUD permissions.
-        """
-
-        definitions = self.derived_rights.try_derived_rights(
-            class_id,
-        )
-
-        if not definitions:
-            return CanonicalDerivedRights()
-
-        local_object = CanonicalObjectIdentity(
-            class_id=class_id,
-            attributes={
-                key: value
-                for key, value in {
-                    **context.old_values,
-                    **context.new_values,
-                }.items()
-                if value is not None
-            },
-        )
-
-        local_objects = (
-            local_object,
-        )
-
-        remote_objects: list[
-            CanonicalObjectIdentity
-        ] = []
-
-        for definition in definitions:
-            resolved = self.relation_lookup.resolve_derived_rights(
-                local_objects=local_objects,
-                relation=definition,
-            )
-
-            remote_objects.extend(
-                resolved.remote_objects,
-            )
-
-        return CanonicalDerivedRights(
-            local_objects=local_objects,
-            remote_objects=tuple(
-                remote_objects,
-            ),
-        )
-
     def _can_update_via_derived_rights(
         self,
         class_id: str,
@@ -351,11 +295,11 @@ class RightsEvaluator:
         return any(
             self._can_apply_any_rule(
                 self.rights.update_rules(
-                    remote_object.class_id,
+                    related_object.class_id,
                 ),
                 context,
             )
-            for remote_object in derived.remote_objects
+            for related_object in derived.related_objects
         )
 
     def _can_update_via_subclass_rights(
@@ -414,7 +358,7 @@ class RightsEvaluator:
             },
         )
 
-        remote_objects: list[
+        related_objects: list[
             CanonicalObjectIdentity
         ] = []
 
@@ -426,12 +370,12 @@ class RightsEvaluator:
             except KeyError:
                 continue
 
-            remote_objects.extend(
+            related_objects.extend(
                 self.relation_lookup.canonical_objects(
                     local_class_id=class_id,
-                    remote_class_id=relation.class_id,
+                    related_class_id=relation.class_id,
                     local_attribute=relation.local_attribute,
-                    remote_attribute=relation.remote_attribute,
+                    related_attribute=relation.related_attribute,
                     value=value,
                 )
             )
@@ -440,7 +384,7 @@ class RightsEvaluator:
             local_objects=(
                 local_object,
             ),
-            remote_objects=tuple(
-                remote_objects,
+            related_objects=tuple(
+                related_objects,
             ),
         )

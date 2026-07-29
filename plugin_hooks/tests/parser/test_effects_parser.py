@@ -228,27 +228,30 @@ def test_parse_multiple_effects() -> None:
             {
               "kind": "enforce_exists",
               "identity": {
-              "class_id": "agxx_wastewater_node",
-              "attributes": {
-              "fk_wastewater_node": "ch123456AG987654"
+                "class_id": "agxx_wastewater_node",
+                "attributes": {
+                  "fk_wastewater_node": "ch123456AG987654"
+                }
               }
-             }
             },
             {
               "kind": "update_attribute",
               "identity": {
-              "class_id": "agxx_wastewater_node",
-              "attributes": {
-              "fk_wastewater_node": "ch123456AG876543"
+                "class_id": "agxx_wastewater_node",
+                "attributes": {
+                  "fk_wastewater_node": "ch123456AG876543"
+                }
               },
               "tww_attribute_id": "ag64_function",
               "value": 1234
-             }
             }
           ]
         }
         """
     )
+
+    assert document.version == 1
+    assert len(document.effects) == 2
 
     assert len(
         document.effects,
@@ -264,43 +267,49 @@ def test_parse_multiple_effects() -> None:
         UpdateAttributeEffect,
     )
 
+import pytest
+
+from tww_hooks.exceptions import EffectValidationError
+from tww_hooks.parser.effects_parser import EffectParser
+
+
 def test_reject_contradicting_effects() -> None:
     parser = EffectParser()
+
     with pytest.raises(
-        ValueError,
+        EffectValidationError,
     ):
         parser.parse_json(
-        """
-        {
-          "version": 1,
-          "source": {
-            "model": "agxx",
-            "class_id": "GepKnoten",
-            "object_id": "ch123456AG987654"
-          },
-          "effects": [
+            """
             {
-              "kind": "enforce_not_exists",
-              "identity": {
-              "class_id": "agxx_wastewater_node",
-              "attributes": {
-              "fk_wastewater_node": "ch123456AG987654"
-              }
-             }
-            },
-            {
-              "kind": "update_attribute",
-              "identity": {
-              "class_id": "agxx_wastewater_node",
-              "attributes": {
-              "fk_wastewater_node": "ch123456AG987654"
+              "version": 1,
+              "source": {
+                "model": "agxx",
+                "class_id": "GepKnoten",
+                "object_id": "ch123456AG987654"
               },
-              "tww_attribute_id": "ag64_function",
-              "value": 1234
-             }
+              "effects": [
+                {
+                  "kind": "enforce_not_exists",
+                  "identity": {
+                    "class_id": "agxx_wastewater_node",
+                    "attributes": {
+                      "fk_wastewater_node": "ch123456AG987654"
+                    }
+                  }
+                },
+                {
+                  "kind": "update_attribute",
+                  "identity": {
+                    "class_id": "agxx_wastewater_node",
+                    "attributes": {
+                      "fk_wastewater_node": "ch123456AG987654"
+                    }
+                  },
+                  "tww_attribute_id": "ag64_function",
+                  "value": 1234
+                }
+              ]
             }
-          ]
-        }
-        """
-    )
-
+            """
+        )
