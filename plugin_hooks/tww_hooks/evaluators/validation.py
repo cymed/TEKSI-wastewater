@@ -1,5 +1,7 @@
 from collections import deque
 from dataclasses import dataclass
+from collections.abc import Mapping
+from typing import Any
 
 from ..capabilities.rights import RightsCapability
 from ..capabilities.validation import ValidationRegistry
@@ -7,6 +9,7 @@ from ..models.validation import (
     ValidationContext,
     ValidationFinding,
     Change,
+    ChangeOperation
 )
 from tww_hooks.exceptions import Severity
 
@@ -148,6 +151,8 @@ class ValidationEvaluator:
         attribute_name: str,
         old_value,
         new_value,
+        operation: ChangeOperation,
+        context_values={},
     ) -> tuple[
         ValidationFinding,
         ...
@@ -168,6 +173,8 @@ class ValidationEvaluator:
             attribute_name=attribute_name,
             old_value=old_value,
             new_value=new_value,
+            operation=operation,
+            context_values=context_values
         )
 
         for validation in validations:
@@ -188,9 +195,12 @@ class ValidationEvaluator:
 
     def validate_change(
         self,
-        *,
         class_id: str,
         change: Change,
+        context_values: Mapping[
+            str,
+            Any,
+        ] | None = None,
     ) -> tuple[
         ValidationFinding,
         ...
@@ -199,6 +209,9 @@ class ValidationEvaluator:
             ValidationFinding
         ] = []
 
+        if context_values is None:
+            context_values = {}
+
         for attribute_change in change.changed_attributes:
             findings.extend(
                 self.validate_attribute(
@@ -206,6 +219,8 @@ class ValidationEvaluator:
                     attribute_name=attribute_change.attribute_name,
                     old_value=attribute_change.old_value,
                     new_value=attribute_change.new_value,
+                    operation=change.operation,
+                    context_values=context_values,
                 )
             )
 
@@ -220,7 +235,7 @@ class ValidationEvaluator:
                         old_value=attribute_change.old_value,
                         new_value=attribute_change.new_value,
                     )
-            )
+                )
 
         return tuple(
             findings,

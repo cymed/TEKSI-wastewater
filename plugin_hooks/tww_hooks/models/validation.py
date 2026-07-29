@@ -13,6 +13,7 @@ from ..exceptions import Severity, Finding
 
 from dataclasses import dataclass, field
 from typing import Any
+from collections.abc import Mapping
 
 
 @dataclass(slots=True, frozen=True)
@@ -41,6 +42,19 @@ class ValidationContext:
         metadata={
             "doc": (
                 "New attribute value after the change."
+            )
+        },
+    )
+
+    context_values: Mapping[
+        str,
+        Any,
+    ] = field(
+        default_factory=dict,
+        metadata={
+            "doc": (
+                "Runtime context values available to validations, such as "
+                "`provider_oid` and `dataowner_oid`."
             )
         },
     )
@@ -254,6 +268,31 @@ class AttributeValidation:
             )
         },
     )
+
+    operations: list[ChangeOperation]  = field(
+        default_factory=lambda: (
+            ChangeOperation.INSERT,
+            ChangeOperation.UPDATE,
+            ChangeOperation.DELETE,
+            ),
+        metadata={
+            "doc": (
+                "List of ChangeOperations on which the AttributeValidation "
+                "is executed. Defaults to insert, update and delete"
+            )
+        },
+    )
+
+    context_value: str  = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Optional context value name that is needed for validation, "
+                "for example `provider_oid` or `dataowner_oid`."
+            )
+        },
+    )
+
 
 @dataclass(slots=True, frozen=True)
 class TransitionValidation:

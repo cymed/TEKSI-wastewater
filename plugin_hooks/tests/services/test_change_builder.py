@@ -29,6 +29,7 @@ def wastewater_structure() -> CanonicalObject:
             "remark": "",
             "status_survey_year": 2020,
             "fk_provider": "ch000000geping01",
+            "fk_dataowner": "ch000000awgde001",
         },
     )
 
@@ -36,20 +37,42 @@ def wastewater_structure() -> CanonicalObject:
 def test_change_builder_builds_insert() -> None:
     builder = ChangeBuilder()
 
-    effect = UpdateAttributeEffect(
+    effects = (
+        UpdateAttributeEffect(
+            identity=CanonicalObjectIdentity(
+                class_id="wastewater_structure",
+                attributes={
+                    "obj_id": "ch987654WS123456",
+                },
+            ),
+            tww_attribute_id="status",
+            value="operational",
+        ),
+    UpdateAttributeEffect(
         identity=CanonicalObjectIdentity(
             class_id="wastewater_structure",
             attributes={
                 "obj_id": "ch987654WS123456",
             },
         ),
-        tww_attribute_id="status",
-        value="operational",
+        tww_attribute_id="fk_provider",
+        value="ch000000geping01",
+        ),
+    UpdateAttributeEffect(
+        identity=CanonicalObjectIdentity(
+            class_id="wastewater_structure",
+            attributes={
+                "obj_id": "ch987654WS123456",
+            },
+        ),
+        tww_attribute_id="fk_dataowner",
+        value="ch000000awgde001",
+        ),
     )
 
     change = builder.build(
         current_object=None,
-        effects=(effect,),
+        effects=effects,
     )
 
     assert (
@@ -61,6 +84,8 @@ def test_change_builder_builds_insert() -> None:
 
     assert change.new_values == {
         "status": "operational",
+        "fk_provider": "ch000000geping01",
+        "fk_dataowner": "ch000000awgde001",
     }
 
 
@@ -100,6 +125,7 @@ def test_change_builder_builds_update(
         "remark": "",
         "status_survey_year": 2020,
         "fk_provider": "ch000000geping01",
+        "fk_dataowner": "ch000000awgde001",
     }
 
     assert change.new_values == {
@@ -107,6 +133,7 @@ def test_change_builder_builds_update(
         "remark": "Survey completed",
         "status_survey_year": 2024,
         "fk_provider": "ch000000geping01",
+        "fk_dataowner": "ch000000awgde001",
     }
 
     assert len(

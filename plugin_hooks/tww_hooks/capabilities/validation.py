@@ -128,6 +128,9 @@ class ValidationRegistry:
         if validation_id == "cannot_decrease":
             return self._validate_cannot_decrease
 
+        if validation_id == "equals_context_value":
+            return self._equals_context_value
+
         raise NotImplementedError(
             f"Unknown validation: {validation_id}"
         )
@@ -199,6 +202,57 @@ class ValidationRegistry:
                 attribute_name=context.attribute_name,
             ),
         )
+
+    def _equals_context_value(
+        self,
+        *,
+        validation,
+        context,
+    ) -> tuple:
+        if validation.context_value is None:
+            return (
+                ValidationFinding(
+                    code=validation.id,
+                    severity=validation.level,
+                    message=(
+                        "Validation requires a context value name."
+                    ),
+                    attribute_name=context.attribute_name,
+                ),
+            )
+
+        if validation.context_value not in context.context_values:
+            return (
+                ValidationFinding(
+                    code=validation.id,
+                    severity=validation.level,
+                    message=(
+                        f"Context value {validation.context_value!r} "
+                        f"is missing."
+                    ),
+                    attribute_name=context.attribute_name,
+                ),
+            )
+
+        expected_value = context.context_values[
+            validation.context_value
+        ]
+
+        if str(context.new_value) == str(expected_value):
+            return ()
+
+        return (
+            ValidationFinding(
+                code=validation.id,
+                severity=validation.level,
+                message=(
+                    f"Value of {context.attribute_name!r} must match "
+                    f"context value {validation.context_value!r}."
+                ),
+                attribute_name=context.attribute_name,
+            ),
+        )
+
 
     def _as_datetime(
         self,

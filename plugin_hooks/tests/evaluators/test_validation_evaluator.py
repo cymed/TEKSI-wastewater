@@ -10,6 +10,8 @@ from tww_hooks.evaluators.validation import (
 from tww_hooks.resolver.rights_resolver import RightsResolver
 from tww_hooks.models.validation import (
     AttributeValidation,
+    Change,
+    ChangeOperation,
     ValidationContext,
     ValidationFinding,
 )
@@ -488,6 +490,91 @@ def test_validation_evaluator_accepts_valid_change(
     ).validate_change(
         class_id="wastewater_structure",
         change=change,
+    )
+
+    assert findings == ()
+
+
+
+def test_validation_evaluator_rejects_insert_context_value_mismatch(
+    resolved_rights,
+    registry,
+) -> None:
+    evaluator = ValidationEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        registry=registry,
+    )
+
+    change = Change(
+        table_name="wastewater_structure",
+        object_id="ch987654WS123456",
+        operation=ChangeOperation.INSERT,
+        old_values={},
+        new_values={
+            "fk_provider": "ch000000wrong01",
+            "fk_dataowner": "ch000000awgde001",
+        },
+    )
+
+    findings = evaluator.validate_change(
+        class_id="wastewater_structure",
+        change=change,
+        context_values={
+            "provider_oid": "ch000000geping01",
+            "dataowner_oid": "ch000000awgde001",
+        },
+    )
+
+    assert len(
+        findings,
+    ) == 1
+
+    assert (
+        findings[0].code
+        == "equals_context_value"
+    )
+
+    assert (
+        findings[0].severity
+        == Severity.ERROR
+    )
+
+    assert (
+        findings[0].attribute_name
+        == "fk_provider"
+    )
+
+def test_validation_evaluator_accepts_matching_insert_context_values(
+    resolved_rights,
+    registry,
+) -> None:
+    evaluator = ValidationEvaluator(
+        rights=RightsCapability(
+            rights=resolved_rights,
+        ),
+        registry=registry,
+    )
+
+    change = Change(
+        table_name="wastewater_structure",
+        object_id="ch987654WS123456",
+        operation=ChangeOperation.INSERT,
+        old_values={},
+        new_values={
+            "fk_provider": "ch000000geping01",
+            "fk_dataowner": "ch000000awgde001",
+        },
+    )
+
+    findings = evaluator.validate_change(
+        class_id="wastewater_structure",
+        change=change,
+        context_values={
+            "provider_oid": "ch000000geping01",
+            "dataowner_oid": "ch000000awgde001",
+        },
     )
 
     assert findings == ()
