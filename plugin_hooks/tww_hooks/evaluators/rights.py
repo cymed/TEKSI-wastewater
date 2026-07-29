@@ -292,15 +292,34 @@ class RightsEvaluator:
             context,
         )
 
-        return any(
-            self._can_apply_any_rule(
+        for related_object in derived.remote_objects:
+            current = self.relation_lookup.current_object(
+                related_object,
+            )
+
+            if current is None:
+                continue
+
+            related_context = RightsEvaluationContext(
+                dataowner_oid=context.dataowner_oid,
+                provider_oid=context.provider_oid,
+                operation=context.operation,
+                old_values=dict(
+                    current.values,
+                ),
+                new_values={},
+                context_values=context.context_values,
+            )
+
+            if self._can_apply_any_rule(
                 self.rights.update_rules(
                     related_object.class_id,
                 ),
-                context,
-            )
-            for related_object in derived.remote_objects
-        )
+                related_context,
+            ):
+                return True
+
+        return False
 
     def _can_update_via_subclass_rights(
         self,
