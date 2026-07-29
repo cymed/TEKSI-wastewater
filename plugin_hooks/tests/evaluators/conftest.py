@@ -5,7 +5,6 @@ from tww_hooks.capabilities.relation_lookup import InMemoryRelationLookupCapabil
 
 from tww_hooks.models.canonical_object import CanonicalObjectIdentity,CanonicalObject
 
-
 @pytest.fixture
 def relation_lookup():
     """
@@ -43,7 +42,9 @@ def relation_lookup():
                         "obj_id": "ch000000ws000001",
                     },
                 ),
-                values={},
+                values={
+                    "status": "other.planned",
+                },
             ),
             CanonicalObject(
                 identity=CanonicalObjectIdentity(
@@ -54,6 +55,7 @@ def relation_lookup():
                 ),
                 values={
                     "fk_reach_point_from": "ch000000rp000001",
+                    "fk_wastewater_structure": "ch000000ws000001",
                 },
             ),
             CanonicalObject(
@@ -65,6 +67,7 @@ def relation_lookup():
                 ),
                 values={
                     "fk_reach_point_to": "ch000000rp000001",
+                    "fk_wastewater_structure": "ch000000ws000001",
                 },
             ),
         ),

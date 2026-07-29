@@ -124,6 +124,43 @@ class RightsEvaluator:
         class_id: str,
         context: RightsEvaluationContext,
     ) -> bool:
+        """
+        Check whether the provider may update an object of the class.
+        """
+
+        return self._can_update(
+            class_id,
+            context,
+            visited=(),
+        )
+
+
+    def _can_update(
+        self,
+        class_id: str,
+        context: RightsEvaluationContext,
+        visited: tuple[str, ...],
+    ) -> bool:
+        """
+        Recursive update-right evaluation.
+
+        Evaluation order:
+
+        1. Direct class update rules.
+        2. Derived rights.
+        3. Subclass rights.
+
+        `visited` prevents infinite loops in cyclic configurations.
+        """
+
+        if class_id in visited:
+            return False
+
+        next_visited = (
+            *visited,
+            class_id,
+        )
+
         if self._can_apply_any_rule(
             self.rights.update_rules(
                 class_id,
@@ -135,13 +172,64 @@ class RightsEvaluator:
         if self._can_update_via_derived_rights(
             class_id,
             context,
+            visited=next_visited,
         ):
             return True
 
         return self._can_update_via_subclass_rights(
             class_id,
             context,
+            visited=next_visited,
         )
+
+    def _can_update_via_derived_rights(
+        self,
+        class_id: str,
+        context: RightsEvaluationContext,
+        visited: tuple[str, ...],
+    ) -> bool:
+        """
+        Check whether update rights may be inherited from related objects.
+        """
+
+        derived = self._resolve_derived_rights(
+            class_id,
+            context,
+        )
+
+        for related_object in derived.remote_objects:
+            current = self.relation_lookup.current_object(
+                related_object,
+            )
+
+            if current is None:
+                continue
+
+            related_values = {}
+
+            for key, value in current.identity.attributes.items():
+                related_values[key] = value
+
+            for key, value in current.values.items():
+                related_values[key] = value
+
+            related_context = RightsEvaluationContext(
+                dataowner_oid=context.dataowner_oid,
+                provider_oid=context.provider_oid,
+                operation=context.operation,
+                old_values=related_values,
+                new_values={},
+                context_values=context.context_values,
+            )
+
+            if self._can_update(
+                related_object.class_id,
+                related_context,
+                visited=visited,
+            ):
+                return True
+
+        return False
 
     def can_delete(
         self,
@@ -282,49 +370,11 @@ class RightsEvaluator:
             },
         )
 
-    def _can_update_via_derived_rights(
-        self,
-        class_id: str,
-        context: RightsEvaluationContext,
-    ) -> bool:
-        derived = self._resolve_derived_rights(
-            class_id,
-            context,
-        )
-
-        for related_object in derived.remote_objects:
-            current = self.relation_lookup.current_object(
-                related_object,
-            )
-
-            if current is None:
-                continue
-
-            related_context = RightsEvaluationContext(
-                dataowner_oid=context.dataowner_oid,
-                provider_oid=context.provider_oid,
-                operation=context.operation,
-                old_values=dict(
-                    current.values,
-                ),
-                new_values={},
-                context_values=context.context_values,
-            )
-
-            if self._can_apply_any_rule(
-                self.rights.update_rules(
-                    related_object.class_id,
-                ),
-                related_context,
-            ):
-                return True
-
-        return False
-
     def _can_update_via_subclass_rights(
         self,
         class_id: str,
         context: RightsEvaluationContext,
+        visited: tuple[str, ...],
     ) -> bool:
         """
         Check whether update rights may be inherited from subclasses.
@@ -341,15 +391,13 @@ class RightsEvaluator:
             return False
 
         return any(
-            self._can_apply_any_rule(
-                self.rights.update_rules(
-                    subclass_id,
-                ),
+            self._can_update(
+                subclass_id,
                 context,
+                visited=visited,
             )
             for subclass_id in subclasses
         )
-
 
     def _resolve_derived_rights(
         self,

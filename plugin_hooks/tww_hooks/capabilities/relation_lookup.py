@@ -80,24 +80,28 @@ class RelationLookupCapability:
         Sequence[CanonicalObjectIdentity]
             Matching related objects.
         """
-        local_matches = tuple(
-            obj
-            for obj in self.objects
-            if obj.identity.class_id == local_class_id
-            and self._attribute_value(
+
+        local_match_exists = False
+
+        for obj in self._all_objects():
+            if obj.identity.class_id != local_class_id:
+                continue
+
+            local_value = self._attribute_value(
                 obj,
                 local_attribute,
-            ) == value
-        )
+            )
 
-        if not local_matches:
+            if local_value == value:
+                local_match_exists = True
+                break
+
+        if not local_match_exists:
             return ()
 
-        related_matches: list[
-            CanonicalObjectIdentity
-        ] = []
+        matches = []
 
-        for obj in self.objects:
+        for obj in self._all_objects():
             if obj.identity.class_id != related_class_id:
                 continue
 
@@ -107,12 +111,12 @@ class RelationLookupCapability:
             )
 
             if related_value == value:
-                related_matches.append(
+                matches.append(
                     obj.identity,
                 )
 
         return tuple(
-            related_matches,
+            matches,
         )
 
     def current_object(
@@ -176,6 +180,16 @@ class RelationLookupCapability:
             ),
         )
 
+    def _all_objects(
+        self,
+    ) -> tuple[
+        CanonicalObject,
+        ...
+    ]:
+        return (
+            *self.local_objects,
+            *self.related_objects,
+        )
 
 
 @dataclass(slots=True, frozen=True)
