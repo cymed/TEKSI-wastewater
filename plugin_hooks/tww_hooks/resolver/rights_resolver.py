@@ -297,25 +297,62 @@ class RightsResolver:
         str,
         tuple[DerivedRights, ...],
     ]:
-        """
-        Resolve rights-derivation definitions.
+        resolved: dict[
+            str,
+            tuple[DerivedRights, ...],
+        ] = {}
 
-        The resulting mapping is keyed by canonical class identifier and
-        contains only classes that define explicit rights derivation rules.
-
-        Returns
-        -------
-        Mapping[str, tuple[DerivedRights, ...]]
-            Rights-derivation definitions keyed by class identifier.
-        """
-
-        return {
-            class_id: tuple(
-                class_definition.derive_rights_from
+        for class_id, class_definition in definition.classes.items():
+            derived_rights = self._derived_rights_for_class(
+                class_definition=class_definition,
+                definition=definition,
+                visited=(),
             )
-            for (
-                class_id,
-                class_definition,
-            ) in definition.classes.items()
-            if class_definition.derive_rights_from
-        }
+
+            if derived_rights:
+                resolved[class_id] = derived_rights
+
+        return resolved
+
+
+    def _derived_rights_for_class(
+        self,
+        class_definition: ClassDefinition,
+        definition: RightsDefinition,
+        visited: tuple[str, ...],
+    ) -> tuple[
+        DerivedRights,
+        ...
+    ]:
+        if class_definition.id in visited:
+            return ()
+
+        next_visited = visited + (
+            class_definition.id,
+        )
+
+        inherited: list[
+            DerivedRights
+        ] = []
+
+        if class_definition.superclass_id:
+            superclass = definition.classes.get(
+                class_definition.superclass_id,
+            )
+
+            if superclass is not None:
+                inherited.extend(
+                    self._derived_rights_for_class(
+                        class_definition=superclass,
+                        definition=definition,
+                        visited=next_visited,
+                    )
+                )
+
+        inherited.extend(
+            class_definition.derive_rights_from,
+        )
+
+        return tuple(
+            inherited,
+        )

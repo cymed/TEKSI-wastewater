@@ -6,10 +6,19 @@ LANGUAGE plpgsql
 AS
 $BODY$
 DECLARE
-    allowed_effect_kinds text[] := ARRAY['update_attribute','ensure_row_exists','delete_row'];
+    target_schema CONSTANT text := 'tww_od';
+
+    allowed_effect_kinds text[] := ARRAY[
+        'update_attribute',
+        'enforce_exists',
+        'enforce_not_exists'
+    ];
 
     effect jsonb;
-    effect_operation text;
+    effect_kind text;
+
+    identity jsonb;
+    identity_attributes jsonb;
 
     target_table text;
     target_attribute text;
@@ -17,7 +26,6 @@ DECLARE
     target_table_oid oid;
     target_attribute_type regtype;
 
-    identity jsonb;
     id_key text;
     id_val jsonb;
     id_val_text text;
@@ -32,19 +40,19 @@ BEGIN
     -- Top-level contract checks
     -------------------------------------------------------------------------
 
-    IF mapping IS NULL THEN RAISE EXCEPTION
+    IF mapping IS NULL THEN
+        RAISE EXCEPTION
             'dict mapping jsonb validation failed: mapping must not be NULL.';
-    ELSE NULL;
     END IF;
 
-    IF jsonb_typeof(mapping) <> 'object' THEN RAISE EXCEPTION
+    IF jsonb_typeof(mapping) <> 'object' THEN
+        RAISE EXCEPTION
             'dict mapping jsonb validation failed: mapping must be a JSON object.';
-    ELSE NULL;
     END IF;
 
-    IF NOT mapping ? 'version' THEN RAISE EXCEPTION
+    IF NOT mapping ? 'version' THEN
+        RAISE EXCEPTION
             'dict mapping jsonb validation failed: mapping must contain field "version".';
-    ELSE NULL;
     END IF;
 
     BEGIN
@@ -60,13 +68,13 @@ BEGIN
         RAISE EXCEPTION
             'dict mapping jsonb validation failed: unsupported mapping version %. Expected 1.',
             version_value;
-    ELSE NULL;
     END IF;
 
-    IF jsonb_typeof(mapping -> 'effects') <> 'array' THEN
+    IF NOT mapping ? 'effects'
+       OR jsonb_typeof(mapping -> 'effects') <> 'array'
+    THEN
         RAISE EXCEPTION
             'dict mapping jsonb validation failed: mapping.effects must be an array.';
-    ELSE NULL;
     END IF;
 
     -------------------------------------------------------------------------
@@ -81,30 +89,57 @@ BEGIN
             RAISE EXCEPTION
                 'dict mapping jsonb validation failed: each effect must be an object. Got: %',
                 effect;
-        ELSE NULL;
         END IF;
 
         effect_kind := effect ->> 'kind';
 
-        IF effect_kind <> ALL(allowed_effect_kinds) THEN
-            RAISE EXCEPTION 'dict mapping jsonb validation failed: unsupported effect kind "%". Effect: %',
+        IF effect_kind IS NULL
+           OR NOT effect_kind = ANY(allowed_effect_kinds)
+        THEN
+            RAISE EXCEPTION
+                'dict mapping jsonb validation failed: unsupported effect kind "%". Effect: %',
                 effect_kind,
                 effect;
-        ELSE NULL;
         END IF;
 
-
         ---------------------------------------------------------------------
-        -- Target schema checks
+        -- Canonical identity checks
         ---------------------------------------------------------------------
 
-        target_schema = 'tww_od';
+        identity := effect -> 'identity';
+
+        IF identity IS NULL
+           OR jsonb_typeof(identity) <> 'object'
+        THEN
+            RAISE EXCEPTION
+                'dict mapping jsonb validation failed: effect must contain object field identity. Effect: %',
+                effect;
+        END IF;
+
+        target_table := identity ->> 'class_id';
+
+        IF target_table IS NULL
+           OR target_table = ''
+        THEN
+            RAISE EXCEPTION
+                'dict mapping jsonb validation failed: identity.class_id must be set. Effect: %',
+                effect;
+        END IF;
+
+        identity_attributes := identity -> 'attributes';
+
+        IF identity_attributes IS NULL
+           OR jsonb_typeof(identity_attributes) <> 'object'
+           OR identity_attributes = '{{}}'::jsonb
+        THEN
+            RAISE EXCEPTION
+                'dict mapping jsonb validation failed: identity.attributes must be a non-empty object. Effect: %',
+                effect;
+        END IF;
 
         ---------------------------------------------------------------------
         -- Target table checks
         ---------------------------------------------------------------------
-
-        target_table := effect ->> 'tww_class_id';
 
         SELECT c.oid
         INTO target_table_oid
@@ -123,23 +158,12 @@ BEGIN
         END IF;
 
         ---------------------------------------------------------------------
-        -- Identity checks
+        -- Identity attribute checks
         ---------------------------------------------------------------------
-
-        tww_identity := effect -> 'tww_identity';
-
-        IF identity IS NULL
-           OR jsonb_typeof(tww_identity) <> 'object'
-           OR tww_identity = '{}'::jsonb THEN
-            RAISE EXCEPTION
-                'dict mapping jsonb validation failed: effect must contain object field tww_identity. Effect: %',
-                effect;
-        END IF;
-
 
         FOR id_key, id_val IN
             SELECT key, value
-            FROM jsonb_each(identity)
+            FROM jsonb_each(identity_attributes)
         LOOP
             SELECT a.atttypid::regtype
             INTO identity_column_type
@@ -178,7 +202,7 @@ BEGIN
                     id_val;
             END IF;
 
-            id_val_text := id_val #>> '{}';
+            id_val_text := id_val #>> '{{}}';
 
             BEGIN
                 EXECUTE format(
@@ -199,15 +223,17 @@ BEGIN
         END LOOP;
 
         ---------------------------------------------------------------------
-        -- Attribute effect checks
+        -- update_attribute checks
         ---------------------------------------------------------------------
 
-        IF effect_kind = 'attribute' THEN
+        IF effect_kind = 'update_attribute' THEN
             target_attribute := effect ->> 'tww_attribute_id';
 
-            IF target_attribute IS NULL THEN
+            IF target_attribute IS NULL
+               OR target_attribute = ''
+            THEN
                 RAISE EXCEPTION
-                    'dict mapping jsonb validation failed: attribute effect is missing tww_attribute_id: %',
+                    'dict mapping jsonb validation failed: update_attribute effect is missing tww_attribute_id. Effect: %',
                     effect;
             END IF;
 
@@ -231,7 +257,7 @@ BEGIN
                AND effect ? 'value'
             THEN
                 RAISE EXCEPTION
-                    'dict mapping jsonb validation failed: attribute effect must not contain both value_id and value. Effect: %',
+                    'dict mapping jsonb validation failed: update_attribute effect must not contain both value_id and value. Effect: %',
                     effect;
             END IF;
 
@@ -239,8 +265,9 @@ BEGIN
                 value_json := effect -> 'value_id';
             ELSIF effect ? 'value' THEN
                 value_json := effect -> 'value';
-            ELSE RAISE EXCEPTION
-                    'dict mapping jsonb validation failed: attribute effect must contain value_id or value. Effect: %',
+            ELSE
+                RAISE EXCEPTION
+                    'dict mapping jsonb validation failed: update_attribute effect must contain value_id or value. Effect: %',
                     effect;
             END IF;
 
@@ -249,7 +276,8 @@ BEGIN
                 'number',
                 'boolean',
                 'null'
-            ) THEN RAISE EXCEPTION
+            ) THEN
+                RAISE EXCEPTION
                     'dict mapping jsonb validation failed: attribute value for %.%.% must be scalar or null. Got: %',
                     target_schema,
                     target_table,
@@ -260,7 +288,7 @@ BEGIN
             IF jsonb_typeof(value_json) = 'null' THEN
                 value_text := NULL;
             ELSE
-                value_text := value_json #>> '{}';
+                value_text := value_json #>> '{{}}';
             END IF;
 
             IF value_text IS NOT NULL THEN
@@ -270,7 +298,8 @@ BEGIN
                         target_attribute_type
                     )
                     USING value_text;
-                EXCEPTION WHEN others THEN
+                EXCEPTION
+                    WHEN others THEN
                         RAISE EXCEPTION
                             'dict mapping jsonb validation failed: value "%" cannot be cast to %. Target: %.%.%',
                             value_text,
@@ -281,13 +310,18 @@ BEGIN
                 END;
             END IF;
         ELSE
+            -----------------------------------------------------------------
+            -- Non-attribute effect checks
+            -----------------------------------------------------------------
+
             IF effect ? 'tww_attribute_id' THEN
                 RAISE EXCEPTION
                     'dict mapping jsonb validation failed: non-attribute effects must not contain tww_attribute_id. Effect: %',
                     effect;
             END IF;
 
-            IF effect ? 'value' OR effect ? 'value_id'
+            IF effect ? 'value'
+               OR effect ? 'value_id'
             THEN
                 RAISE EXCEPTION
                     'dict mapping jsonb validation failed: non-attribute effects must not contain value or value_id. Effect: %',
@@ -300,21 +334,29 @@ BEGIN
 END;
 $BODY$;
 
-CREATE OR REPLACE FUNCTION tww_app.persist_dict_mapping_jsonb(mapping jsonb)
+
+CREATE OR REPLACE FUNCTION tww_app.persist_dict_mapping_jsonb(
+    mapping jsonb
+)
 RETURNS void
 LANGUAGE plpgsql
 AS
 $BODY$
 DECLARE
     target_schema CONSTANT text := 'tww_od';
+
     effect jsonb;
     effect_kind text;
+
+    identity jsonb;
+    identity_attributes jsonb;
+
     target_table text;
     target_attribute text;
+
     target_table_oid oid;
     target_attribute_type regtype;
 
-    identity jsonb;
     id_key text;
     id_val jsonb;
     id_val_text text;
@@ -329,10 +371,11 @@ DECLARE
 BEGIN
     -------------------------------------------------------------------------
     -- Validate full mapping contract before doing any write.
-    -- The validation function should raise a descriptive exception if invalid.
     -------------------------------------------------------------------------
 
-    IF NOT tww_app.fct_validate_dict_mapping_jsonb(mapping) THEN
+    IF NOT tww_app.fct_validate_dict_mapping_jsonb(
+        mapping
+    ) THEN
         RAISE EXCEPTION
             'persist_dict_mapping_jsonb: mapping validation failed.';
     END IF;
@@ -346,9 +389,12 @@ BEGIN
         FROM jsonb_array_elements(mapping -> 'effects')
     LOOP
         effect_kind := effect ->> 'kind';
-        target_table := effect ->> 'tww_class_id';
+
+        identity := effect -> 'identity';
+        target_table := identity ->> 'class_id';
+        identity_attributes := identity -> 'attributes';
+
         target_attribute := effect ->> 'tww_attribute_id';
-        identity := effect -> 'tww_identity';
 
         ---------------------------------------------------------------------
         -- Resolve target table OID
@@ -380,7 +426,7 @@ BEGIN
 
         FOR id_key, id_val IN
             SELECT key, value
-            FROM jsonb_each(identity)
+            FROM jsonb_each(identity_attributes)
         LOOP
             SELECT a.atttypid::regtype
             INTO id_col_type
@@ -398,7 +444,7 @@ BEGIN
                     id_key;
             END IF;
 
-            id_val_text := id_val #>> '{}';
+            id_val_text := id_val #>> '{{}}';
 
             where_clause := concat_ws(
                 ' AND ',
@@ -471,7 +517,7 @@ BEGIN
                     where_clause
                 );
             ELSE
-                value_text := value_json #>> '{}';
+                value_text := value_json #>> '{{}}';
 
                 EXECUTE format(
                     'UPDATE %I.%I SET %I = %L::%s WHERE %s',
@@ -484,7 +530,7 @@ BEGIN
                 );
             END IF;
 
-        ELSIF effect_kind = 'ensure_row_exists' THEN
+        ELSIF effect_kind = 'enforce_exists' THEN
             EXECUTE format(
                 'INSERT INTO %I.%I (%s) VALUES (%s) ON CONFLICT DO NOTHING',
                 target_schema,
@@ -493,7 +539,7 @@ BEGIN
                 insert_values
             );
 
-        ELSIF effect_kind = 'delete_row' THEN
+        ELSIF effect_kind = 'enforce_not_exists' THEN
             EXECUTE format(
                 'DELETE FROM %I.%I WHERE %s',
                 target_schema,
@@ -502,7 +548,6 @@ BEGIN
             );
 
         ELSE
-            -- Should be unreachable if validator is correct.
             RAISE EXCEPTION
                 'persist_dict_mapping_jsonb: unsupported effect kind "%". Effect: %',
                 effect_kind,

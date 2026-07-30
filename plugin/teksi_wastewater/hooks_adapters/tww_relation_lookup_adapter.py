@@ -35,7 +35,8 @@ class TwwRelationLookupAdapter(
         local_attribute: str,
         related_attribute: str,
         value: Any,
-    ) -> Sequencequery = DatabaseUtils.compose_sql(
+    ) -> Sequence:
+        query = DatabaseUtils.compose_sql(
             """
             SELECT {identity_attribute}
             FROM {schema}.{table_name}
