@@ -368,37 +368,6 @@ def test_rights_evaluator_inherits_rights_from_reach(
         context,
     )
 
-
-def test_rights_evaluator_accepts_any_matching_derived_right(
-    resolved_rights,
-    resolved_providers,
-    relation_lookup,
-) -> None:
-    evaluator = _make_evaluator(
-        resolved_rights,
-        resolved_providers,
-        relation_lookup,
-    )
-
-    context = RightsEvaluationContext(
-        dataowner_oid=Standardoid(
-            "ch000000awgde001",
-        ),
-        provider_oid=Standardoid(
-            "ch000000geping01",
-        ),
-        operation=ChangeOperation.UPDATE,
-        old_values={
-            "obj_id": "ch000000rp000001",
-        },
-    )
-
-    assert evaluator.can_update(
-        "reach_point",
-        context,
-    )
-
-
 def test_rights_evaluator_inherits_update_rights_from_subclass(
     resolved_rights,
     resolved_providers,

@@ -200,10 +200,20 @@ class RightsResolver:
             ResolvedAttributeDefinition,
         ] = {}
 
-        for (
-            attribute_name,
-            attribute_definition,
-        ) in class_definition.attributes.items():
+        attribute_names = set(
+            class_definition.attributes,
+        )
+
+        attribute_names.update(
+            definition.validation_rules,
+        )
+
+        for attribute_name in attribute_names:
+            attribute_definition = class_definition.attributes.get(
+                attribute_name,
+                AttributeDefinition(),
+            )
+
             resolved[
                 attribute_name
             ] = self._resolve_attribute(
@@ -237,10 +247,21 @@ class RightsResolver:
                     )
                     break
 
+        validations = list(
+            attribute_definition.validations,
+        )
+
+        validations.extend(
+            definition.validation_rules.get(
+                attribute_name,
+                (),
+            )
+        )
+
         return ResolvedAttributeDefinition(
             update_privileges=update_privileges,
             validations=tuple(
-                attribute_definition.validations,
+                validations,
             ),
             transitions=tuple(
                 attribute_definition.transitions,
