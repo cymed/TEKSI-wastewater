@@ -47,7 +47,7 @@ jobs:
 
       - name: Run adapter tests
         env:
-          PYTHONPATH: plugin:plugin_hooks
+          PYTHONPATH: ${{ github.workspace }}/plugin:${{ github.workspace }}/plugin_hooks:${{ github.workspace }}
         run: |
           pytest -v plugin/tests/unittest/adapters
 
@@ -74,6 +74,7 @@ jobs:
         run: |
           pip install pytest
           pip install -r plugin/teksi_wastewater/requirements.txt
+          pip install -e ".[dev]"
 
       - name: Download Interlis libs
         run: sudo ./plugin/scripts/download-interlis-libs.sh

@@ -540,14 +540,18 @@ class RightsParser:
     def _parse_validation_rules(
         self,
         raw_rules: dict[str, Any],
-    ) -> dict[str, tuple[AttributeValidation, ...]]:
+    ) -> dict[
+        str,
+        tuple[
+            AttributeValidation,
+            ...
+        ],
+    ]:
         return {
-            attribute_name: tuple(
-                self._parse_attribute_validations(
-                    definition.get(
-                        "rules",
-                        [],
-                    ),
+            attribute_name: self._parse_attribute_validations(
+                definition.get(
+                    "rules",
+                    [],
                 ),
             )
             for attribute_name, definition in raw_rules.items()
