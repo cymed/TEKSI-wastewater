@@ -171,6 +171,39 @@ class InterlisTools:
 
         return models
 
+    def validate_db_data(
+        self,
+        schema,
+        log_path,
+        model_name,
+        srid=2056,
+    ):
+        logger.info(
+            f"VALIDATING ILIDB DATA IN {schema}..."
+        )
+
+        execute_subprocess(
+            " ".join(
+                [
+                    f'"{self.java_executable_path}"',
+                    "-jar",
+                    f'"{self.ili2pg_executable_path}"',
+                    "--validate",
+                    "--models",
+                    f'"{model_name}"',
+                    *get_pgconf_as_ili_args(),
+                    "--dbschema",
+                    f'"{schema}"',
+                    "--createTidCol",
+                    "--noSmartMapping",
+                    "--defaultSrsCode",
+                    f"{srid}",
+                    "--log",
+                    f'"{log_path}"',
+                ]
+            )
+        )
+
 
 class TidMaker:
     """
@@ -199,3 +232,5 @@ class TidMaker:
         """Get an arbitrary unused tid"""
         key = len(self._autoincrementer)
         return self._autoincrementer[key]
+
+

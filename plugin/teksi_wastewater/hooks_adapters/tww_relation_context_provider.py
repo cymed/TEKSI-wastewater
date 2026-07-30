@@ -1,34 +1,48 @@
 from ..interlis import config
-from ..interlis.interlis_model_mapping.model_tww_od import ModelTwwOd
-from ..interlis.interlis_model_mapping.model_interlis_dss import ModelInterlisDss
-from ..interlis.interlis_model_mapping.model_interlis_sia405_abwasser import ModelInterlisSia405Abwasser
-from ..interlis.interlis_model_mapping.model_interlis_sia405_base_abwasser import ModelInterlisSia405BaseAbwasser
-from ..interlis.interlis_model_mapping.model_interlis_vsa_kek import ModelInterlisVsaKek
-from ..interlis.interlis_model_mapping.model_interlis_ag64 import ModelInterlisAG64
-from ..interlis.interlis_model_mapping.model_interlis_ag96 import ModelInterlisAG96
-
-
-# plugin/teksi_wastewater/hooks_adapters/tww_relation_context_provider.py
-
-from tww_hooks.services.relation_context_provider import (
-    RelationContextProvider,
+from ..interlis.interlis_model_mapping.model_interlis_ag64 import (
+    ModelInterlisAG64,
 )
-from tww_hooks.models.mapping import (
-    RelationContext,
-    ClassMapping,
+from ..interlis.interlis_model_mapping.model_interlis_ag96 import (
+    ModelInterlisAG96,
 )
+from ..interlis.interlis_model_mapping.model_interlis_dss import (
+    ModelInterlisDss,
+)
+from ..interlis.interlis_model_mapping.model_interlis_sia405_abwasser import (
+    ModelInterlisSia405Abwasser,
+)
+from ..interlis.interlis_model_mapping.model_interlis_sia405_base_abwasser import (
+    ModelInterlisSia405BaseAbwasser,
+)
+from ..interlis.interlis_model_mapping.model_interlis_vsa_kek import (
+    ModelInterlisVsaKek,
+)
+
 from tww_hooks.capabilities.mapping import (
     DictionaryMappingCapability,
     ModelMappingCapability,
 )
+from tww_hooks.models.mapping import (
+    ClassMapping,
+    RelationContext,
+)
+from tww_hooks.services.relation_context_provider import (
+    RelationContextProvider,
+)
 
-class TwwRelationContextProvider(RelationContextProvider):
+
+class TwwRelationContextProvider(
+    RelationContextProvider,
+):
     """
     Plugin-side provider that builds RelationContext objects from the
-    concrete TEKSI Wastewater INTERLIS model classes.
+    concrete TEKSI Wastewater INTERLIS import model classes.
 
     This adapter is intentionally plugin-specific. The core `tww_hooks`
-    package only depends on the RelationContextProvider protocol.
+    package only depends on the RelationContextProvider abstraction.
+
+    The provider only knows about the imported INTERLIS schema. It does not
+    compare against an export schema and does not load canonical objects.
     """
 
     def __init__(
@@ -37,20 +51,26 @@ class TwwRelationContextProvider(RelationContextProvider):
         dictionary_mapping: DictionaryMappingCapability,
         model_mapping: ModelMappingCapability,
         import_schema: str = config.IMPORT_SCHEMA,
-        export_schema: str = config.EXPORT_SCHEMA,
     ):
         self.ili_model = ili_model
+
         self.groups = config.groups_for_models(
             self.ili_model,
         )
 
-        if len(self.groups) != 1:
+        if len(
+            self.groups,
+        ) != 1:
             raise ValueError(
                 f"Expected exactly one model group for {ili_model!r}, "
                 f"got {sorted(self.groups)!r}"
             )
 
-        self.group = next(iter(self.groups))
+        self.group = next(
+            iter(
+                self.groups,
+            )
+        )
 
         self.dictionary_mapping = dictionary_mapping
         self.model_mapping = model_mapping
@@ -59,14 +79,15 @@ class TwwRelationContextProvider(RelationContextProvider):
             schema=import_schema,
         )
 
-        self.export_model = self._get_model(
-            schema=export_schema,
-        )
-
     def relation_contexts(
         self,
-    ) -> tuple[RelationContext, ...]:
-        contexts: list[RelationContext] = []
+    ) -> tuple[
+        RelationContext,
+        ...
+    ]:
+        contexts: list[
+            RelationContext
+        ] = []
 
         for relation in self.import_model.classes().values():
             contexts.append(
@@ -78,7 +99,9 @@ class TwwRelationContextProvider(RelationContextProvider):
                 )
             )
 
-        return tuple(contexts)
+        return tuple(
+            contexts,
+        )
 
     def _get_model(
         self,
@@ -91,7 +114,9 @@ class TwwRelationContextProvider(RelationContextProvider):
             "sia405_base_abwasser": ModelInterlisSia405BaseAbwasser,
             "ag64": ModelInterlisAG64,
             "ag96": ModelInterlisAG96,
-        }.get(self.group)
+        }.get(
+            self.group,
+        )
 
         if model_cls is None:
             raise ValueError(
@@ -108,7 +133,10 @@ class TwwRelationContextProvider(RelationContextProvider):
     ) -> ClassMapping:
         ili_class_name = relation.__name__
 
-        if {"ag64", "ag96"} & self.groups:
+        if self.group in {
+            "ag64",
+            "ag96",
+        }:
             mapping = self.model_mapping.try_class_definition(
                 ili_class_name,
             )

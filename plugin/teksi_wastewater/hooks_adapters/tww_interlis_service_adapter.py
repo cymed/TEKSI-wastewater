@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from collections.abc import Sequence
 
@@ -13,21 +13,59 @@ from teksi_hooks.services import (
 @dataclass(slots=True, frozen=True)
 class TwwInterlisContext(InterlisContext):
     """
-    TWW-specific INTERLIS context.
+    TWW-specific INTERLIS import/export context.
 
-    This exists only to adapt the current QGIS-bound importer/exporter, which
-    still uses `to_quarantine_only` internally.
+    This context contains operation-level import/export options that are
+    specific to the current TEKSI Wastewater importer/exporter.
+
+    Database connection options remain outside this context and are handled by
+    DatabaseUtils or by the CLI/runtime configuration layer.
     """
 
-    to_quarantine_only: bool = False
+    srid: int = 2056
 
+    logs_next_to_file: bool = False
+
+    show_selection_dialog: bool = False
+
+    filter_nulls: bool = False
+
+    labels_file: Path | None = None
+
+    selected_label_scale_indices: tuple[
+        str,
+        ...
+    ] = field(
+        default_factory=tuple,
+    )
+
+    selected_ids: tuple[
+        str,
+        ...
+    ] = field(
+        default_factory=tuple,
+    )
+
+    disable_validation: bool = False
 
 class TwwInterlisServiceAdapter(InterlisService):
     """
     Plugin-side adapter for the existing INTERLIS importer/exporter.
 
-    This structure is intended to be replaced by TIT or another generic
-    headless implementation later.
+    The framework uses this through the generic InterlisService contract.
+
+    Import is used to load XTF data into an ili2pg-managed schema, typically
+    the quarantine or import schema. Downstream plugin adapters can then map
+    the imported ili2pg structure to canonical TEKSI Wastewater objects,
+    effects and changes.
+
+    Export remains part of the adapter because it is still useful for
+    INTERLIS round-trips, delivery workflows and future headless import/export
+    implementations.
+
+    This adapter intentionally keeps the current QGIS-bound
+    InterlisImporterExporter behind a framework-facing service interface.
+    It will be superseded by TIT.
     """
 
     def __init__(
@@ -49,6 +87,9 @@ class TwwInterlisServiceAdapter(InterlisService):
         if isinstance(context, TwwInterlisContext):
             self._importer_exporter.to_quarantine_only = (
                 context.to_quarantine_only
+            )
+            self._importer_exporter.from_quarantine_only = (
+                context.from_quarantine_only
             )
 
     def import_xtf(

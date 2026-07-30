@@ -92,6 +92,17 @@ class DatabaseUtils:
             return cursor.fetchall()
 
     @staticmethod
+    def fetchall_dict(query):
+        with DatabaseUtils.PsycopgConnection() as connection:
+            cursor = connection.cursor()
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+            column_names = [column[0] for column in cursor.description]
+
+        return [dict(zip(column_names,row,))for row in rows]
+
+    @staticmethod
     def execute(query: str):
         with DatabaseUtils.PsycopgConnection() as connection:
             cursor = connection.cursor()
