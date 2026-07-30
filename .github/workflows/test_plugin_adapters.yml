@@ -49,7 +49,7 @@ jobs:
         env:
           PYTHONPATH: plugin:plugin_hooks
         run: |
-          pytest -v plugin/tests/adapters/unittest
+          pytest -v plugin/tests/unittest/adapters
 
   unit-tests-db-qgis:
     name: Adapter integration tests with DB/QGIS
@@ -94,7 +94,7 @@ jobs:
           docker compose run pum -p pg_tww -d datamodel install -p SRID 2056
 
       - name: Run pytest
-        run: pytest plugin/tests/adapters/integration_db_qgis -v -c plugin/pytest.ini
+        run: pytest plugin/tests/dockerised/adapters -v -c plugin/pytest.ini
         env:
           PYTHONPATH: ${{ github.workspace }}/plugin:${{ github.workspace }}/plugin_hooks:${{ github.workspace }}
 

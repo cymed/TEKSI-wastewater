@@ -275,7 +275,7 @@ class RightsParser:
             ),
             validations=self._parse_attribute_validations(
                 raw.get(
-                    "validation_rules",
+                    "rules",
                     [],
                 ),
             ),

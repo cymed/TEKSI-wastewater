@@ -68,7 +68,7 @@ jobs:
         run: |
           docker compose exec qgis \
             sh -c "xvfb-run pytest \
-              /usr/src/plugin/tests/qgis/test_interlis.py \
+              /usr/src/plugin/tests/dockerised/qgis/test_interlis.py \
               -k 'not test_dss_dataset_import_export' \
               -v -c /usr/src/plugin/pytest.ini"
 
@@ -82,7 +82,7 @@ jobs:
         run: |
           docker compose exec qgis \
             sh -c "xvfb-run pytest \
-              /usr/src/plugin/tests/qgis/test_interlis.py::TestInterlis::test_dss_dataset_import_export \
+              /usr/src/plugin/tests/dockerised/qgis/test_interlis.py::TestInterlis::test_dss_dataset_import_export \
               -v -c /usr/src/plugin/pytest.ini"
 
       - name: docker logs
@@ -131,7 +131,7 @@ jobs:
           docker compose run pum -p pg_tww -d datamodel install -p SRID 2056
 
       - name: Run pytest (no QGIS Python library)
-        run: pytest plugin/tests/no_qgis -v -c plugin/pytest.ini -m no_qgis
+        run: pytest plugin/tests/dockerised/no_qgis -v -c plugin/pytest.ini -m no_qgis
         env:
           PYTHONPATH: ${{ github.workspace }}
 
