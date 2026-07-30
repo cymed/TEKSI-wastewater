@@ -9,6 +9,7 @@ from tww_hooks.models.rulesets import (
     PrivilegeRule,
 )
 from tww_hooks.models.conditions import LocalCondition
+from tww_hooks.parser.rights_parser import RightsParser
 from tww_hooks.exceptions import Severity
 
 
@@ -33,13 +34,26 @@ def test_rights_parser_imports_minimal_yaml(rights_definition) -> None:
     assert last_modification_rule.level == Severity.INFO
 
 
-def test_rights_parser_imports_defaults(rights_definition) -> None:
+def test_rights_parser_imports_default_create_rules() -> None:
+    parser = RightsParser()
 
-    create_rules = rights_definition.defaults.crud_rules.create_rules
+    definition = parser.parse_yaml(
+        """
+        settings:
+          defaults:
+            create_rules:
+              - privileges: [DBW_GEP]
 
-    assert len(create_rules) == 1
-    assert isinstance(create_rules[0], OwnershipRule)
-    assert create_rules[0].attribute == "fk_provider"
+        classes:
+          - id: maintenance_event
+        """
+    )
+
+    create_rules = definition.defaults.crud_rules.create_rules
+
+    assert len(
+        create_rules,
+    ) == 1
 
 
 def test_rights_parser_imports_privilege_rules_with_conditions(rights_definition) -> None:
@@ -69,6 +83,23 @@ def test_rights_parser_imports_privilege_rules_with_conditions(rights_definition
         "other.calculation_alternative",
     ]
 
+def test_rights_parser_imports_default_validation_rules(
+    rights_definition,
+) -> None:
+    assert "last_modification" in rights_definition.validation_rules
+    assert "fk_provider" in rights_definition.validation_rules
+    assert "fk_dataowner" in rights_definition.validation_rules
+
+    provider_rules = rights_definition.validation_rules[
+        "fk_provider"
+    ]
+
+    assert len(
+        provider_rules,
+    ) == 1
+
+    assert provider_rules[0].id == "equals_context_value"
+    assert provider_rules[0].context_value == "provider_oid"
 
 def test_rights_parser_imports_inherit_rules(rights_definition) -> None:
     wastewater_structure = rights_definition.classes[

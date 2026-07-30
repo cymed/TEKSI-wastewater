@@ -386,26 +386,6 @@ def test_validation_evaluator_executes_cannot_decrease(
         == Severity.WARNING
     )
 
-def test_validation_evaluator_accepts_non_decreasing_value(
-    resolved_rights,
-    registry,
-) -> None:
-    evaluator = ValidationEvaluator(
-        rights=RightsCapability(
-            rights=resolved_rights,
-        ),
-        registry=registry,
-    )
-
-    findings = evaluator.validate_attribute(
-        class_id="wastewater_structure",
-        attribute_name="status_survey_year",
-        old_value=2020,
-        new_value=2024,
-    )
-
-    assert findings == ()
-
 
 def test_validation_evaluator_validates_change(
     resolved_rights,

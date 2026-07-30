@@ -5,7 +5,7 @@ import pytest
 from teksi_wastewater.hooks_adapters.tww_quarantine_runner import (
     TwwQuarantineRunner,
 )
-from teksi_wastewater.hooks_adapters.tww_relation_hook_adapter import (
+from teksi_wastewater.hooks_adapters.tww_relation_lookup_adapter import (
     TwwRelationLookupAdapter,
 )
 from teksi_wastewater.interlis import config
