@@ -23,6 +23,9 @@ def test_rights_parser_imports_minimal_yaml(rights_definition) -> None:
     assert "maintenance" in rights_definition.classes
     assert "pipe_profile" in rights_definition.classes
 
+    assert rights_definition.validation_rules == {
+        "debug": (),
+    }
     assert "last_modification" in rights_definition.validation_rules
     assert len(rights_definition.validation_rules["last_modification"]) == 1
 
@@ -37,7 +40,7 @@ def test_rights_parser_imports_minimal_yaml(rights_definition) -> None:
 def test_rights_parser_imports_default_create_rules() -> None:
     parser = RightsParser()
 
-    definition = parser.parse_yaml(
+    definition = parser.parse_file(
         """
         settings:
           defaults:

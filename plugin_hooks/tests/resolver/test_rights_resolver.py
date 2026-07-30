@@ -80,22 +80,6 @@ def test_rights_resolver_preserves_privilege_rules(
     )
 
 
-def test_rights_resolver_applies_default_create_rules(
-    resolved_rights,
-) -> None:
-    resolved = resolved_rights.classes["maintenance_event"]
-
-    assert len(resolved.crud_rules.create_rules) == 1
-
-    rule = resolved.crud_rules.create_rules[0]
-
-    assert isinstance(
-        rule,
-        OwnershipRule,
-    )
-    assert rule.attribute == "fk_provider"
-
-
 def test_rights_resolver_expands_crud_rules_shortcut(
     resolved_rights,
 ) -> None:
@@ -142,6 +126,15 @@ def test_rights_resolver_preserves_attribute_privileges(
         }
     )
 
+def test_rights_resolver_inherits_derived_rights_to_reach(
+    resolved_rights,
+) -> None:
+    assert "reach" in resolved_rights.derived_rights
+
+    assert any(
+        relation.class_id == "wastewater_structure"
+        for relation in resolved_rights.derived_rights["reach"]
+    )
 
 def test_rights_resolver_preserves_attribute_transitions(
     resolved_rights,

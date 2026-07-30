@@ -329,6 +329,15 @@ def test_rights_evaluator_resolves_derived_rights_from_reach(
         "reach",
     }
 
+def test_resolved_rights_inherit_derived_rights_to_reach(
+    resolved_rights,
+) -> None:
+    assert "reach" in resolved_rights.derived_rights
+
+    assert any(
+        relation.class_id == "wastewater_structure"
+        for relation in resolved_rights.derived_rights["reach"]
+    )
 
 def test_rights_evaluator_inherits_rights_from_reach(
     resolved_rights,
