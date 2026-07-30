@@ -64,6 +64,7 @@ def test_validation_evaluator_uses_registry(
         attribute_name="status_survey_year",
         old_value=2024,
         new_value=2020,
+        operation=ChangeOperation.UPDATE,
     )
 
     registry.validation.assert_called_once_with(
@@ -309,6 +310,7 @@ def test_validation_evaluator_accepts_non_decreasing_value(
             attribute_name="inspection_year",
             old_value=2018,
             new_value=2024,
+            operation=ChangeOperation.UPDATE,
         ),
     )
 
@@ -366,6 +368,7 @@ def test_validation_evaluator_executes_cannot_decrease(
         attribute_name="status_survey_year",
         old_value=2024,
         new_value=2020,
+        operation=ChangeOperation.UPDATE,
     )
 
     assert len(findings) == 1

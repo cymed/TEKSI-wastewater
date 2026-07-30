@@ -9,7 +9,6 @@ from ..models.canonical_object import (
     CanonicalObjectIdentity,
 )
 
-@dataclass(slots=True, frozen=True)
 class RelationLookupCapability:
     """
     Capability providing canonical object relationship lookups.

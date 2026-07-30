@@ -96,7 +96,7 @@ jobs:
       - name: Run pytest
         run: pytest plugin/tests/adapters/integration_db_qgis -v -c plugin/pytest.ini
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}/plugin:${{ github.workspace }}/plugin_hooks:${{ github.workspace }}
 
       - name: Show logs
         if: failure()

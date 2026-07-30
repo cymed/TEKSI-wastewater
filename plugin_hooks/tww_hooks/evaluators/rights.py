@@ -156,10 +156,7 @@ class RightsEvaluator:
         if class_id in visited:
             return False
 
-        next_visited = (
-            *visited,
-            class_id,
-        )
+        next_visited = visited + (class_id,)
 
         if self._can_apply_any_rule(
             self.rights.update_rules(
@@ -374,7 +371,7 @@ class RightsEvaluator:
         self,
         class_id: str,
         context: RightsEvaluationContext,
-        visited: tuple[str, ...],
+        visited: tuple[str, ...] =(),
     ) -> bool:
         """
         Check whether update rights may be inherited from subclasses.

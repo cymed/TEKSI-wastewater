@@ -173,11 +173,13 @@ class ValidationEvaluator:
             attribute_name=attribute_name,
             old_value=old_value,
             new_value=new_value,
-            operation=operation,
-            context_values=context_values
+            context_values=context_values,
         )
 
         for validation in validations:
+            if operation not in validation.operations:
+                continue
+
             validator = self.registry.validation(
                 validation.id,
             )

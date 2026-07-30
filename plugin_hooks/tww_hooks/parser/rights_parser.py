@@ -30,9 +30,11 @@ from ..models.rulesets import (
     Rule,
     StateTransitionRule,
 )
+
 from ..models.validation import (
     AttributeValidation,
     TransitionValidation,
+    ChangeOperation,
 )
 from tww_hooks.exceptions import Severity
 
@@ -68,6 +70,11 @@ class RightsParser:
             {},
         )
 
+        defaults_settings = settings.get(
+            "defaults",
+            {},
+        )
+
         class_definitions = self._parse_classes(
             data.get(
                 "classes",
@@ -75,19 +82,18 @@ class RightsParser:
             ),
         )
 
+        defaults = self._parse_defaults(
+            defaults_settings,
+        )
+
         return RightsDefinition(
-            defaults=self._parse_defaults(
-                settings.get(
-                    "defaults",
-                    {},
-                ),
-            ),
+            defaults=defaults,
             classes={
                 class_definition.id: class_definition
                 for class_definition in class_definitions
             },
             validation_rules=self._parse_validation_rules(
-                settings.get(
+                defaults_settings.get(
                     "validation_rules",
                     {},
                 ),
@@ -269,7 +275,7 @@ class RightsParser:
             ),
             validations=self._parse_attribute_validations(
                 raw.get(
-                    "rules",
+                    "validation_rules",
                     [],
                 ),
             ),
@@ -278,6 +284,38 @@ class RightsParser:
                     "transitions",
                     [],
                 ),
+            ),
+        )
+
+    def _parse_attribute_validation(
+        self,
+        data: dict[str, Any],
+    ) -> AttributeValidation:
+        operation_values = data.get(
+            "operations",
+            [
+                "insert",
+                "update",
+                "delete",
+            ],
+        )
+
+        return AttributeValidation(
+            id=data["id"],
+            level=Severity(
+                data.get(
+                    "level",
+                    "error",
+                ),
+            ),
+            operations=tuple(
+                ChangeOperation(
+                    operation,
+                )
+                for operation in operation_values
+            ),
+            context_value=data.get(
+                "context_value",
             ),
         )
 
@@ -450,20 +488,6 @@ class RightsParser:
 
         return operator, raw[operator]
 
-    def _parse_attribute_validations(
-        self,
-        raw_rules: list[dict[str, Any]],
-    ) -> list:
-        return [
-            AttributeValidation(
-                id=raw["id"],
-                level=Severity(
-                    raw["level"],
-                ),
-            )
-            for raw in raw_rules
-        ]
-
     def _parse_transition_validations(
         self,
         raw_rules: list[dict[str, Any]],
@@ -497,6 +521,22 @@ class RightsParser:
             ),
         ]
 
+    def _parse_attribute_validations(
+        self,
+        raw_validations: list[
+            dict[str, Any]
+        ],
+    ) -> tuple[
+        AttributeValidation,
+        ...
+    ]:
+        return tuple(
+            self._parse_attribute_validation(
+                raw_validation,
+            )
+            for raw_validation in raw_validations
+        )
+
     def _parse_validation_rules(
         self,
         raw_rules: dict[str, Any],
@@ -512,6 +552,35 @@ class RightsParser:
             )
             for attribute_name, definition in raw_rules.items()
         }
+
+
+
+    def _merge_validation_rules(
+        self,
+        base,
+        override,
+    ):
+        merged = {}
+
+        for attribute_name, rules in base.items():
+            merged[attribute_name] = tuple(
+                rules,
+            )
+
+        for attribute_name, rules in override.items():
+            if attribute_name in merged:
+                merged[attribute_name] = (
+                    merged[attribute_name]
+                    + tuple(
+                        rules,
+                    )
+                )
+            else:
+                merged[attribute_name] = tuple(
+                    rules,
+                )
+
+        return merged
 
 
 @dataclass(slots=True)
