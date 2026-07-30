@@ -310,7 +310,6 @@ def test_validation_evaluator_accepts_non_decreasing_value(
             attribute_name="inspection_year",
             old_value=2018,
             new_value=2024,
-            operation=ChangeOperation.UPDATE,
         ),
     )
 
@@ -500,6 +499,23 @@ def test_validation_evaluator_rejects_insert_context_value_mismatch(
             "fk_dataowner": "ch000000awgde001",
         },
     )
+
+    assert {
+        attribute.attribute_name
+        for attribute in change.changed_attributes
+    } == {
+        "fk_provider",
+        "fk_dataowner",
+    }
+
+    validations = RightsCapability(
+        rights=resolved_rights,
+    ).try_validations(
+        "wastewater_structure",
+        "fk_provider",
+    )
+
+    assert validations
 
     findings = evaluator.validate_change(
         class_id="wastewater_structure",

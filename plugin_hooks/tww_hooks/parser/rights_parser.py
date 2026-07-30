@@ -49,7 +49,16 @@ class RightsParser:
     or inherited rule references. That is the responsibility of the
     rights resolver.
     """
+    def parse_text(
+        self,
+        txt: str,
+    ) -> RightsDefinition:
+        data = yaml.safe_load(txt)
 
+        return self._parse_dict(
+            data or {},
+        )
+    
     def parse_file(
         self,
         path: str | Path,
