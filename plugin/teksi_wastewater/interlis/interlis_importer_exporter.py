@@ -1,4 +1,5 @@
 from collections.abc import Collection
+from dataclasses import dataclass
 import logging
 import os
 import socket
@@ -41,6 +42,27 @@ from .utils.various import (
 )
 
 
+@dataclass(slots=True, frozen=True)
+class ProgressScope:
+    """
+    Maps phase-local progress values to workflow-level progress values.
+
+    A phase can report progress from 0 to 100, while the caller decides
+    whether that phase represents the full workflow or only part of it.
+    """
+
+    start: float = 0
+    end: float = 100
+
+    def map(
+        self,
+        value: float,
+    ) -> float:
+        return self.start + (
+            self.end
+            - self.start
+        ) * value / 100
+
 class InterlisImporterExporter:
 
     def __init__(self, progress_done_callback=None, lang = 'de'):
@@ -64,21 +86,34 @@ class InterlisImporterExporter:
         self.schema =None
 
     def _init_model_classes(self, model):
-        ModelInterlis = None
+        model_interlis = None
         groups = config.groups_for_models(model)
+
         if "ag96" in groups:
-            ModelInterlis = ModelInterlisAG96(self.schema)
+            model_interlis = ModelInterlisAG96
         elif "ag64" in groups:
-            ModelInterlis = ModelInterlisAG64(self.schema)
-        elif "sia405_base_abwasser" in groups:
-            ModelInterlis = ModelInterlisSia405BaseAbwasser(self.schema)
-        elif "sia405_abwasser" in groups:
-            ModelInterlis = ModelInterlisSia405Abwasser(self.schema)
-        elif "dss" in groups:
-            ModelInterlis = ModelInterlisDss(self.schema)
-        elif "kek" in groups:
-            ModelInterlis = ModelInterlisVsaKek(self.schema)
-        self.model_classes_interlis = ModelInterlis().classes()
+            model_interlis = ModelInterlisAG64
+
+        if "sia405_base_abwasser" in groups:
+            model_interlis = ModelInterlisSia405BaseAbwasser
+
+        if "sia405_abwasser" in groups:
+            model_interlis = ModelInterlisSia405Abwasser
+
+        if "dss" in groups:
+            model_interlis = ModelInterlisDss
+
+        if "vsa_kek" in groups:
+            model_interlis = ModelInterlisVsaKek
+
+        if model_interlis is None:
+            raise InterlisImporterExporterError(
+                "Unsupported INTERLIS model",
+                f"No model class found for groups {sorted(groups)!r}.",
+                None,
+            )
+
+        self.model_classes_interlis = model_interlis(self.schema,).classes()
         self._progress_done(self.current_progress + 1)
 
         if self.model_classes_tww_od is None:
@@ -97,6 +132,19 @@ class InterlisImporterExporter:
             self.model_classes_tww_app = ModelTwwAG6496().classes()
             self._progress_done(self.current_progress + 1)
 
+    def _progress_done_in_scope(
+        self,
+        scope: ProgressScope,
+        progress: float,
+        text=None,
+    ):
+        self._progress_done(
+            scope.map(
+                progress,
+            ),
+            text,
+        )
+
     def interlis_import(
         self,
         xtf_file_input,
@@ -107,32 +155,91 @@ class InterlisImporterExporter:
         import_orgs=False,
         user_interaction=False,
     ):
-        # Configure logging
-        if logs_next_to_file:
+        import_model=self.interlis_import_to_quarantine(
+            xtf_file_input=xtf_file_input,
+            logs_next_to_file=logs_next_to_file,
+            filter_nulls=filter_nulls,
+            srid = srid,
+            import_orgs=import_orgs,
+            progress_scope=ProgressScope(
+                start=self.current_progress,
+                end=35,
+            ),
+        )
+        self.interlis_import_from_quarantine_to_live(
+            import_model=import_model,
+            show_selection_dialog=show_selection_dialog,
+            logs_next_to_file=logs_next_to_file,
+            filter_nulls=filter_nulls,
+            srid = srid,
+            progress_scope=ProgressScope(
+                start=35,
+                end=100,
+            ),
+        )
+
+    def _prepare_interlis_import(
+        self,
+        xtf_file_input=None,
+        logs_next_to_file=True,
+        filter_nulls=True,
+        srid: int = 2056,
+        import_model=None,
+        created_models=None,
+        progress_scope: ProgressScope = ProgressScope(),
+    ):
+        if logs_next_to_file and xtf_file_input:
             self.base_log_path = xtf_file_input
         else:
             self.base_log_path = None
 
         self.filter_nulls = filter_nulls
-        self.schema=config.IMPORT_SCHEMA
+
+        if not self.schema:
+            self.schema = config.IMPORT_SCHEMA
 
         if srid:
             self.srid = srid
 
-        if not self.from_quarantine_only:
+        if import_model is not None:
+            return import_model, created_models
+
+        if not xtf_file_input:
+            raise InterlisImporterExporterError(
+                error=(
+                    "Cannot prepare INTERLIS import without either "
+                    "import_model or xtf_file_input."
+                )
+            )
+
+        self._progress_done_in_scope(progress_scope, 5, "Extract model from xtf...")
+
+        import_model, created_models = self.find_import_ilimodels(
+            xtf_file_input,
+        )
+
+        return import_model, created_models
+
+    def interlis_import_to_quarantine(
+        self,
+        xtf_file_input,
+        logs_next_to_file=True,
+        filter_nulls=True,
+        srid: int = 2056,
+        import_orgs=False,
+        progress_scope: ProgressScope = ProgressScope(),
+    ):
+            import_model, created_models=self._prepare_interlis_import(xtf_file_input, logs_next_to_file,filter_nulls,srid,progress_scope)
+
             # Validating the input file
-            self._progress_done(5, "Validating the input file...")
+            self._progress_done_in_scope(progress_scope, 10, "Validating the input file...")
             self._import_validate_xtf_file(xtf_file_input)
 
-            # Get model to import from xtf file
-            self._progress_done(10, "Extract model from xtf...")
-            import_model, created_models=self.find_import_ilimodels(xtf_file_input)
 
             # Prepare the temporary ili2pg model
-            self._progress_done(15, "Creating ili schema...")
+            self._progress_done_in_scope(progress_scope, 35, "Creating ili schema...")
             self._clear_ili_schema(recreate_tables=True)
 
-            self._progress_done(20)
             self._create_ili_schema(
                 created_models, ext_columns_no_constraints=True, create_basket_col=True
             )
@@ -141,28 +248,45 @@ class InterlisImporterExporter:
                 self.import_vsa_orgs()
 
             # Import from xtf file to ili2pg model
-            self._progress_done(30, "Importing XTF data...")
+            self._progress_done_in_scope(progress_scope,50, "Importing XTF data...")
             self._import_xtf_file(xtf_file_input=xtf_file_input)
+            self._progress_done_in_scope(progress_scope, 100, "INTERLIS import into quarantine schema finished.")
 
-        if self.to_quarantine_only:
-            self._progress_done(100)
-            logger.info("INTERLIS import into quarantine scheme finished.")
+            return import_model
 
-        else:
+    def interlis_import_from_quarantine_to_live(
+        self,
+        import_model=None,
+        show_selection_dialog=False,
+        logs_next_to_file=True,
+        filter_nulls=True,
+        srid: int = None,
+        progress_scope: ProgressScope = ProgressScope(),
+    ):
+
+            _, _ =self._prepare_interlis_import(
+                logs_next_to_file=logs_next_to_file,
+                filter_nulls=filter_nulls,
+                srid=srid,
+                import_model=import_model,
+                progress_scope=progress_scope,
+                )
+            
             # Disable symbology triggers
-            self._progress_done(35, "Disable symbology and modification triggers...")
+            self._progress_done_in_scope(progress_scope, 10, "Disable symbology and modification triggers...")
             self._import_disable_symbology_and_modification_triggers()
 
             try:
                 # Import from the temporary ili2pg model
-                self._progress_done(40, "Converting to TEKSI Wastewater...")
+                self._progress_done_in_scope(progress_scope, 20, "Converting to TEKSI Wastewater...")
                 tww_session = self._import_from_intermediate_schema(import_model)
 
                 if show_selection_dialog:
                     from qgis.PyQt.QtCore import Qt
                     from qgis.PyQt.QtWidgets import QApplication, QDialog
+                    from .gui.interlis_import_selection_dialog import InterlisImportSelectionDialog
 
-                    self._progress_done(90, "Import objects selection...")
+                    self._progress_done_in_scope(progress_scope, 80, "Import objects selection...")
                     import_dialog = InterlisImportSelectionDialog()
                     import_dialog.init_with_session(tww_session)
                     QApplication.restoreOverrideCursor()
@@ -172,16 +296,16 @@ class InterlisImporterExporter:
                         raise InterlisImporterExporterStopped()
                     QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 else:
-                    self._progress_done(90, "Commit session...")
+                    self._progress_done_in_scope(progress_scope, 80, "Commit session...")
                     tww_session.commit()
                 tww_session.close()
 
                 # Update the sequence values
-                self._progress_done(92, "Update sequence values...")
+                self._progress_done_in_scope(progress_scope, 85, "Update sequence values...")
                 self._import_set_od_sequences()
 
                 # Update main_cover and main_wastewater_node
-                self._progress_done(95, "Update main cover and refresh materialized views...")
+                self._progress_done_in_scope(progress_scope, 90, "Update main cover and refresh materialized views...")
                 self._import_update_main_cover_and_refresh_mat_views()
 
                 # Validate subclasses after import
@@ -189,11 +313,11 @@ class InterlisImporterExporter:
                 _ = integrityChecker._check_subclass_counts(raise_err=True)
 
                 # Update organisations
-                self._progress_done(96, "Set organisations filter...")
+                self._progress_done_in_scope(progress_scope, 95, "Set organisations filter...")
                 self._import_manage_organisations()
 
                 # Reenable symbology triggers
-                self._progress_done(97, "Reenable symbology and modification triggers...")
+                self._progress_done_in_scope(progress_scope, 97, "Reenable symbology and modification triggers...")
                 self._import_enable_symbology_and_modification_triggers()
 
             except Exception as exception:
@@ -208,7 +332,7 @@ class InterlisImporterExporter:
                 # Raise the original exception for further error handling
                 raise exception
 
-            self._progress_done(100)
+            self._progress_done_in_scope(progress_scope, 100)
             logger.info("INTERLIS import finished.")
 
     def find_import_ilimodels(self,xtf_file_input):
@@ -245,6 +369,39 @@ class InterlisImporterExporter:
         include_unplaced: bool = False,
         import_orgs: bool = False,
     ):
+
+        self.interlis_export_live_to_quarantine(
+            xtf_file_output=xtf_file_output,
+            export_models=export_models,
+            logs_next_to_file=logs_next_to_file,
+            limit_to_selection=limit_to_selection,
+            export_orientation=export_orientation,
+            labels_file=labels_file,
+            selected_labels_scales_indices=selected_labels_scales_indices,
+            selected_ids=selected_ids,
+            include_unplaced=include_unplaced,
+            import_orgs = import_orgs,
+            progress_scope=ProgressScope(
+                start=self.current_progress,
+                end=65,
+            ),
+        )
+
+        self.interlis_export_from_quarantine_to_xtf(
+            xtf_file_output=xtf_file_output,
+            export_models=export_models,
+            logs_next_to_file=logs_next_to_file,
+            progress_scope=ProgressScope(
+                start=65,
+                end=100,
+            ),
+        )
+
+    def _prepare_interlis_export(
+        self,
+        xtf_file_output=None,
+        logs_next_to_file=True,
+    ):
         # File name without extension (used later for export)
         file_name_base, _ = os.path.splitext(xtf_file_output)
 
@@ -254,12 +411,35 @@ class InterlisImporterExporter:
         else:
             self.base_log_path = None
 
-        self.schema = config.EXPORT_SCHEMA
+        if not self.schema:
+            self.schema = config.EXPORT_SCHEMA
+
+        return file_name_base
+
+    def interlis_export_live_to_quarantine(
+        self,
+        xtf_file_output,
+        export_models: Collection[str],
+        logs_next_to_file=True,
+        limit_to_selection=False,
+        export_orientation=90.0,
+        labels_file=None,
+        selected_labels_scales_indices=[],
+        selected_ids=None,
+        include_unplaced: bool = False,
+        import_orgs: bool = False,
+        progress_scope: ProgressScope = ProgressScope(),
+    ):
+
+        _=self._prepare_interlis_export(
+            xtf_file_output=xtf_file_output,
+            logs_next_to_file=logs_next_to_file,
+        )
         if not self.from_quarantine_only:
-            self._progress_done(5, "Clearing ili schema...")
+            self._progress_done_in_scope(progress_scope, 5, "Clearing ili schema...")
             self._clear_ili_schema(recreate_tables=True)
 
-            self._progress_done(15, "Creating ili schema...")
+            self._progress_done_in_scope(progress_scope, 15, "Creating ili schema...")
             create_basket_col = False
             export_models = set(export_models)
             groups = config.groups_for_models(export_models)
@@ -271,8 +451,8 @@ class InterlisImporterExporter:
             # Export the labels file
             tempdir = tempfile.TemporaryDirectory()
             if len(selected_labels_scales_indices):
-                self._progress_done(30)
                 if not labels_file:
+                    self._progress_done_in_scope(progress_scope, 30, "Creating labels")
                     labels_file = os.path.join(tempdir.name, "labels.geojson")
                     self._export_labels_file(
                         limit_to_selection=limit_to_selection,
@@ -285,20 +465,23 @@ class InterlisImporterExporter:
 
 
             if "ag96" in groups:
+                self._progress_done_in_scope(progress_scope, 35, "Importing AG-96 organisations to intermediate schema")
                 file_path = "data/Organisationstabelle_AG96.xtf"
                 abs_file_path = Path(__file__).parent.resolve() / file_path
                 logger.info("Importing AG-96 organisation to intermediate schema")
                 self._import_xtf_file(abs_file_path)
             elif "ag64" in groups:
+                self._progress_done_in_scope(progress_scope, 35, "Importing AG-64 organisations to intermediate schema")
                 file_path = "data/Organisationstabelle_AG64.xtf"
                 abs_file_path = Path(__file__).parent.resolve() / file_path
                 logger.info("Importing AG-64 organisation to intermediate schema")
                 self._import_xtf_file(abs_file_path)
             elif import_orgs:
+                self._progress_done_in_scope(progress_scope, 35, "Importing VSA organisations to intermediate schema")
                 self.import_vsa_orgs()
 
             # Export to the temporary ili2pg model
-            self._progress_done(35, "Converting from TEKSI Wastewater to intermediate schema...")
+            self._progress_done_in_scope(progress_scope, 45, "Converting from TEKSI Wastewater to intermediate schema...")
             self._export_to_intermediate_schema(
                 export_model_groups=groups,
                 file_name=xtf_file_output,
@@ -308,17 +491,25 @@ class InterlisImporterExporter:
                 basket_enabled=create_basket_col,
             )
             tempdir.cleanup()  # Cleanup
+            self._progress_done_in_scope(progress_scope, 100, "Converted from TEKSI Wastewater to intermediate schema")
 
-        if self.to_quarantine_only:
-            self._progress_done(100)
-            logger.info("Export to intermediate schema finished.")
+    def interlis_export_from_quarantine_to_xtf(
+        self,
+        xtf_file_output,
+        export_models=None,
+        logs_next_to_file=True,
+        progress_scope: ProgressScope = ProgressScope(),
+    ):
+        file_name_base=self._prepare_interlis_export(
+            xtf_file_output=xtf_file_output,
+            logs_next_to_file=logs_next_to_file,
+        )
+            
+        self._progress_done_in_scope(progress_scope, 0, "starting INTERLIS export")
+        self._export_xtf_files(file_name_base, export_models)
 
-        else:
-            self._progress_done(75)
-            self._export_xtf_files(file_name_base, export_models)
-
-            self._progress_done(100)
-            logger.info("INTERLIS export finished.")
+        self._progress_done_in_scope(progress_scope, 100, "INTERLIS export finished.")
+        logger.info("INTERLIS export finished.")
 
     def interlis_export(
         self,
@@ -350,7 +541,7 @@ class InterlisImporterExporter:
                     logger.info(
                         "INTERLIS export has been stopped as there have been no organisations for exporting!"
                     )
-                    # self._progress_done(100, "Export aborted...")
+                    # self._progress_done_in_scope(progress_scope, 100, "Export aborted...")
                     # return
                     raise InterlisImporterExporterError(
                         "INTERLIS Export aborted!",
@@ -400,7 +591,7 @@ class InterlisImporterExporter:
                         logger.info(
                             "INTERLIS export has been stopped due to failing export checks - see logs for details."
                         )
-                        # self._progress_done(100, "Export aborted...")
+                        # self._progress_done_in_scope(progress_scope, 100, "Export aborted...")
                         # return
                         raise InterlisImporterExporterError(
                             "INTERLIS Export aborted!",
@@ -448,6 +639,39 @@ class InterlisImporterExporter:
             raise InterlisImporterExporterError(
                 "Invalid file",
                 "The input file is not a valid XTF file. Open the logs for more details on the error.",
+                log_path,
+            )
+
+    def validate_quarantine_schema(
+        self,
+        model_name,
+    ):
+        if not model_name:
+            raise InterlisImporterExporterError(
+                "Invalid quarantine schema",
+                "Cannot validate quarantine schema without model name.",
+                None,
+            )
+
+        log_path = make_log_path(
+            self.base_log_path,
+            "ili2pg_validate",
+        )
+
+        try:
+            self.interlisTools.validate_db_data(
+                schema=self.schema,
+                log_path=log_path,
+                model_name=model_name,
+                srid=self.srid,
+            )
+        except CmdException:
+            raise InterlisImporterExporterError(
+                "Invalid quarantine schema",
+                (
+                    "The quarantine schema is not valid according to "
+                    "the INTERLIS model. Open the logs for details."
+                ),
                 log_path,
             )
 
@@ -531,8 +755,9 @@ class InterlisImporterExporter:
         model_groups,
         export_orientation=90.0,
         include_unplaced=False,
+        progress_scope: ProgressScope = ProgressScope(),
     ):
-        self._progress_done(self.current_progress, "Extracting labels...")
+        self._progress_done_in_scope(progress_scope, self.current_progress, "Extracting labels...")
 
         try:
             # We only import now to avoid useless exception if dependencies aren't met
@@ -555,7 +780,7 @@ class InterlisImporterExporter:
                 None,
             )
 
-        self._progress_done(self.current_progress + 2)
+        self._progress_done_in_scope(progress_scope, self.current_progress + 2)
         if "ag96" in model_groups:
             catch_lyr = TwwLayerManager.layer("vw_tww_catchment_area")
             meas_pt_lyr = TwwLayerManager.layer("measure_point")
@@ -665,7 +890,7 @@ class InterlisImporterExporter:
                     None,
                 )
 
-    def _export_xtf_files(self, file_name_base, export_models):
+    def _export_xtf_files(self, file_name_base, export_models, progress_scope: ProgressScope = ProgressScope()):
         progress_step = (100 - self.current_progress) / (2 * len(export_models))
         progress_step = int(progress_step)
 
@@ -674,7 +899,7 @@ class InterlisImporterExporter:
             export_file_name = f"{file_name_base}_{export_model_name}.xtf"
 
             # Export from ili2pg model to file
-            self._progress_done(self.current_progress, f"Saving XTF for '{export_model_name}'...")
+            self._progress_done_in_scope(progress_scope, self.current_progress, f"Saving XTF for '{export_model_name}'...")
             log_path = make_log_path(self.base_log_path, f"ili2pg-export-{export_model_name}")
             try:
                 self.interlisTools.export_xtf_data(
@@ -695,7 +920,7 @@ class InterlisImporterExporter:
                 )
                 continue
 
-            self._progress_done(
+            self._progress_done_in_scope(progress_scope,
                 self.current_progress + progress_step,
                 f"Validating XTF for '{export_model_name}'...",
             )
@@ -715,7 +940,7 @@ class InterlisImporterExporter:
                 )
                 continue
 
-            self._progress_done(self.current_progress + progress_step)
+            self._progress_done_in_scope(progress_scope, self.current_progress + progress_step)
 
         # In case some export had an error raise the first one
         if xtf_export_errors:
@@ -768,8 +993,8 @@ class InterlisImporterExporter:
                 log_path,
             )
 
-    def _progress_done_intermediate_schema(self):
-        self._progress_done(self.current_progress + 0.5)
+    def _progress_done_intermediate_schema(self, progress_scope: ProgressScope = ProgressScope()):
+        self._progress_done_in_scope(progress_scope,self.current_progress + 0.5)
 
     def _progress_done(self, progress, text=None):
         self.current_progress = progress
@@ -807,7 +1032,6 @@ class InterlisImporterExporter:
                 logger.info(f"Downloaded VSA organisations file to {tmp_file.name}")
                 orgs_path = Path(tmp_file.name)
                 logger.info("Importing VSA organisation to intermediate schema")
-                self._progress_done(25, "Importing VSA organisations data...")
                 self._import_xtf_file(orgs_path)
 
             except Exception as e:
@@ -822,3 +1046,4 @@ class InterlisImporterExporter:
             logger.warning(
                 "No internet connection detected → skipping download of vsa organisations"
             )
+

@@ -1,13 +1,22 @@
-from dataclasses import dataclass, field
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from collections.abc import Sequence
 
 from ..interlis import config
+from ..interlis.interlis_importer_exporter import (
+    InterlisImporterExporter,
+)
+from ..interlis.utils.ili2db import (
+    InterlisTools,
+)
+from .exceptions import (
+    QuarantineValidationError,
+)
 from .tww_interlis_service_adapter import (
     TwwInterlisContext,
-    TwwInterlisServiceAdapter,
 )
-from ..interlis.utils.ili2db import InterlisTools
 
 from tww_hooks.exceptions import (
     Severity,
@@ -17,85 +26,224 @@ from tww_hooks.models.validation import (
 )
 
 
-from .exceptions import QuarantineValidationError 
-
 @dataclass(slots=True)
 class TwwQuarantineRunner:
     """
-    Plugin-side runner for the TEKSI Wastewater quarantine workflow.
+    Plugin-side runner for TEKSI Wastewater quarantine workflows.
 
-    The runner exposes the real workflow steps and hides the current
-    importer/exporter quarantine flags behind method names.
+    The runner owns workflow-level orchestration:
+
+    - XTF to import-side quarantine schema
+    - import-side quarantine schema to live data
+    - live data to export-side quarantine schema
+    - export-side quarantine schema to XTF
+    - quarantine validation as ValidationFinding objects
+
+    Low-level import/export mechanics remain in InterlisImporterExporter.
     """
 
-    interlis_service: TwwInterlisServiceAdapter = field(
-        default_factory=TwwInterlisServiceAdapter,
+    importer_exporter: InterlisImporterExporter = field(
+        default_factory=InterlisImporterExporter,
     )
+
     interlis_tools: InterlisTools = field(
-            default_factory=InterlisTools,
-            )
+        default_factory=InterlisTools,
+    )
 
     def import_xtf_to_quarantine(
         self,
         xtf_file: Path,
+        context: TwwInterlisContext,
         schema: str = config.IMPORT_SCHEMA,
-    ) -> None:
-        self.interlis_service.import_xtf(
-            xtf_file=xtf_file,
-            context=TwwInterlisContext(
-                schema=schema,
-                to_quarantine_only=True,
+    ) -> tuple[
+        str,
+        tuple[str, ...],
+    ]:
+        """
+        Import an external XTF into the import-side quarantine schema.
+
+        Returns:
+            import_model:
+                Selected effective INTERLIS model name.
+
+            created_models:
+                Model names used to create the ili2pg quarantine schema.
+        """
+
+        context = replace(
+            context,
+            schema=schema,
+        )
+
+        context.apply(
+            self.importer_exporter,
+        )
+
+        import_model, created_models = (
+            self.importer_exporter.interlis_import_to_quarantine(
+                xtf_file_input=str(
+                    xtf_file,
+                ),
+                logs_next_to_file=context.logs_next_to_file,
+                filter_nulls=context.filter_nulls,
+                srid=context.srid,
+                import_orgs=context.import_orgs,
+            )
+        )
+
+        return (
+            import_model,
+            tuple(
+                created_models,
             ),
         )
 
     def import_quarantine_to_live(
         self,
         xtf_file: Path,
+        context: TwwInterlisContext,
+        validation_log_path: Path,
         schema: str = config.IMPORT_SCHEMA,
     ) -> None:
-        
-        self.interlis_service.import_xtf(
-            xtf_file=xtf_file,
-            context=TwwInterlisContext(
-                schema=schema,
-                to_quarantine_only=True,
+        """
+        Validate import-side quarantine and then import it into live data.
+
+        The model is read from the original XTF so that the same selected
+        import model can be used for database validation and conversion.
+        """
+
+        context = replace(
+            context,
+            schema=schema,
+        )
+
+        context.apply(
+            self.importer_exporter,
+        )
+
+        import_model, created_models = (
+            self.importer_exporter.find_import_ilimodels(
+                str(
+                    xtf_file,
+                )
+            )
+        )
+
+        self.validate_quarantine_or_raise(
+            model_names=(
+                import_model,
             ),
+            log_path=validation_log_path,
+            srid=context.srid,
+            schema=schema,
+        )
+
+        self.importer_exporter.interlis_import_from_quarantine_to_live(
+            import_model=import_model,
+            created_models=created_models,
+            logs_next_to_file=context.logs_next_to_file,
+            filter_nulls=context.filter_nulls,
+            srid=context.srid,
+            show_selection_dialog=context.show_selection_dialog,
         )
 
     def export_live_to_quarantine(
         self,
         xtf_file: Path | None,
         export_models: Sequence[str],
+        context: TwwInterlisContext,
         schema: str = config.EXPORT_SCHEMA,
     ) -> None:
-        self.interlis_service.export_xtf(
-            xtf_file=xtf_file,
-            export_models=export_models,
-            context=TwwInterlisContext(
-                schema=schema,
-                to_quarantine_only=True,
+        """
+        Export live data into the export-side quarantine schema.
+
+        Export-specific filtering or cleanup can happen after this method and
+        before export_quarantine_to_xtf().
+        """
+
+        context = replace(
+            context,
+            schema=schema,
+        )
+
+        context.apply(
+            self.importer_exporter,
+        )
+
+        self.importer_exporter.interlis_export_live_to_quarantine(
+            xtf_file_output=(
+                str(
+                    xtf_file,
+                )
+                if xtf_file is not None
+                else None
             ),
+            export_models=tuple(
+                export_models,
+            ),
+            logs_next_to_file=context.logs_next_to_file,
+            limit_to_selection=context.limit_to_selection,
+            export_orientation=context.export_orientation,
+            labels_file=(
+                str(
+                    context.labels_file,
+                )
+                if context.labels_file is not None
+                else None
+            ),
+            selected_labels_scales_indices=list(
+                context.selected_label_scale_indices,
+            ),
+            selected_ids=list(
+                context.selected_ids,
+            ),
+            include_unplaced=context.include_unplaced,
+            import_orgs=context.import_orgs,
         )
 
     def export_quarantine_to_xtf(
         self,
         xtf_file: Path,
         export_models: Sequence[str],
+        context: TwwInterlisContext,
+        validation_log_path: Path,
         schema: str = config.EXPORT_SCHEMA,
     ) -> None:
-        self.interlis_service.export_xtf(
-            xtf_file=xtf_file,
-            export_models=export_models,
-            context=TwwInterlisContext(
-                schema=schema,
-                to_quarantine_only=True,
-            ),
+        """
+        Validate export-side quarantine and export it to XTF.
+        """
+
+        context = replace(
+            context,
+            schema=schema,
         )
 
+        context.apply(
+            self.importer_exporter,
+        )
+
+        self.validate_quarantine_or_raise(
+            model_names=tuple(
+                export_models,
+            ),
+            log_path=validation_log_path,
+            srid=context.srid,
+            schema=schema,
+        )
+
+        self.importer_exporter.interlis_export_from_quarantine_to_xtf(
+            xtf_file_output=str(
+                xtf_file,
+            ),
+            export_models=tuple(
+                export_models,
+            ),
+            logs_next_to_file=context.logs_next_to_file,
+        )
 
     def validate_quarantine(
         self,
-        models: Sequence[str],
+        model_names: Sequence[str],
         log_path: Path,
         srid: int = 2056,
         schema: str = config.IMPORT_SCHEMA,
@@ -104,56 +252,73 @@ class TwwQuarantineRunner:
         ...
     ]:
         """
-        Validate the quarantine schema using ili2pg --validate.
+        Validate a quarantine schema using ili2pg --validate.
 
         Returns an empty tuple if validation succeeds.
-        Returns validation findings if validation fails.
+        Returns ValidationFinding objects if validation fails.
         """
 
-        try:
-            self.interlis_tools.validate_db_data(
-                schema=schema,
-                log_path=str(
-                    log_path,
-                ),
-                models=tuple(
-                    models,
-                ),
-                srid=srid,
-            )
-        except Exception as exception:
-            findings = self._validation_findings_from_log(
-                log_path,
+        findings: list[
+            ValidationFinding
+        ] = []
+
+        for model_name in model_names:
+            model_log_path = self._log_path_for_model(
+                log_path=log_path,
+                model_name=model_name,
             )
 
-            if findings:
-                return findings
-
-            return (
-                ValidationFinding(
-                    code="quarantine_validation_failed",
-                    severity=Severity.ERROR,
-                    message=str(
-                        exception,
+            try:
+                self.interlis_tools.validate_db_data(
+                    schema=schema,
+                    model_name=model_name,
+                    log_path=str(
+                        model_log_path,
                     ),
-                    attribute_name=None,
-                ),
-            )
+                    srid=srid,
+                )
+            except Exception as exception:
+                model_findings = self._validation_findings_from_log(
+                    model_log_path,
+                )
 
-        return ()
+                if model_findings:
+                    findings.extend(
+                        model_findings,
+                    )
+                    continue
+
+                findings.append(
+                    ValidationFinding(
+                        code="quarantine_validation_failed",
+                        severity=Severity.ERROR,
+                        message=str(
+                            exception,
+                        ),
+                        attribute_name=None,
+                    )
+                )
+
+        return tuple(
+            findings,
+        )
 
     def validate_quarantine_or_raise(
         self,
-        models: Sequence[str],
+        model_names: Sequence[str],
         log_path: Path,
         srid: int = 2056,
         schema: str = config.IMPORT_SCHEMA,
     ) -> None:
+        """
+        Validate quarantine and raise QuarantineValidationError on errors.
+        """
+
         findings = self.validate_quarantine(
-            schema=schema,
-            models=models,
+            model_names=model_names,
             log_path=log_path,
             srid=srid,
+            schema=schema,
         )
 
         errors = tuple(
@@ -178,7 +343,7 @@ class TwwQuarantineRunner:
         ...
     ]:
         """
-        Extract validation findings from the ili2pg validation log.
+        Extract validation findings from an ili2pg validation log.
         """
 
         if not log_path.exists():
@@ -197,12 +362,8 @@ class TwwQuarantineRunner:
             if not message:
                 continue
 
-            lowered = message.lower()
-
-            if (
-                "error" not in lowered
-                and "failed" not in lowered
-                and "invalid" not in lowered
+            if not self._looks_like_validation_error(
+                message,
             ):
                 continue
 
@@ -217,4 +378,52 @@ class TwwQuarantineRunner:
 
         return tuple(
             findings,
+        )
+
+    def _looks_like_validation_error(
+        self,
+        message: str,
+    ) -> bool:
+        lowered = message.lower()
+
+        if lowered.startswith(
+            "error",
+        ):
+            return True
+
+        if "validation failed" in lowered:
+            return True
+
+        if "invalid" in lowered:
+            return True
+
+        return False
+
+    def _log_path_for_model(
+        self,
+        log_path: Path,
+        model_name: str,
+    ) -> Path:
+        safe_model_name = (
+            model_name
+            .replace(
+                " ",
+                "_",
+            )
+            .replace(
+                ".",
+                "_",
+            )
+            .replace(
+                ":",
+                "_",
+            )
+            .replace(
+                "/",
+                "_",
+            )
+        )
+
+        return log_path.with_name(
+            f"{log_path.stem}_{safe_model_name}{log_path.suffix}"
         )

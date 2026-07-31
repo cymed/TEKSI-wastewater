@@ -48,6 +48,20 @@ class TwwInterlisContext(InterlisContext):
 
     disable_validation: bool = False
 
+    def apply(
+        self,
+        importer_exporter,
+    ) -> None:
+        """
+        Apply context settings to the wrapped InterlisImporterExporter.
+
+        This intentionally only applies stable operation context. Workflow
+        routing flags, such as quarantine-only behavior, are handled by
+        TwwQuarantineRunner.
+        """
+
+        importer_exporter.schema = self.schema
+
 class TwwInterlisServiceAdapter(InterlisService):
     """
     Plugin-side adapter for the existing INTERLIS importer/exporter.
@@ -67,7 +81,6 @@ class TwwInterlisServiceAdapter(InterlisService):
     InterlisImporterExporter behind a framework-facing service interface.
     It will be superseded by TIT.
     """
-
     def __init__(
         self,
         importer_exporter: InterlisImporterExporter | None = None,
@@ -82,15 +95,16 @@ class TwwInterlisServiceAdapter(InterlisService):
         self,
         context: InterlisContext,
     ) -> None:
-        self._importer_exporter.schema = context.schema
+        if isinstance(
+            context,
+            TwwInterlisContext,
+        ):
+            context.apply(
+                self._importer_exporter,
+            )
+            return
 
-        if isinstance(context, TwwInterlisContext):
-            self._importer_exporter.to_quarantine_only = (
-                context.to_quarantine_only
-            )
-            self._importer_exporter.from_quarantine_only = (
-                context.from_quarantine_only
-            )
+        self._importer_exporter.schema = context.schema
 
     def import_xtf(
         self,
@@ -101,8 +115,34 @@ class TwwInterlisServiceAdapter(InterlisService):
             context,
         )
 
+        if isinstance(
+            context,
+            TwwInterlisContext,
+        ):
+            self._importer_exporter.interlis_import(
+                xtf_file_input=str(
+                    xtf_file,
+                ),
+                show_selection_dialog=(
+                    context.show_selection_dialog
+                ),
+                logs_next_to_file=(
+                    context.logs_next_to_file
+                ),
+                filter_nulls=(
+                    context.filter_nulls
+                ),
+                disable_validation=(
+                    context.disable_validation
+                ),
+                srid=context.srid,
+            )
+            return
+
         self._importer_exporter.interlis_import(
-            xtf_file_input=str(xtf_file),
+            xtf_file_input=str(
+                xtf_file,
+            ),
         )
 
     def export_xtf(
@@ -115,13 +155,52 @@ class TwwInterlisServiceAdapter(InterlisService):
             context,
         )
 
+        if isinstance(
+            context,
+            TwwInterlisContext,
+        ):
+            self._importer_exporter.interlis_export(
+                xtf_file_output=(
+                    str(
+                        xtf_file,
+                    )
+                    if xtf_file is not None
+                    else None
+                ),
+                export_models=list(
+                    export_models,
+                ),
+                logs_next_to_file=(
+                    context.logs_next_to_file
+                ),
+                labels_file=(
+                    str(
+                        context.labels_file,
+                    )
+                    if context.labels_file is not None
+                    else None
+                ),
+                selected_labels_scales_indices=list(
+                    context.selected_label_scale_indices,
+                ),
+                selected_ids=list(
+                    context.selected_ids,
+                ),
+                srid=context.srid,
+            )
+            return
+
         self._importer_exporter.interlis_export(
             xtf_file_output=(
-                str(xtf_file)
+                str(
+                    xtf_file,
+                )
                 if xtf_file is not None
                 else None
             ),
-            export_models=list(export_models),
+            export_models=list(
+                export_models,
+            ),
         )
 
     def find_models(

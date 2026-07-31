@@ -350,6 +350,20 @@ def test_rights_evaluator_inherits_rights_from_reach(
         relation_lookup,
     )
 
+    derived_from_reach_point = evaluator._resolve_derived_rights(
+        "reach_point",
+        context,
+    )
+
+    assert derived_from_reach_point.remote_objects
+
+    assert {
+        obj.class_id
+        for obj in derived_from_reach_point.remote_objects
+    } == {
+        "reach",
+    }
+
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid(
             "ch000000awgde001",
