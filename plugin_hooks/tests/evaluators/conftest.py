@@ -12,7 +12,7 @@ def relation_lookup():
     """
 
     return InMemoryRelationLookupCapability(
-        local_objects=(
+        objects=(
             CanonicalObject(
                 identity=CanonicalObjectIdentity(
                     class_id="wastewater_networkelement",
@@ -33,8 +33,6 @@ def relation_lookup():
                 ),
                 values={},
             ),
-        ),
-        related_objects=(
             CanonicalObject(
                 identity=CanonicalObjectIdentity(
                     class_id="wastewater_structure",

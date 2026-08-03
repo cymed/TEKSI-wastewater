@@ -72,7 +72,7 @@ def test_snapshot_validation_accepts_current_object() -> None:
     )
 
     relation_lookup = InMemoryRelationLookupCapability(
-        related_objects=(
+        objects=(
             CanonicalObject(
                 identity=identity,
                 last_modification=last_modification,
@@ -111,7 +111,7 @@ def test_snapshot_validation_detects_modified_object() -> None:
     )
 
     relation_lookup = InMemoryRelationLookupCapability(
-        related_objects=(
+        objects=(
             CanonicalObject(
                 identity=identity,
                 last_modification=datetime(
@@ -228,7 +228,7 @@ def test_snapshot_validation_handles_multiple_objects() -> None:
     )
 
     relation_lookup = InMemoryRelationLookupCapability(
-        related_objects=(
+        objects=(
             CanonicalObject(
                 identity=current_identity,
                 last_modification=datetime(

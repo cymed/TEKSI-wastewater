@@ -46,8 +46,6 @@ class TwwInterlisContext(InterlisContext):
         default_factory=tuple,
     )
 
-    disable_validation: bool = False
-
     def apply(
         self,
         importer_exporter,

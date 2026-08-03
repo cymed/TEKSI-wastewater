@@ -95,9 +95,12 @@ jobs:
           docker compose run pum -p pg_tww -d datamodel install -p SRID 2056
 
       - name: Run pytest
-        run: pytest plugin/tests/dockerised/adapters -v -c plugin/pytest.ini
-        env:
-          PYTHONPATH: ${{ github.workspace }}/plugin:${{ github.workspace }}/plugin_hooks:${{ github.workspace }}
+        run: |
+          docker compose exec qgis sh -c '
+            cd /usr/src
+            PYTHONPATH=/usr/src/plugin:/usr/src/plugin_hooks:/usr/src \
+            pytest plugin/tests/dockerised/adapters -v -c plugin/pytest.ini
+          '
 
       - name: Show logs
         if: failure()

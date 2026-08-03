@@ -377,7 +377,46 @@ def test_rights_evaluator_inherits_rights_from_reach(
     } == {
         "reach",
     }
-    
+
+    reach_identity = derived_from_reach_point.remote_objects[0]
+
+    reach = evaluator.relation_lookup.current_object(
+        reach_identity,
+    )
+
+    assert reach is not None
+
+    assert (
+        reach.values["fk_wastewater_structure"]
+        == "ch000000ws000001"
+    )
+
+    reach_context = RightsEvaluationContext(
+        dataowner_oid=context.dataowner_oid,
+        provider_oid=context.provider_oid,
+        operation=context.operation,
+        old_values={
+            **reach.identity.attributes,
+            **reach.values,
+        },
+        new_values={},
+        context_values=context.context_values,
+    )
+
+    derived_from_reach = evaluator._resolve_derived_rights(
+        "reach",
+        reach_context,
+    )
+
+    assert derived_from_reach.remote_objects
+
+    assert {
+        obj.class_id
+        for obj in derived_from_reach.remote_objects
+    } == {
+        "wastewater_structure",
+    }
+        
     assert evaluator.can_update(
         "reach_point",
         context,
