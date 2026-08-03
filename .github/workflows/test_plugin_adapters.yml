@@ -70,17 +70,12 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          pip install pytest
-          pip install -r plugin/teksi_wastewater/requirements.txt
-          pip install -e ".[dev]"
-
       - name: Download Interlis libs
         run: sudo ./plugin/scripts/download-interlis-libs.sh
 
       - name: Start services
         run: docker compose up db qgis -d
+
 
       - name: Wait for DB
         run: |
@@ -88,6 +83,15 @@ jobs:
             echo "Waiting for PostgreSQL..."
             sleep 2
           done
+
+      - name: Install Python dependencies in qgis container
+        run: |
+          docker compose exec qgis sh -c '
+            python3 -m pip install --upgrade pip
+            python3 -m pip install pytest
+            python3 -m pip install -r /usr/src/plugin/teksi_wastewater/requirements.txt
+            python3 -m pip install -e /usr/src
+          '
 
       - name: Init DB
         run: |
