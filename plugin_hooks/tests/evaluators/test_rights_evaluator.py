@@ -350,19 +350,7 @@ def test_rights_evaluator_inherits_rights_from_reach(
         relation_lookup,
     )
 
-    derived_from_reach_point = evaluator._resolve_derived_rights(
-        "reach_point",
-        context,
-    )
 
-    assert derived_from_reach_point.remote_objects
-
-    assert {
-        obj.class_id
-        for obj in derived_from_reach_point.remote_objects
-    } == {
-        "reach",
-    }
 
     context = RightsEvaluationContext(
         dataowner_oid=Standardoid(
@@ -376,7 +364,20 @@ def test_rights_evaluator_inherits_rights_from_reach(
             "obj_id": "ch000000rp000001",
         },
     )
+    derived_from_reach_point = evaluator._resolve_derived_rights(
+        "reach_point",
+        context,
+    )
 
+    assert derived_from_reach_point.remote_objects
+
+    assert {
+        obj.class_id
+        for obj in derived_from_reach_point.remote_objects
+    } == {
+        "reach",
+    }
+    
     assert evaluator.can_update(
         "reach_point",
         context,

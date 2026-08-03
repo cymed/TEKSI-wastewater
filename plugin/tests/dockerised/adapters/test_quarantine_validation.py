@@ -36,34 +36,36 @@ OUTPUT_DIR.mkdir(
 @pytest.fixture(scope="module")
 def imported_sia405_to_quarantine(
     clean_db_once,
+    quarantine_runner,
+    interlis_context
 ) -> None:
-    runner = TwwQuarantineRunner()
 
-    runner.import_xtf_to_quarantine(
+    quarantine_runner.import_xtf_to_quarantine(
         DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
+        context=interlis_context,
     )
 
-    runner.import_xtf_to_quarantine(
+    return quarantine_runner.import_xtf_to_quarantine(
         DATA_DIR / "minimal-dataset-SIA405-ABWASSER.xtf",
+        context=interlis_context,
     )
 
 
 def test_quarantine_runner_validates_quarantine_schema(
     imported_sia405_to_quarantine,
+    quarantine_runner,
+    interlis_context,
 ) -> None:
-    runner = TwwQuarantineRunner()
+    import_model, _ = imported_sia405_to_quarantine
 
-    findings = runner.validate_quarantine(
-        models=(
-            config.MODEL_NAME_SIA405_ABWASSER,
+    findings = quarantine_runner.validate_quarantine(
+        model_names=(
+            import_model,
         ),
-        log_path=(
-            OUTPUT_DIR
-            / "validate_quarantine_sia405.log"
-        ),
-        srid=2056,
+        log_path=OUTPUT_DIR / "validate_quarantine.log",
+        srid=interlis_context.srid,
+        schema=config.IMPORT_SCHEMA,
     )
-
     assert findings == ()
 
 
