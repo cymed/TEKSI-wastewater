@@ -46,6 +46,7 @@ def interlis_context() -> TwwInterlisContext:
         srid=2056,
         logs_next_to_file=True,
         filter_nulls=True,
+        import_orgs=False,
     )
 
 
