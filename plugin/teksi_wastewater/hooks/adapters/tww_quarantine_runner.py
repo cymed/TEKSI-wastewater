@@ -53,7 +53,7 @@ class TwwQuarantineRunner:
     def import_xtf_to_quarantine(
         self,
         xtf_file: Path,
-        context: TwwInterlisContext,
+        context: TwwInterlisContext | None = None,
         schema: str = config.IMPORT_SCHEMA,
     ) -> tuple[
         str,
@@ -70,7 +70,7 @@ class TwwQuarantineRunner:
                 Model names used to create the ili2pg quarantine schema.
         """
 
-        context = replace(
+        context = self._context(
             context,
             schema=schema,
         )
@@ -101,8 +101,8 @@ class TwwQuarantineRunner:
     def import_quarantine_to_live(
         self,
         xtf_file: Path,
-        context: TwwInterlisContext,
-        validation_log_path: Path,
+        context: TwwInterlisContext| None = None,
+        validation_log_path: Path | None = None,
         schema: str = config.IMPORT_SCHEMA,
     ) -> None:
         """
@@ -112,7 +112,7 @@ class TwwQuarantineRunner:
         import model can be used for database validation and conversion.
         """
 
-        context = replace(
+        context = self._context(
             context,
             schema=schema,
         )
@@ -127,6 +127,12 @@ class TwwQuarantineRunner:
                     xtf_file,
                 )
             )
+        )
+
+        validation_log_path = self._validation_log_path(
+            validation_log_path=validation_log_path,
+            xtf_file=xtf_file,
+            name="validate_import_quarantine",
         )
 
         self.validate_quarantine_or_raise(
@@ -151,7 +157,7 @@ class TwwQuarantineRunner:
         self,
         xtf_file: Path | None,
         export_models: Sequence[str],
-        context: TwwInterlisContext,
+        context: TwwInterlisContext | None = None,
         schema: str = config.EXPORT_SCHEMA,
     ) -> None:
         """
@@ -161,7 +167,7 @@ class TwwQuarantineRunner:
         before export_quarantine_to_xtf().
         """
 
-        context = replace(
+        context = self._context(
             context,
             schema=schema,
         )
@@ -205,17 +211,23 @@ class TwwQuarantineRunner:
         self,
         xtf_file: Path,
         export_models: Sequence[str],
-        context: TwwInterlisContext,
-        validation_log_path: Path,
+        context: TwwInterlisContext | None = None,
+        validation_log_path: Path | None = None,
         schema: str = config.EXPORT_SCHEMA,
     ) -> None:
         """
         Validate export-side quarantine and export it to XTF.
         """
 
-        context = replace(
+        context = self._context(
             context,
             schema=schema,
+        )
+
+        validation_log_path = self._validation_log_path(
+            validation_log_path=validation_log_path,
+            xtf_file=xtf_file,
+            name="validate_export_quarantine",
         )
 
         context.apply(
@@ -426,4 +438,38 @@ class TwwQuarantineRunner:
 
         return log_path.with_name(
             f"{log_path.stem}_{safe_model_name}{log_path.suffix}"
+        )
+
+    def _context(
+        self,
+        context: TwwInterlisContext | None,
+        schema: str,
+    ) -> TwwInterlisContext:
+        if context is None:
+            return TwwInterlisContext(
+                schema=schema,
+            )
+
+        return replace(
+            context,
+            schema=schema,
+        )
+
+    def _validation_log_path(
+        self,
+        *,
+        validation_log_path: Path | None,
+        xtf_file: Path | None = None,
+        name: str,
+    ) -> Path:
+        if validation_log_path is not None:
+            return validation_log_path
+
+        if xtf_file is not None:
+            return xtf_file.with_name(
+                f"{xtf_file.stem}_{name}.log"
+            )
+
+        return Path(
+            f"{name}.log"
         )

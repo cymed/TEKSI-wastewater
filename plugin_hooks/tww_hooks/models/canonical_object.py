@@ -135,40 +135,6 @@ class LocalizedMetadata:
         return name
 
 @dataclass(slots=True, frozen=True)
-class LocalizedMetadata:
-    """
-    Generic localized metadata.
-
-    This model is intentionally reusable for classes, attributes and values.
-    """
-
-    localized_names: dict[
-        Localization,
-        str,
-    ] = field(
-        default_factory=dict,
-        metadata={
-            "doc": (
-                "Localized technical names keyed by language code. "
-                "Examples: {'de': 'Absperr_Drosselorgan'}, "
-                "{'fr': '...'}."
-            )
-        },
-    )
-
-    def name(
-        self,
-        language: str,
-    ) -> str | None:
-        """
-        Return the localized technical name for a language.
-        """
-
-        return self.names.get(
-            language,
-        )
-
-@dataclass(slots=True, frozen=True)
 class CanonicalClassMetadata:
     """
     Canonical metadata for a TEKSI Wastewater class/table.
@@ -232,6 +198,18 @@ class CanonicalAttributeMetadata:
             "doc": (
                 "Canonical attribute identifier. This corresponds to "
                 "tww_sys.dictionary_od_field.field_name."
+            )
+        },
+    )
+
+    field_datatype: str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Source field datatype from canonical metadata. For TEKSI "
+                "Wastewater dictionary metadata this corresponds to "
+                "tww_sys.dictionary_od_field.field_datatype. Geometry attributes "
+                "are identified with field_datatype='geometry'."
             )
         },
     )
@@ -325,6 +303,9 @@ class CanonicalModelMetadata:
     """
     Aggregate canonical metadata for TEKSI Wastewater classes, attributes and
     values.
+
+    This is intentionally a data-only model. Lookup behavior belongs to
+    CanonicalModelCapability implementations.
     """
 
     classes: dict[
@@ -371,119 +352,3 @@ class CanonicalModelMetadata:
             )
         },
     )
-
-    def class_metadata(
-        self,
-        class_id: str,
-    ) -> CanonicalClassMetadata | None:
-        return self.classes.get(
-            class_id,
-        )
-
-    def attribute_metadata(
-        self,
-        class_id: str,
-        attribute_id: str,
-    ) -> CanonicalAttributeMetadata | None:
-        return self.attributes.get(
-            (
-                class_id,
-                attribute_id,
-            )
-        )
-
-    def value_metadata(
-        self,
-        class_id: str,
-        attribute_id: str,
-        value_id: str,
-    ) -> CanonicalValueMetadata | None:
-        return self.values.get(
-            (
-                class_id,
-                attribute_id,
-                value_id,
-            )
-        )
-    """
-    Aggregate canonical metadata for classes, attributes, and values.
-    """
-
-    classes: dict[
-        str,
-        CanonicalClassMetadata,
-    ] = field(
-        default_factory=dict,
-        metadata={
-            "doc": (
-                "Canonical class metadata keyed by canonical class_id."
-            )
-        },
-    )
-
-    attributes: dict[
-        tuple[
-            str,
-            str,
-        ],
-        CanonicalAttributeMetadata,
-    ] = field(
-        default_factory=dict,
-        metadata={
-            "doc": (
-                "Canonical attribute metadata keyed by "
-                "(class_id, attribute_id)."
-            )
-        },
-    )
-
-    values: dict[
-        tuple[
-            str,
-            str,
-            str,
-        ],
-        CanonicalValueMetadata,
-    ] = field(
-        default_factory=dict,
-        metadata={
-            "doc": (
-                "Canonical value metadata keyed by "
-                "(class_id, attribute_id, value_id)."
-            )
-        },
-    )
-
-    def class_metadata(
-        self,
-        class_id: str,
-    ) -> CanonicalClassMetadata | None:
-        return self.classes.get(
-            class_id,
-        )
-
-    def attribute_metadata(
-        self,
-        class_id: str,
-        attribute_id: str,
-    ) -> CanonicalAttributeMetadata | None:
-        return self.attributes.get(
-            (
-                class_id,
-                attribute_id,
-            )
-        )
-
-    def value_metadata(
-        self,
-        class_id: str,
-        attribute_id: str,
-        value_id: str,
-    ) -> CanonicalValueMetadata | None:
-        return self.values.get(
-            (
-                class_id,
-                attribute_id,
-                value_id,
-            )
-        )

@@ -7,7 +7,7 @@ from ...utils.database_utils import (
     DatabaseUtils,
 )
 
-from tww_hooks.models.canonical_model import (
+from tww_hooks.models.canonical_object import (
     CanonicalAttributeMetadata,
     CanonicalClassMetadata,
     CanonicalModelMetadata,
@@ -32,15 +32,22 @@ class TwwCanonicalModelAdapter:
 
     def canonical_model(
         self,
+        language: Localization = Localization.de,
     ) -> CanonicalModelMetadata:
         """
         Load complete canonical model metadata.
         """
 
         return CanonicalModelMetadata(
-            classes=self.classes(),
-            attributes=self.attributes(),
-            values=self.values(),
+            classes=self.classes(
+                language=language,
+            ),
+            attributes=self.attributes(
+                language=language,
+            ),
+            values=self.values(
+                language=language,
+            ),
         )
 
     def classes(
@@ -55,21 +62,24 @@ class TwwCanonicalModelAdapter:
 
         Canonical class_id corresponds to dictionary_od_table.tablename.
         """
+
         localized_table_column = self._qualified_identifier(
-            table_alias="f",
+            table_alias="t",
             column_name=self._localized_column_name(
-                prefix="field_name",
+                prefix="name",
                 language=language,
             ),
         )
+
         query = DatabaseUtils.compose_sql(
             """
             SELECT
-                id,
-                tablename,
-                {localized_table_column} as localized_name
-            FROM {schema}.dictionary_od_table
-            ORDER BY tablename
+                t.id AS class_source_id,
+                t.tablename AS class_id,
+                {localized_table_column} AS localized_name
+            FROM {schema}.dictionary_od_table t
+            ORDER BY
+                t.tablename
             """,
             schema=DatabaseUtils.wrap_identifier(
                 self.schema,
@@ -82,9 +92,9 @@ class TwwCanonicalModelAdapter:
         )
 
         return {
-            row["tablename"]: CanonicalClassMetadata(
-                source_id=row["id"],
-                class_id=row["tablename"],
+            row["class_id"]: CanonicalClassMetadata(
+                class_source_id=row["class_source_id"],
+                class_id=row["class_id"],
                 localized=self._localized_metadata(
                     language=language,
                     value=row.get(
@@ -113,17 +123,10 @@ class TwwCanonicalModelAdapter:
         Canonical attribute_id corresponds to dictionary_od_field.field_name.
         """
 
-        where_clause = DatabaseUtils.compose_sql(
-            "",
+        where_clause = self._class_where_clause(
+            class_id,
         )
 
-        if class_id is not None:
-            where_clause = DatabaseUtils.compose_sql(
-                "WHERE t.tablename = {class_id}",
-                class_id=DatabaseUtils.wrap_literal(
-                    class_id,
-                ),
-            )
         localized_field_column = self._qualified_identifier(
             table_alias="f",
             column_name=self._localized_column_name(
@@ -131,14 +134,15 @@ class TwwCanonicalModelAdapter:
                 language=language,
             ),
         )
+
         query = DatabaseUtils.compose_sql(
             """
             SELECT
-                f.id,
                 f.class_id AS class_source_id,
                 f.attribute_id AS attribute_source_id,
                 t.tablename AS class_id,
                 f.field_name AS attribute_id,
+                f.field_datatype,
                 {localized_field_column} AS localized_name
             FROM {schema}.dictionary_od_field f
             JOIN {schema}.dictionary_od_table t
@@ -151,7 +155,6 @@ class TwwCanonicalModelAdapter:
             schema=DatabaseUtils.wrap_identifier(
                 self.schema,
             ),
-            
             localized_field_column=localized_field_column,
             where_clause=where_clause,
         )
@@ -165,11 +168,13 @@ class TwwCanonicalModelAdapter:
                 row["class_id"],
                 row["attribute_id"],
             ): CanonicalAttributeMetadata(
-                source_id=row["id"],
                 class_source_id=row["class_source_id"],
                 attribute_source_id=row["attribute_source_id"],
                 class_id=row["class_id"],
                 attribute_id=row["attribute_id"],
+                field_datatype=row.get(
+                    "field_datatype",
+                ),
                 localized=self._localized_metadata(
                     language=language,
                     value=row.get(
@@ -223,6 +228,11 @@ class TwwCanonicalModelAdapter:
                     ),
                 )
             )
+
+        where_clause = self._where_clause(
+            where_parts,
+        )
+
         localized_value_column = self._qualified_identifier(
             table_alias="v",
             column_name=self._localized_column_name(
@@ -230,24 +240,10 @@ class TwwCanonicalModelAdapter:
                 language=language,
             ),
         )
-        where_clause = DatabaseUtils.compose_sql(
-            "",
-        )
-
-        if where_parts:
-            where_clause = DatabaseUtils.compose_sql(
-                "WHERE {conditions}",
-                conditions=DatabaseUtils.compose_sql(
-                    " AND ",
-                ).join(
-                    where_parts,
-                ),
-            )
 
         query = DatabaseUtils.compose_sql(
             """
             SELECT
-                v.id,
                 v.class_id AS class_source_id,
                 v.attribute_id AS attribute_source_id,
                 v.value_id AS value_source_id,
@@ -270,8 +266,8 @@ class TwwCanonicalModelAdapter:
             schema=DatabaseUtils.wrap_identifier(
                 self.schema,
             ),
-            where_clause=where_clause,
             localized_value_column=localized_value_column,
+            where_clause=where_clause,
         )
 
         rows = self._fetchall_dict(
@@ -284,7 +280,6 @@ class TwwCanonicalModelAdapter:
                 row["attribute_id"],
                 row["value_id"],
             ): CanonicalValueMetadata(
-                source_id=row["id"],
                 class_source_id=row["class_source_id"],
                 attribute_source_id=row["attribute_source_id"],
                 value_source_id=row["value_source_id"],
@@ -301,31 +296,97 @@ class TwwCanonicalModelAdapter:
             for row in rows
         }
 
-    def _localized_names(
+    def class_metadata(
         self,
-        *,
-        de: str | None,
-        fr: str | None,
-    ) -> dict[
-        Localization,
-        str,
-    ]:
-        names: dict[
-            Localization,
-            str,
-        ] = {}
+        class_id: str,
+        language: Localization = Localization.de,
+    ) -> CanonicalClassMetadata | None:
+        """
+        Return metadata for one canonical class.
+        """
 
-        if de:
-            names[
-                Localization.de
-            ] = de
+        return self.classes(
+            language=language,
+        ).get(
+            class_id,
+        )
 
-        if fr:
-            names[
-                Localization.fr
-            ] = fr
+    def attribute_metadata(
+        self,
+        class_id: str,
+        attribute_id: str,
+        language: Localization = Localization.de,
+    ) -> CanonicalAttributeMetadata | None:
+        """
+        Return metadata for one canonical attribute.
+        """
 
-        return names
+        return self.attributes(
+            class_id=class_id,
+            language=language,
+        ).get(
+            (
+                class_id,
+                attribute_id,
+            )
+        )
+
+    def value_metadata(
+        self,
+        class_id: str,
+        attribute_id: str,
+        value_id: str,
+        language: Localization = Localization.de,
+    ) -> CanonicalValueMetadata | None:
+        """
+        Return metadata for one canonical value.
+        """
+
+        return self.values(
+            class_id=class_id,
+            attribute_id=attribute_id,
+            language=language,
+        ).get(
+            (
+                class_id,
+                attribute_id,
+                value_id,
+            )
+        )
+
+    def _class_where_clause(
+        self,
+        class_id: str | None,
+    ):
+        if class_id is None:
+            return DatabaseUtils.compose_sql(
+                "",
+            )
+
+        return DatabaseUtils.compose_sql(
+            "WHERE t.tablename = {class_id}",
+            class_id=DatabaseUtils.wrap_literal(
+                class_id,
+            ),
+        )
+
+    def _where_clause(
+        self,
+        where_parts,
+    ):
+        if not where_parts:
+            return DatabaseUtils.compose_sql(
+                "",
+            )
+
+        return DatabaseUtils.compose_sql(
+            "WHERE {conditions}",
+            conditions=DatabaseUtils.compose_sql(
+                " AND ",
+            ).join(
+                where_parts,
+            ),
+        )
 
     def _localized_metadata(
         self,
@@ -344,6 +405,7 @@ class TwwCanonicalModelAdapter:
 
     def _localized_column_name(
         self,
+        *,
         prefix: str,
         language: Localization,
     ) -> str:
@@ -351,6 +413,7 @@ class TwwCanonicalModelAdapter:
 
     def _qualified_identifier(
         self,
+        *,
         table_alias: str,
         column_name: str,
     ):
@@ -404,68 +467,4 @@ class TwwCanonicalModelAdapter:
             )
             for row in rows
         ]
-
-@dataclass(slots=True, frozen=True)
-class InMemoryCanonicalModelCapability:
-    """
-    In-memory canonical model metadata provider for tests and examples.
-    """
-
-    metadata: CanonicalModelMetadata
-
-    def canonical_model(
-        self,
-    ) -> CanonicalModelMetadata:
-        return self.metadata
-
-    def classes(
-        self,
-    ) -> dict[
-        str,
-        CanonicalClassMetadata,
-    ]:
-        return self.metadata.classes
-
-    def attributes(
-        self,
-        class_id: str | None = None,
-    ) -> dict[
-        tuple[
-            str,
-            str,
-        ],
-        CanonicalAttributeMetadata,
-    ]:
-        if class_id is None:
-            return self.metadata.attributes
-
-        return {
-            key: value
-            for key, value in self.metadata.attributes.items()
-            if key[0] == class_id
-        }
-
-    def values(
-        self,
-        class_id: str | None = None,
-        attribute_id: str | None = None,
-    ) -> dict[
-        tuple[
-            str,
-            str,
-            str,
-        ],
-        CanonicalValueMetadata,
-    ]:
-        return {
-            key: value
-            for key, value in self.metadata.values.items()
-            if (
-                class_id is None
-                or key[0] == class_id
-            )
-            and (
-                attribute_id is None
-                or key[1] == attribute_id
-            )
-        }
+ 
