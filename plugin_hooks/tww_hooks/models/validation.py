@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -217,6 +218,229 @@ class ChangeOperation(StrEnum):
     UPDATE = "update"
     DELETE = "delete"
 
+
+class ChangeClassification(StrEnum):
+    """
+    Review classification assigned to a change.
+    """
+
+    CREATED_OBJECT = "created_object"
+    ALTERED_OBJECT = "altered_object"
+    DELETED_OBJECT = "deleted_object"
+    UNPERMITTED_CHANGE = "unpermitted_change"
+
+
+@dataclass(slots=True)
+class ChangeClassificationMetadata:
+    """
+    Metadata explaining how and why a change was classified.
+    """
+
+    classification: ChangeClassification = field(
+        metadata={
+            "doc": (
+                "Review classification assigned to the change."
+            )
+        },
+    )
+
+    permitted: bool = field(
+        default=True,
+        metadata={
+            "doc": (
+                "Whether the change is permitted by rights evaluation."
+            )
+        },
+    )
+
+    severity: Severity | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Highest severity associated with this classified change, "
+                "if validation or rights findings are attached."
+            )
+        },
+    )
+
+    reason: str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Human-readable reason for the classification. This is "
+                "especially useful for unpermitted changes."
+            )
+        },
+    )
+
+    findings: tuple[
+        ValidationFinding,
+        ...
+    ] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Validation or rights findings associated with this change."
+            )
+        },
+    )
+
+    classified_at: datetime = field(
+        default_factory=datetime.utcnow,
+        metadata={
+            "doc": (
+                "UTC timestamp at which the change was classified."
+            )
+        },
+    )
+
+
+@dataclass(slots=True)
+class ClassifiedChange:
+    """
+    A change together with its review classification metadata.
+    """
+
+    change: Change = field(
+        metadata={
+            "doc": (
+                "The row-level canonical change."
+            )
+        },
+    )
+
+    metadata: ChangeClassificationMetadata = field(
+        metadata={
+            "doc": (
+                "Classification metadata for the change."
+            )
+        },
+    )
+
+
+@dataclass(slots=True)
+class ClassifiedChanges:
+    """
+    Collection of classified changes grouped for review/export.
+
+    This model is intentionally mutable. A workflow may enrich it
+    incrementally with findings, review metadata or export artifacts.
+    """
+
+    created_objects: list[
+        ClassifiedChange
+    ] = field(
+        default_factory=list,
+        metadata={
+            "doc": (
+                "Permitted insert changes."
+            )
+        },
+    )
+
+    altered_objects: list[
+        ClassifiedChange
+    ] = field(
+        default_factory=list,
+        metadata={
+            "doc": (
+                "Permitted update changes."
+            )
+        },
+    )
+
+    deleted_objects: list[
+        ClassifiedChange
+    ] = field(
+        default_factory=list,
+        metadata={
+            "doc": (
+                "Permitted delete changes."
+            )
+        },
+    )
+
+    unpermitted_changes: list[
+        ClassifiedChange
+    ] = field(
+        default_factory=list,
+        metadata={
+            "doc": (
+                "Changes rejected by rights evaluation or validation."
+            )
+        },
+    )
+
+    metadata: dict[
+        str,
+        str,
+    ] = field(
+        default_factory=dict,
+        metadata={
+            "doc": (
+                "Workflow-level metadata for the classified change set. "
+                "Examples: source model, import schema, provider oid, "
+                "dataowner oid, job id, output folder."
+            )
+        },
+    )
+
+    def all_changes(
+        self,
+    ) -> tuple[
+        ClassifiedChange,
+        ...
+    ]:
+        """
+        Return all classified changes in review order.
+        """
+
+        return (
+            *self.created_objects,
+            *self.altered_objects,
+            *self.deleted_objects,
+            *self.unpermitted_changes,
+        )
+
+    def add(
+        self,
+        classified_change: ClassifiedChange,
+    ) -> None:
+        """
+        Add a classified change to the matching group.
+        """
+
+        classification = (
+            classified_change.metadata.classification
+        )
+
+        if classification == ChangeClassification.CREATED_OBJECT:
+            self.created_objects.append(
+                classified_change,
+            )
+            return
+
+        if classification == ChangeClassification.ALTERED_OBJECT:
+            self.altered_objects.append(
+                classified_change,
+            )
+            return
+
+        if classification == ChangeClassification.DELETED_OBJECT:
+            self.deleted_objects.append(
+                classified_change,
+            )
+            return
+
+        if classification == ChangeClassification.UNPERMITTED_CHANGE:
+            self.unpermitted_changes.append(
+                classified_change,
+            )
+            return
+
+        raise ValueError(
+            f"Unsupported change classification: {classification}"
+        )
 
 @dataclass(slots=True, frozen=True)
 class ValidationFinding(Finding):

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from teksi_wastewater.hooks_adapters.tww_interlis_service_adapter import TwwInterlisServiceAdapter
+from teksi_wastewater.hooks.adapters.tww_interlis_service_adapter import TwwInterlisServiceAdapter
 from teksi_hooks.services import InterlisContext
 
 

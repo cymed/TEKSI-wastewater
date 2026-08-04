@@ -11,7 +11,7 @@ from ..interlis.interlis_importer_exporter import (
 from ..interlis.utils.ili2db import (
     InterlisTools,
 )
-from .exceptions import (
+from ..exceptions import (
     QuarantineValidationError,
 )
 from .tww_interlis_service_adapter import (

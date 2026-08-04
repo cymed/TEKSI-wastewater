@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from teksi_wastewater.hooks_adapters.tww_quarantine_runner import (
+from teksi_wastewater.hooks.adapters.tww_quarantine_runner import (
     TwwQuarantineRunner,
 )
-from teksi_wastewater.hooks_adapters.tww_relation_lookup_adapter import (
+from teksi_wastewater.hooks.adapters.tww_relation_lookup_adapter import (
     TwwRelationLookupAdapter,
 )
 from teksi_wastewater.interlis import config

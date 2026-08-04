@@ -11,7 +11,7 @@ from tww_hooks.capabilities.mapping import (
     ModelMappingCapability,
 )
 
-from teksi_wastewater.hooks_adapters.tww_relation_context_provider import (
+from teksi_wastewater.hooks.adapters.tww_relation_context_provider import (
     TwwRelationContextProvider,
 )
 
@@ -186,7 +186,7 @@ def test_relation_context_provider_raises_for_unknown_group(
     empty_model_mapping,
 ):
     monkeypatch.setattr(
-        "teksi_wastewater.hooks_adapters.tww_relation_context_provider.config.groups_for_models",
+        "teksi_wastewater.hooks.adapters.tww_relation_context_provider.config.groups_for_models",
         lambda model: {"unknown"},
     )
 

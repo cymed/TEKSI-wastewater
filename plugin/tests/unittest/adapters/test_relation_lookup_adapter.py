@@ -1,5 +1,5 @@
 from teksi_wastewater.utils.database_utils import DatabaseUtils
-from teksi_wastewater.hooks_adapters.tww_relation_lookup_adapter import (
+from teksi_wastewater.hooks.adapters.tww_relation_lookup_adapter import (
     TwwRelationLookupAdapter,
 )
 
