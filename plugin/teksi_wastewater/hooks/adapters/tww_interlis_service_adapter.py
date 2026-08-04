@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from collections.abc import Sequence
 
-from ..interlis.interlis_importer_exporter import InterlisImporterExporter
+from ...interlis.interlis_importer_exporter import InterlisImporterExporter
 
 from teksi_hooks.services import (
     InterlisContext,
