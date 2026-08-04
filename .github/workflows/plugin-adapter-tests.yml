@@ -132,6 +132,7 @@ jobs:
 
             echo "Installed files:"
             pip show -f teksi-hooks || true
+            '
 
       - name: Run dockerised adapter tests
         run: |
