@@ -4,9 +4,12 @@ on:
   push:
     paths:
       - "plugin/teksi_wastewater/**"
-      - "plugin/tests/adapters/**"
+      - "plugin/tests/unittest/adapters/**"
+      - "plugin/tests/dockerised/adapters/**"
       - "plugin_hooks/**"
       - "pyproject.toml"
+      - "plugin/scripts/download-interlis-libs.sh"
+      - "docker-compose.yml"
       - ".github/workflows/plugin-adapter-tests.yml"
 
   pull_request:
@@ -14,9 +17,12 @@ on:
       - main
     paths:
       - "plugin/teksi_wastewater/**"
-      - "plugin/tests/adapters/**"
+      - "plugin/tests/unittest/adapters/**"
+      - "plugin/tests/dockerised/adapters/**"
       - "plugin_hooks/**"
       - "pyproject.toml"
+      - "plugin/scripts/download-interlis-libs.sh"
+      - "docker-compose.yml"
       - ".github/workflows/plugin-adapter-tests.yml"
 
 jobs:
@@ -45,17 +51,29 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
-      - name: Run adapter tests
+      - name: Run adapter unit tests
         env:
           PYTHONPATH: ${{ github.workspace }}/plugin:${{ github.workspace }}/plugin_hooks:${{ github.workspace }}
         run: |
           pytest -v plugin/tests/unittest/adapters
 
-  unit-tests-db-qgis:
+  integration-tests-db-qgis:
     name: Adapter integration tests with DB/QGIS
     runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        qgis_version:
+          - stable-noble
+          - latest
+
     env:
+      PGSERVICE: pg_tww
       DB_NAME: tww
+      QGIS_TEST_VERSION: ${{ matrix.qgis_version }}
+      COMPOSE_PROFILES: qgis
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -65,17 +83,11 @@ jobs:
       - name: Setup env
         run: cp .env.example .env
 
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
       - name: Download Interlis libs
         run: sudo ./plugin/scripts/download-interlis-libs.sh
 
-      - name: Start services
-        run: docker compose up db qgis -d
-
+      - name: Docker build
+        run: docker compose --profile qgis up --build -d
 
       - name: Wait for DB
         run: |
@@ -84,29 +96,35 @@ jobs:
             sleep 2
           done
 
-      - name: Install Python dependencies in qgis container
+      - name: Install hook dependencies in qgis container
         run: |
           docker compose exec qgis sh -c '
-            python3 -m pip install --upgrade pip
-            python3 -m pip install pytest
-            python3 -m pip install -r /usr/src/plugin/teksi_wastewater/requirements.txt
-            python3 -m pip install -e /usr/src
+            apt-get update
+            apt-get install -y python3-venv git
+            python3 -m venv --system-site-packages /tmp/teksi-hooks-venv
+            . /tmp/teksi-hooks-venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install pytest
+            python -m pip install "teksi-hooks @ git+https://github.com/cymed/teksi_hooks.git"
           '
 
-      - name: Init DB
+      - name: Initialize database
         run: |
+          docker compose exec db sh -c "dropdb -U postgres --if-exists ${DB_NAME}"
           docker compose exec db sh -c "createdb -U postgres ${DB_NAME}"
-          docker compose run pum -p pg_tww -d datamodel install -p SRID 2056
+          docker compose run pum -p ${PGSERVICE} -d datamodel install -p SRID 2056
 
-      - name: Run pytest
+      - name: Run dockerised adapter tests
         run: |
           docker compose exec qgis sh -c '
-            cd /usr/src
-            PYTHONPATH=/usr/src/plugin:/usr/src/plugin_hooks:/usr/src \
-            pytest plugin/tests/dockerised/adapters -v -c plugin/pytest.ini
+            . /tmp/teksi-hooks-venv/bin/activate
+            PYTHONPATH=/usr/src/plugin:/usr/src/plugin_hooks:/usr/src:/usr/share/qgis/python \
+            xvfb-run pytest \
+              /usr/src/plugin/tests/dockerised/adapters \
+              -v -c /usr/src/plugin/pytest.ini -m no_qgis
           '
 
-      - name: Show logs
+      - name: docker logs
         if: failure()
         run: docker compose logs db qgis
 
