@@ -114,12 +114,31 @@ jobs:
           docker compose exec db sh -c "createdb -U postgres ${DB_NAME}"
           docker compose run pum -p ${PGSERVICE} -d datamodel install -p SRID 2056
 
+      - name: Debug teksi_hooks import in qgis container
+        run: |
+          docker compose exec qgis sh -c '
+            . /tmp/teksi-hooks-venv/bin/activate
+
+            echo "Python executable:"
+            which python
+            python --version
+
+            echo "Pip:"
+            which pip
+            pip --version
+
+            echo "Package info:"
+            pip show teksi-hooks || true
+
+            echo "Installed files:"
+            pip show -f teksi-hooks || true
+
       - name: Run dockerised adapter tests
         run: |
           docker compose exec qgis sh -c '
             . /tmp/teksi-hooks-venv/bin/activate
             PYTHONPATH=/usr/src/plugin:/usr/src/plugin_hooks:/usr/src:/usr/share/qgis/python \
-            xvfb-run pytest \
+            xvfb-run python -m pytest \
               /usr/src/plugin/tests/dockerised/adapters \
               -v -c /usr/src/plugin/pytest.ini -m no_qgis
           '
