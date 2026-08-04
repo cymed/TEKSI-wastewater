@@ -12,7 +12,7 @@ from tww_hooks.models.canonical_object import (
     CanonicalObjectIdentity,
 )
 
-from ..utils.database_utils import DatabaseUtils
+from ...utils.database_utils import DatabaseUtils
 
 
 @dataclass(slots=True)

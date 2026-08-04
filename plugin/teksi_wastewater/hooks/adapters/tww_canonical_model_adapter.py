@@ -3,22 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from tww_hooks.models.canonical_model import (
-    CanonicalAttributeMetadata,
-    CanonicalClassMetadata,
-    CanonicalModelMetadata,
-    CanonicalValueMetadata,
-)
-
-from ..utils.database_utils import (
+from ...utils.database_utils import (
     DatabaseUtils,
 )
-
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any
 
 from tww_hooks.models.canonical_model import (
     CanonicalAttributeMetadata,
@@ -27,10 +14,6 @@ from tww_hooks.models.canonical_model import (
     CanonicalValueMetadata,
     LocalizedMetadata,
     Localization,
-)
-
-from ..utils.database_utils import (
-    DatabaseUtils,
 )
 
 

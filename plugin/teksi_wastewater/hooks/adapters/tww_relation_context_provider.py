@@ -1,20 +1,20 @@
-from ..interlis import config
-from ..interlis.interlis_model_mapping.model_interlis_ag64 import (
+from ...interlis import config
+from ...interlis.interlis_model_mapping.model_interlis_ag64 import (
     ModelInterlisAG64,
 )
-from ..interlis.interlis_model_mapping.model_interlis_ag96 import (
+from ...interlis.interlis_model_mapping.model_interlis_ag96 import (
     ModelInterlisAG96,
 )
-from ..interlis.interlis_model_mapping.model_interlis_dss import (
+from ...interlis.interlis_model_mapping.model_interlis_dss import (
     ModelInterlisDss,
 )
-from ..interlis.interlis_model_mapping.model_interlis_sia405_abwasser import (
+from ...interlis.interlis_model_mapping.model_interlis_sia405_abwasser import (
     ModelInterlisSia405Abwasser,
 )
-from ..interlis.interlis_model_mapping.model_interlis_sia405_base_abwasser import (
+from ...interlis.interlis_model_mapping.model_interlis_sia405_base_abwasser import (
     ModelInterlisSia405BaseAbwasser,
 )
-from ..interlis.interlis_model_mapping.model_interlis_vsa_kek import (
+from ...interlis.interlis_model_mapping.model_interlis_vsa_kek import (
     ModelInterlisVsaKek,
 )
 

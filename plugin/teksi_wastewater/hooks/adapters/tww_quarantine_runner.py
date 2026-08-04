@@ -4,11 +4,11 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from collections.abc import Sequence
 
-from ..interlis import config
-from ..interlis.interlis_importer_exporter import (
+from ...interlis import config
+from ...interlis.interlis_importer_exporter import (
     InterlisImporterExporter,
 )
-from ..interlis.utils.ili2db import (
+from ...interlis.utils.ili2db import (
     InterlisTools,
 )
 from ..exceptions import (
