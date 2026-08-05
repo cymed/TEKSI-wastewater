@@ -1,395 +1,238 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Mapping, Sequence
 
 from ..models.validation import (
+    Change,
+    ChangeOperation,
     ClassifiedChange,
     ClassifiedChanges,
 )
 
-from ..models.review import ReviewFeature
-from ..capabilities.review import ChangeFeatureProvider,ReviewArtifactWriter
+from ..models.review import (
+    ReviewFeature,
+)
+
+from ..capabilities.review import (
+    ChangeFeatureProvider,
+)
+
 
 @dataclass(slots=True)
 class ChangeReviewExportService:
     """
-    Export classified changes as review artifacts.
+    Prepare classified changes as review features.
 
-    The service creates one artifact per review category:
+    This service is hook-side and storage-format independent.
 
-    - created_objects
-    - altered_objects
-    - deleted_objects
-    - unpermitted_changes
+    It does not:
 
-    By default, GeoPackages are expected, but the actual writer is abstracted
-    so other storage types can follow later.
+    - write GeoPackages;
+    - write PostgreSQL rows;
+    - access QGIS;
+    - access DatabaseUtils;
+    - infer geometry attributes from names.
+
+    It converts ClassifiedChanges into ReviewFeature objects grouped by
+    canonical class. Plugin-side services can then persist those features into
+    tww_diff or another storage backend.
+
+    Geometry attributes are metadata-driven through
+    geometry_attribute_names_by_class.
     """
-
-    output_dir: Path
 
     feature_provider: ChangeFeatureProvider
 
-    writer: ReviewArtifactWriter
+    geometry_attribute_names_by_class: Mapping[
+        str,
+        Sequence[
+            str,
+        ],
+    ] = field(
+        default_factory=dict,
+    )
 
     def export(
         self,
         classified: ClassifiedChanges,
     ) -> dict[
         str,
-        Path,
-    ]:
-        self.output_dir.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        artifacts = {}
-
-        artifacts["created_objects"] = self._export_group(
-            name="created_objects",
-            changes=classified.created_objects,
-            mode="created",
-        )
-
-        artifacts["altered_objects"] = self._export_group(
-            name="altered_objects",
-            changes=classified.altered_objects,
-            mode="altered",
-        )
-
-        artifacts["deleted_objects"] = self._export_group(
-            name="deleted_objects",
-            changes=classified.deleted_objects,
-            mode="deleted",
-        )
-
-        artifacts["unpermitted_changes"] = self._export_group(
-            name="unpermitted_changes",
-            changes=classified.unpermitted_changes,
-            mode="unpermitted",
-        )
-
-        return artifacts
-
-    def _export_group(
-        self,
-        *,
-        name: str,
-        changes: Sequence[
-            ClassifiedChange,
-        ],
-        mode: str,
-    ) -> Path:
-        path = self.output_dir / f"{name}.gpkg"
-
-        layers = self._features_by_class(
-            changes=changes,
-            mode=mode,
-        )
-
-        self.writer.write(
-            path=path,
-            layers=layers,
-        )
-
-        return path
-
-    def _features_by_class(
-            self,
-        *,
-        changes: Sequence[
-            ClassifiedChange,
-        ],
-        mode: str,
-    ) -> dict[
-        str,
         list[
             ReviewFeature,
         ],
     ]:
-        layers: dict[
+        """
+        Build review features grouped by canonical class.
+        """
+
+        features_by_class: dict[
             str,
             list[
                 ReviewFeature,
             ],
         ] = {}
 
-        for classified_change in changes:
+        for classified_change in self._classified_changes(
+            classified,
+        ):
             feature = self._feature_for_classified_change(
-                classified_change=classified_change,
-                mode=mode,
+                classified_change,
             )
 
-            if feature is None:
-                continue
-
-            layers.setdefault(
+            features_by_class.setdefault(
                 feature.class_id,
                 [],
             ).append(
                 feature,
             )
 
-        return layers
+        return features_by_class
+
+    def _classified_changes(
+        self,
+        classified: ClassifiedChanges,
+    ) -> tuple[
+        ClassifiedChange,
+        ...
+    ]:
+        return (
+            *classified.created_objects,
+            *classified.altered_objects,
+            *classified.deleted_objects,
+            *classified.unpermitted_changes,
+        )
 
     def _feature_for_classified_change(
         self,
-        *,
-        classified_change: ClassifiedChange,
-        mode: str,
-    ) -> ReviewFeature | None:
-        change = classified_change.change
-
-        if mode == "created":
-            return self._created_feature(
-                classified_change,
-            )
-
-        if mode == "altered":
-            return self._altered_feature(
-                classified_change,
-            )
-
-        if mode == "deleted":
-            return self._deleted_feature(
-                classified_change,
-            )
-
-        if mode == "unpermitted":
-            return self._unpermitted_feature(
-                classified_change,
-            )
-
-        raise ValueError(
-            f"Unsupported review export mode: {mode}"
-        )
-
-    def _created_feature(
-        self,
         classified_change: ClassifiedChange,
     ) -> ReviewFeature:
         change = classified_change.change
 
+        old_feature = self.feature_provider.old_feature(
+            change,
+        )
+
         new_feature = self.feature_provider.new_feature(
             change,
         )
-        attributes = dict(
+
+        attributes = self._review_attributes(
+            classified_change=classified_change,
+        )
+
+        geometries = self._review_geometries(
+            change=change,
+            old_feature=old_feature,
+            new_feature=new_feature,
+        )
+
+        self._add_geometry_changed_flags(
+            change=change,
+            attributes=attributes,
+        )
+
+        return ReviewFeature(
+            class_id=change.table_name,
+            object_id=change.object_id,
+            attributes=attributes,
+            geometries=geometries,
+        )
+
+    def _review_attributes(
+        self,
+        classified_change: ClassifiedChange,
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        change = classified_change.change
+
+        return {
+            "obj_id": change.object_id,
+            "is_created": self._is_created(
+                change,
+            ),
+            "is_altered": self._is_altered(
+                change,
+            ),
+            "is_deleted": self._is_deleted(
+                change,
+            ),
+            "import_values": self._import_values(
+                change,
+            ),
+            "canonical_values": self._canonical_values(
+                change,
+            ),
+            "changed_attributes": self._changed_attributes_payload(
+                change,
+            ),
+            "unpermitted_values": self._unpermitted_values(
+                classified_change,
+            ),
+            "permission_findings": tuple(
+                classified_change.metadata.permission_findings,
+            ),
+            "validation_findings": tuple(
+                classified_change.metadata.validation_findings,
+            ),
+        }
+
+    def _import_values(
+        self,
+        change: Change,
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        if self._is_deleted(
+            change,
+        ):
+            return {}
+
+        return dict(
             change.new_values,
         )
 
-        geometries = (
-            dict(
-                new_feature.geometries,
-            )
-            if new_feature is not None
-            else self._geometry_values_from_mapping(
+    def _canonical_values(
+        self,
+        change: Change,
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        if self._is_created(
+            change,
+        ):
+            return dict(
                 change.new_values,
             )
-        )
-        self._add_common_review_attributes(
-            attributes=attributes,
-            classified_change=classified_change,
-        )
-        self._add_geometry_changed_flags(
-            attributes=attributes,
-            geometry_attribite_names=geometries.keys(),
-            changed_geometry_attribute_names=self._changed_geometry_attributes(
-                change,
-            ),
-        )
 
-        return ReviewFeature(
-            class_id=change.table_name,
-            object_id=change.object_id,
-            attributes=attributes,
-            geometries=geometries,
-        )
-
-    def _altered_feature(
-        self,
-        classified_change: ClassifiedChange,
-    ) -> ReviewFeature:
-        change = classified_change.change
-
-        new_feature = self.feature_provider.new_feature(
+        if self._is_deleted(
             change,
-        )
-
-        old_feature = self.feature_provider.old_feature(
-            change,
-        )
-
-        attributes = {}
-
-        if old_feature is not None:
-            attributes.update(
-                old_feature.attributes,
+        ):
+            return dict(
+                change.old_values,
             )
 
-        attributes.update(
+        values = dict(
+            change.old_values,
+        )
+
+        values.update(
             change.new_values,
         )
 
-        geometries = {}
+        return values
 
-        if old_feature is not None:
-            geometries.update(
-                old_feature.geometries,
-            )
-        if new_feature is not None:
-            geometries.update(
-                new_feature.geometries,
-            )
-
-        self._add_common_review_attributes(
-            attributes=attributes,
-            classified_change=classified_change,
-        )
-
-        self._add_geometry_changed_flags(
-            attributes=attributes,
-            geometry_attribute_names=geometries.keys(),
-            changed_geometry_attribute_names=self._changed_geometry_attributes(
-                change,
-            ),
-        )
-        return ReviewFeature(
-            class_id=change.table_name,
-            object_id=change.object_id,
-            attributes=attributes,
-            geometries=geometries,
-        )
-
-    def _deleted_feature(
+    def _unpermitted_values(
         self,
         classified_change: ClassifiedChange,
-    ) -> ReviewFeature:
-        change = classified_change.change
-
-        old_feature = self.feature_provider.old_feature(
-            change,
-        )
-
-        if old_feature is not None:
-            attributes = dict(
-                old_feature.attributes,
-            )
-            geometries = dict(
-                old_feature.geometries,
-            )
-        else:
-            attributes = dict(
-                change.old_values,
-            )
-            geometries = self._geometry_values_from_mapping(
-                change.old_values,
-            )
-
-        self._add_common_review_attributes(
-            attributes=attributes,
-            classified_change=classified_change,
-        )
-
-        self._add_geometry_changed_flags(
-            attributes=attributes,
-            geometry_attribute_names=geometries.keys(),
-            changed_geometry_attribute_names=(),
-        )
-
-        return ReviewFeature(
-            class_id=change.table_name,
-            object_id=change.object_id,
-            attributes=attributes,
-            geometries=geometries,
-        )
-
-    def _unpermitted_feature(
-        self,
-        classified_change: ClassifiedChange,
-    ) -> ReviewFeature:
-        change = classified_change.change
-
-        old_feature = self.feature_provider.old_feature(
-            change,
-        )
-
-        new_feature = self.feature_provider.new_feature(
-            change,
-        )
-
-        unpermitted_attributes = self._unpermitted_attribute_names(
-            classified_change,
-        )
-
-        attributes = {}
-
-        for attribute_name in unpermitted_attributes:
-            if attribute_name in change.new_values:
-                attributes[attribute_name] = change.new_values[
-                    attribute_name
-                ]
-                continue
-
-            if attribute_name in change.old_values:
-                attributes[attribute_name] = change.old_values[
-                    attribute_name
-                ]
-
-        geometries = {}
-
-        if old_feature is not None:
-            geometries.update(
-                old_feature.geometries,
-            )
-        else:
-            geometries.update(
-                self._geometry_values_from_mapping(
-                    change.old_values,
-                )
-            )
-
-        if new_feature is not None:
-            geometries.update(
-                new_feature.geometries,
-            )
-        else:
-            geometries.update(
-                self._geometry_values_from_mapping(
-                    change.new_values,
-                )
-            )
-
-        self._add_common_review_attributes(
-            attributes=attributes,
-            classified_change=classified_change,
-        )
-
-        self._add_geometry_changed_flags(
-            attributes=attributes,
-            geometry_attribute_names=geometries.keys(),
-            changed_geometry_attribute_names=self._changed_geometry_attributes(
-                change,
-            ),
-            suffix="_changed_without_permission",
-        )
-
-        return ReviewFeature(
-            class_id=change.table_name,
-            object_id=change.object_id,
-            attributes=attributes,
-            geometries=geometries,
-        )
-
-    def _unpermitted_attribute_names(
-        self,
-        classified_change: ClassifiedChange,
-    ) -> tuple[
+    ) -> dict[
         str,
-        ...
+        Any,
     ]:
         change = classified_change.change
 
@@ -399,63 +242,172 @@ class ChangeReviewExportService:
             if finding.attribute_name is not None
         }
 
-        if attribute_names:
-            return tuple(
-                sorted(
-                    attribute_names,
-                )
-            )
+        if not attribute_names:
+            return {}
 
-        return tuple(
-            attribute.attribute_name
-            for attribute in change.changed_attributes
-        )
+        values = {}
 
-    def _add_common_review_attributes(
+        for attribute_name in attribute_names:
+            if attribute_name in change.new_values:
+                values[attribute_name] = change.new_values[
+                    attribute_name
+                ]
+                continue
+
+            if attribute_name in change.old_values:
+                values[attribute_name] = change.old_values[
+                    attribute_name
+                ]
+
+        return values
+
+    def _changed_attributes_payload(
         self,
-        *,
-        attributes: dict[
+        change: Change,
+    ) -> tuple[
+        dict[
             str,
             Any,
         ],
-        classified_change: ClassifiedChange,
-    ) -> None:
-        change = classified_change.change
-        metadata = classified_change.metadata
+        ...
+    ]:
+        payload = []
 
-        attributes["_tww_object_id"] = change.object_id
-        attributes["_tww_class_id"] = change.table_name
-        attributes["_change_operation"] = change.operation.value
-        attributes["_change_classification"] = (
-            metadata.classification.value
+        for attribute in change.changed_attributes:
+            attribute_name = attribute.attribute_name
+
+            payload.append(
+                {
+                    "attribute_name": attribute_name,
+                    "old_value": change.old_values.get(
+                        attribute_name,
+                    ),
+                    "new_value": change.new_values.get(
+                        attribute_name,
+                    ),
+                }
+            )
+
+        return tuple(
+            payload,
         )
-        attributes["_change_permitted"] = metadata.permitted
-        attributes["_change_reason"] = metadata.reason
-        attributes["_finding_count"] = len(
-            metadata.findings,
+
+    def _review_geometries(
+        self,
+        *,
+        change: Change,
+        old_feature: ReviewFeature | None,
+        new_feature: ReviewFeature | None,
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        if self._is_created(
+            change,
+        ):
+            return self._new_geometries(
+                change=change,
+                new_feature=new_feature,
+            )
+
+        if self._is_deleted(
+            change,
+        ):
+            return self._old_geometries(
+                change=change,
+                old_feature=old_feature,
+            )
+
+        geometries = {}
+
+        geometries.update(
+            self._old_geometries(
+                change=change,
+                old_feature=old_feature,
+            )
+        )
+
+        geometries.update(
+            self._new_geometries(
+                change=change,
+                new_feature=new_feature,
+            )
+        )
+
+        return geometries
+
+    def _old_geometries(
+        self,
+        *,
+        change: Change,
+        old_feature: ReviewFeature | None,
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        if old_feature is not None:
+            return dict(
+                old_feature.geometries,
+            )
+
+        return self._geometry_values_from_mapping(
+            class_id=change.table_name,
+            values=change.old_values,
+        )
+
+    def _new_geometries(
+        self,
+        *,
+        change: Change,
+        new_feature: ReviewFeature | None,
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        if new_feature is not None:
+            return dict(
+                new_feature.geometries,
+            )
+
+        return self._geometry_values_from_mapping(
+            class_id=change.table_name,
+            values=change.new_values,
         )
 
     def _add_geometry_changed_flags(
         self,
         *,
+        change: Change,
         attributes: dict[
             str,
             Any,
         ],
-        geometry_attribute_names,
-        changed_geometry_attribute_names,
-        suffix: str = "_changed",
     ) -> None:
         changed_geometry_names = set(
-            changed_geometry_attribute_names,
+            self._changed_geometry_attributes(
+                change,
+            )
         )
 
-        for geometry_attribute_name in geometry_attribute_names:
+        for geometry_attribute_name in self._geometry_attribute_names(
+            change.table_name,
+        ):
             attributes[
-                f"{geometry_attribute_name}{suffix}"
+                f"{geometry_attribute_name}_changed"
             ] = (
                 geometry_attribute_name
                 in changed_geometry_names
+            )
+
+            attributes[
+                f"{geometry_attribute_name}_changed_without_permission"
+            ] = (
+                geometry_attribute_name
+                in changed_geometry_names
+                and bool(
+                    attributes["permission_findings"]
+                    or attributes["validation_findings"]
+                )
             )
 
     def _changed_geometry_attributes(
@@ -465,22 +417,22 @@ class ChangeReviewExportService:
         str,
         ...
     ]:
-        changed = []
-
-        for attribute in change.changed_attributes:
-            if self._looks_like_geometry_attribute(
-                attribute.attribute_name,
-            ):
-                changed.append(
-                    attribute.attribute_name,
-                )
+        geometry_attribute_names = set(
+            self._geometry_attribute_names(
+                change.table_name,
+            )
+        )
 
         return tuple(
-            changed,
+            attribute.attribute_name
+            for attribute in change.changed_attributes
+            if attribute.attribute_name in geometry_attribute_names
         )
 
     def _geometry_values_from_mapping(
         self,
+        *,
+        class_id: str,
         values: Mapping[
             str,
             Any,
@@ -489,53 +441,55 @@ class ChangeReviewExportService:
         str,
         Any,
     ]:
+        geometry_attribute_names = set(
+            self._geometry_attribute_names(
+                class_id,
+            )
+        )
+
         return {
             key: value
             for key, value in values.items()
-            if self._looks_like_geometry_attribute(
-                key,
-            )
+            if key in geometry_attribute_names
         }
 
-    def _looks_like_geometry_attribute(
+    def _geometry_attribute_names(
         self,
-        attribute_name: str,
+        class_id: str,
+    ) -> tuple[
+        str,
+        ...
+    ]:
+        return tuple(
+            self.geometry_attribute_names_by_class.get(
+                class_id,
+                (),
+            )
+        )
+
+    def _is_created(
+        self,
+        change: Change,
     ) -> bool:
-        lowered = attribute_name.lower()
-
         return (
-            lowered == "geometry"
-            or lowered == "geom"
-            or lowered.startswith(
-                "geom_",
-            )
-            or lowered.endswith(
-                "_geometry",
-            )
-            or lowered.endswith(
-                "_geom",
-            )
+            change.operation
+            == ChangeOperation.INSERT
         )
-    def _add_geometry_changed_flags(
+
+    def _is_altered(
         self,
-        *,
-        attributes: dict[
-            str,
-            Any,
-        ],
-        geometry_attribute_names,
-        changed_geometry_attribute_names,
-        suffix: str = "_changed",
-    ) -> None:
-        changed_geometry_names = set(
-            changed_geometry_attribute_names,
+        change: Change,
+    ) -> bool:
+        return (
+            change.operation
+            == ChangeOperation.UPDATE
         )
 
-        for geometry_attribute_name in geometry_attribute_names:
-            attributes[
-                f"{geometry_attribute_name}{suffix}"
-            ] = (
-                geometry_attribute_name
-                in changed_geometry_names
-            )
-
+    def _is_deleted(
+        self,
+        change: Change,
+    ) -> bool:
+        return (
+            change.operation
+            == ChangeOperation.DELETE
+        )

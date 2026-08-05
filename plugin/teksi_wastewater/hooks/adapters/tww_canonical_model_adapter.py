@@ -121,6 +121,10 @@ class TwwCanonicalModelAdapter:
 
         Canonical class_id is resolved from dictionary_od_table.tablename.
         Canonical attribute_id corresponds to dictionary_od_field.field_name.
+
+        field_datatype is loaded from dictionary_od_field.field_datatype and
+        is used to detect geometry attributes, for example
+        field_datatype='geometry'.
         """
 
         where_clause = self._class_where_clause(
@@ -142,7 +146,7 @@ class TwwCanonicalModelAdapter:
                 f.attribute_id AS attribute_source_id,
                 t.tablename AS class_id,
                 f.field_name AS attribute_id,
-                f.field_datatype,
+                f.field_datatype AS field_datatype,
                 {localized_field_column} AS localized_name
             FROM {schema}.dictionary_od_field f
             JOIN {schema}.dictionary_od_table t
@@ -354,6 +358,66 @@ class TwwCanonicalModelAdapter:
             )
         )
 
+    def geometry_attribute_names(
+        self,
+        class_id: str,
+        language: Localization = Localization.de,
+    ) -> tuple[
+        str,
+        ...
+    ]:
+        """
+        Return canonical geometry attribute names for one class.
+
+        Geometry attributes are detected through field_datatype='geometry'.
+        """
+
+        return tuple(
+            attribute.attribute_id
+            for attribute in self.attributes(
+                class_id=class_id,
+                language=language,
+            ).values()
+            if self._is_geometry_datatype(
+                attribute.field_datatype,
+            )
+        )
+
+    def is_geometry_attribute(
+        self,
+        class_id: str,
+        attribute_id: str,
+        language: Localization = Localization.de,
+    ) -> bool:
+        """
+        Return whether a canonical attribute is a geometry attribute.
+        """
+
+        attribute = self.attribute_metadata(
+            class_id=class_id,
+            attribute_id=attribute_id,
+            language=language,
+        )
+
+        if attribute is None:
+            return False
+
+        return self._is_geometry_datatype(
+            attribute.field_datatype,
+        )
+
+    def _is_geometry_datatype(
+        self,
+        field_datatype: str | None,
+    ) -> bool:
+        if field_datatype is None:
+            return False
+
+        return (
+            field_datatype.strip().lower()
+            == "geometry"
+        )
+
     def _class_where_clause(
         self,
         class_id: str | None,
@@ -467,4 +531,3 @@ class TwwCanonicalModelAdapter:
             )
             for row in rows
         ]
- 
