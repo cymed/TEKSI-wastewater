@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from collections.abc import  Sequence
+from collections.abc import Mapping, Sequence
 
 from ..models.validation import (
     ClassifiedChange,
@@ -154,7 +154,7 @@ class ChangeReviewExportService:
                 classified_change,
             )
 
-        if mode == "*eleted":
+        if mode == "deleted":
             return self._deleted_feature(
                 classified_change,
             )
@@ -411,6 +411,30 @@ class ChangeReviewExportService:
             for attribute in change.changed_attributes
         )
 
+    def _add_common_review_attributes(
+        self,
+        *,
+        attributes: dict[
+            str,
+            Any,
+        ],
+        classified_change: ClassifiedChange,
+    ) -> None:
+        change = classified_change.change
+        metadata = classified_change.metadata
+
+        attributes["_tww_object_id"] = change.object_id
+        attributes["_tww_class_id"] = change.table_name
+        attributes["_change_operation"] = change.operation.value
+        attributes["_change_classification"] = (
+            metadata.classification.value
+        )
+        attributes["_change_permitted"] = metadata.permitted
+        attributes["_change_reason"] = metadata.reason
+        attributes["_finding_count"] = len(
+            metadata.findings,
+        )
+
     def _add_geometry_changed_flags(
         self,
         *,
@@ -433,3 +457,85 @@ class ChangeReviewExportService:
                 geometry_attribute_name
                 in changed_geometry_names
             )
+
+    def _changed_geometry_attributes(
+        self,
+        change: Change,
+    ) -> tuple[
+        str,
+        ...
+    ]:
+        changed = []
+
+        for attribute in change.changed_attributes:
+            if self._looks_like_geometry_attribute(
+                attribute.attribute_name,
+            ):
+                changed.append(
+                    attribute.attribute_name,
+                )
+
+        return tuple(
+            changed,
+        )
+
+    def _geometry_values_from_mapping(
+        self,
+        values: Mapping[
+            str,
+            Any,
+        ],
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        return {
+            key: value
+            for key, value in values.items()
+            if self._looks_like_geometry_attribute(
+                key,
+            )
+        }
+
+    def _looks_like_geometry_attribute(
+        self,
+        attribute_name: str,
+    ) -> bool:
+        lowered = attribute_name.lower()
+
+        return (
+            lowered == "geometry"
+            or lowered == "geom"
+            or lowered.startswith(
+                "geom_",
+            )
+            or lowered.endswith(
+                "_geometry",
+            )
+            or lowered.endswith(
+                "_geom",
+            )
+        )
+    def _add_geometry_changed_flags(
+        self,
+        *,
+        attributes: dict[
+            str,
+            Any,
+        ],
+        geometry_attribute_names,
+        changed_geometry_attribute_names,
+        suffix: str = "_changed",
+    ) -> None:
+        changed_geometry_names = set(
+            changed_geometry_attribute_names,
+        )
+
+        for geometry_attribute_name in geometry_attribute_names:
+            attributes[
+                f"{geometry_attribute_name}{suffix}"
+            ] = (
+                geometry_attribute_name
+                in changed_geometry_names
+            )
+

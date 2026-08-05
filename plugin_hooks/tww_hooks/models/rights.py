@@ -2,12 +2,137 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from collections.abc import Mapping
+from typing import Any
 
 from .privilege import Privilege
 from .validation import AttributeValidation, TransitionValidation
 from .rulesets import CrudRules, ResolvedCrudRules, StateTransitionRule
 from .canonical_object import CanonicalObjectIdentity
 
+from ..exceptions import  Finding
+
+from teksi_hooks.ili_definitions import Standardoid
+
+@dataclass(slots=True, frozen=True)
+class PermissionFinding(
+    Finding,
+):
+    """
+    Finding produced by rights / permission evaluation.
+
+    A permission finding means the proposed change may be structurally valid,
+    but is not allowed for the current provider, data owner, privilege context
+    or rights rule configuration.
+    """
+
+    code: str = field(
+        metadata={
+            "doc": (
+                "Stable permission finding code. Examples: "
+                "'permission_denied', 'missing_privilege', "
+                "'provider_not_authorized'."
+            )
+        },
+    )
+
+    attribute_name: str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Canonical attribute involved in the permission finding, "
+                "or None if the finding applies to the whole object/change."
+            )
+        },
+    )
+
+    rule_id: str | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Identifier of the rights rule or condition that denied the "
+                "change, if available."
+            )
+        },
+    )
+
+    provider_oid: Standardoid | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Provider organisation oid used during rights evaluation, "
+                "if relevant."
+            )
+        },
+    )
+
+    dataowner_oid: Standardoid | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Data owner organisation oid used during rights evaluation, "
+                "if relevant."
+            )
+        },
+    )
+
+    required_privilege: Privilege | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Privilege required for the attempted operation, if known."
+            )
+        },
+    )
+
+    available_privileges: tuple[
+        Privilege,
+        ...
+    ] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Privileges available to the evaluated provider/data owner "
+                "context."
+            )
+        },
+    )
+
+    evaluation_path: tuple[
+        str,
+        ...
+    ] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Optional rights evaluation path. Useful for derived or "
+                "recursive rights, for example "
+                "('reach_point', 'reach', 'wastewater_structure')."
+            )
+        },
+    )
+
+    transitive_evaluation_enabled: bool | None = field(
+        default=None,
+        metadata={
+            "doc": (
+                "Whether transitive or recursive rights evaluation was enabled "
+                "when this permission finding was produced."
+            )
+        },
+    )
+
+    details: dict[
+        str,
+        Any,
+    ] = field(
+        default_factory=dict,
+        metadata={
+            "doc": (
+                "Additional permission finding details that are useful for "
+                "debugging, reporting or future rule types."
+            )
+        },
+    )
 
 @dataclass(slots=True, frozen=True)
 class ResolvedRights:

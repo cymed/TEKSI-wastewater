@@ -139,7 +139,7 @@ class ChangeClassifier:
                     reason=(
                         "Change has validation errors."
                     ),
-                    findings=findings,
+                    validation_findings=findings,
                 ),
             )
 
@@ -161,7 +161,7 @@ class ChangeClassifier:
                     reason=(
                         "Change is not permitted by rights evaluation."
                     ),
-                    findings=findings,
+                    validation_findings=findings,
                 ),
             )
 
@@ -179,7 +179,7 @@ class ChangeClassifier:
                     reason=(
                         f"Unsupported change operation: {change.operation!r}."
                     ),
-                    findings=findings,
+                    validation_findings=findings,
                 ),
             )
 
@@ -190,7 +190,7 @@ class ChangeClassifier:
                 permitted=True,
                 severity=highest_severity,
                 reason=None,
-                findings=findings,
+                validation_findings=findings,
             ),
         )
 

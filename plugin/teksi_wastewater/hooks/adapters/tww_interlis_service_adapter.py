@@ -45,6 +45,7 @@ class TwwInterlisContext(InterlisContext):
     ] = field(
         default_factory=tuple,
     )
+    import_orgs:  bool = False
 
     def apply(
         self,

@@ -258,29 +258,31 @@ class ChangeClassificationMetadata:
         metadata={
             "doc": (
                 "Highest severity associated with this classified change, "
-                "if validation or rights findings are attached."
+                "if findings are attached."
             )
         },
     )
 
-    reason: str | None = field(
-        default=None,
-        metadata={
-            "doc": (
-                "Human-readable reason for the classification. This is "
-                "especially useful for unpermitted changes."
-            )
-        },
-    )
-
-    findings: tuple[
+    permission_findings: tuple[
         ValidationFinding,
         ...
     ] = field(
         default_factory=tuple,
         metadata={
             "doc": (
-                "Validation or rights findings associated with this change."
+                "Permission or rights findings associated with this change."
+            )
+        },
+    )
+
+    validation_findings: tuple[
+        ValidationFinding,
+        ...
+    ] = field(
+        default_factory=tuple,
+        metadata={
+            "doc": (
+                "Validation findings associated with this change."
             )
         },
     )
@@ -294,6 +296,21 @@ class ChangeClassificationMetadata:
         },
     )
 
+    @property
+    def findings(
+        self,
+    ) -> tuple[
+        ValidationFinding,
+        ...
+    ]:
+        """
+        Combined findings for compatibility and simple consumers.
+        """
+
+        return (
+            *self.permission_findings,
+            *self.validation_findings,
+        )
 
 @dataclass(slots=True)
 class ClassifiedChange:
