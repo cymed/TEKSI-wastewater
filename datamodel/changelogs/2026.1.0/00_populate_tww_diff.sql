@@ -85,13 +85,6 @@ BEGIN
             rec.table_name || '_job_obj_id_idx',
             rec.table_name
         );
-
-        EXECUTE FORMAT(
-            'CREATE INDEX IF NOT EXISTS %I
-             ON tww_diff.%I (is_unpermitted);',
-            rec.table_name || '_is_unpermitted_idx',
-            rec.table_name
-        );
     END LOOP;
 END;
 $DO$;  

@@ -10,7 +10,6 @@ from tww_hooks.models.review import (
 )
 from tww_hooks.models.validation import (
     Change,
-    ChangeAttribute,
     ChangeClassification,
     ChangeClassificationMetadata,
     ChangeOperation,
