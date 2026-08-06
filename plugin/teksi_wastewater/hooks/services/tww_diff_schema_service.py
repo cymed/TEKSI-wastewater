@@ -4,12 +4,10 @@ from dataclasses import asdict, dataclass, is_dataclass
 from datetime import date, datetime
 import json
 from typing import Any
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping, Sequence
 
-from tww_hooks.models.validation import (
-    ClassifiedChange,
-    ClassifiedChanges,
-    Change,
+from tww_hooks.models.review import (
+    ReviewFeature,
 )
 
 from ...utils.database_utils import (
@@ -20,300 +18,175 @@ from ...utils.database_utils import (
 @dataclass(slots=True)
 class DiffSchemaWriteResult:
     """
-    Result of writing classified changes into a PostgreSQL diff schema.
+    Result of writing review features into tww_diff.
     """
 
-    schema: str
-    change_count: int
-    attribute_count: int
-    finding_count: int
+    job_db_id: int
+    job_id: str
+    row_count: int
 
 
 @dataclass(slots=True)
 class TwwDiffSchemaService:
     """
-    Plugin-side service for persisting hook-side diff/review state into a
-    PostgreSQL schema.
+    Plugin-side database writer for hook-side diff review state.
 
-    This service intentionally only handles database access.
+    This service only handles database access to the stable tww_diff schema.
 
     It does not:
 
     - classify changes;
     - evaluate rights;
-    - validate changes;
+    - validate values;
     - compare geometries;
+    - normalize geometries;
     - create GeoPackages;
     - build QGIS layers.
 
-    Those responsibilities belong to tww_hooks services or plugin-side
-    interpreters/adapters.
+    Expected database contract:
+
+    - tww_diff.metadata exists;
+    - one table per canonical class exists in tww_diff;
+    - class rows reference metadata.id through job_id;
+    - is_rejected is generated from permission_findings and validation_findings.
     """
 
-    schema: str
+    schema: str = "tww_diff"
+    srid: int = 2056
 
     def write(
         self,
-        classified: ClassifiedChanges,
+        *,
+        job_id: str,
+        features_by_class: Mapping[
+            str,
+            Sequence[
+                ReviewFeature,
+            ],
+        ],
         metadata: Mapping[
             str,
             Any,
         ] | None = None,
-        reset_schema: bool = True,
+        validation_success: bool = False,
+        job_status: str = "pending",
+        reset_job: bool = True,
     ) -> DiffSchemaWriteResult:
         """
-        Write classified changes into the configured diff schema.
+        Write review features into tww_diff.
 
         Parameters
         ----------
-        classified:
-            Hook-side classified changes.
+        job_id:
+            Stable logical job identifier.
+
+        features_by_class:
+            Review features grouped by canonical class id.
 
         metadata:
-            Optional workflow metadata. Typical examples are source file,
-            source model, import schema, live schema, provider oid,
-            dataowner oid or job id.
+            Optional job metadata.
 
-        reset_schema:
-            If true, the existing diff schema is dropped and recreated.
+        validation_success:
+            Whether quarantine/import validation succeeded.
+
+        job_status:
+            Job status stored in tww_diff.metadata.job_status.
+
+        reset_job:
+            If true, any existing job with the same job_id is deleted first.
+            Rows in class tables are removed through ON DELETE CASCADE.
         """
+
+        metadata = metadata or {}
 
         with DatabaseUtils.PsycopgConnection() as connection:
             cursor = connection.cursor()
 
-            if reset_schema:
-                self._drop_schema(
-                    cursor,
+            if reset_job:
+                self._delete_existing_job(
+                    cursor=cursor,
+                    job_id=job_id,
                 )
 
-            self._create_schema(
-                cursor,
-            )
-
-            self._create_tables(
-                cursor,
-            )
-
-            self._write_metadata(
+            job_db_id = self._insert_metadata(
                 cursor=cursor,
-                metadata={
-                    **dict(
-                        classified.metadata,
-                    ),
-                    **dict(
-                        metadata or {},
-                    ),
-                },
+                job_id=job_id,
+                metadata=metadata,
+                validation_success=validation_success,
+                job_status=job_status,
             )
 
-            change_count = 0
-            attribute_count = 0
-            finding_count = 0
+            row_count = 0
 
-            for classified_change in self._iter_classified_changes(
-                classified,
-            ):
-                change_id = self._insert_change(
+            for class_id, features in features_by_class.items():
+                table_columns = self._table_columns(
                     cursor=cursor,
-                    classified_change=classified_change,
+                    table_name=class_id,
                 )
 
-                change_count += 1
-
-                attribute_count += self._insert_change_attributes(
-                    cursor=cursor,
-                    change_id=change_id,
-                    classified_change=classified_change,
+                self._assert_required_columns(
+                    table_name=class_id,
+                    table_columns=table_columns,
                 )
 
-                finding_count += self._insert_findings(
-                    cursor=cursor,
-                    change_id=change_id,
-                    classified_change=classified_change,
-                )
+                for feature in features:
+                    self._insert_feature(
+                        cursor=cursor,
+                        job_db_id=job_db_id,
+                        table_name=class_id,
+                        feature=feature,
+                        table_columns=table_columns,
+                    )
 
-            self._create_indexes(
-                cursor,
-            )
+                    row_count += 1
 
             connection.commit()
 
         return DiffSchemaWriteResult(
-            schema=self.schema,
-            change_count=change_count,
-            attribute_count=attribute_count,
-            finding_count=finding_count,
+            job_db_id=job_db_id,
+            job_id=job_id,
+            row_count=row_count,
         )
 
-    def _drop_schema(
-        self,
-        cursor,
-    ) -> None:
-        cursor.execute(
-            f"DROP SCHEMA IF EXISTS {self._quote_identifier(self.schema)} CASCADE;"
-        )
-
-    def _create_schema(
-        self,
-        cursor,
-    ) -> None:
-        cursor.execute(
-            f"CREATE SCHEMA IF NOT EXISTS {self._quote_identifier(self.schema)};"
-        )
-
-    def _create_tables(
-        self,
-        cursor,
-    ) -> None:
-        cursor.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self._table("metadata")} (
-                key text PRIMARY KEY,
-                value jsonb NOT NULL
-            );
-            """
-        )
-
-        cursor.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self._table("changes")} (
-                change_id bigserial PRIMARY KEY,
-                class_id text NOT NULL,
-                object_id text NOT NULL,
-                operation text NOT NULL,
-                classification text NOT NULL,
-                permitted boolean NOT NULL,
-                severity text,
-                reason text,
-                old_values jsonb NOT NULL DEFAULT '{{}}'::jsonb,
-                new_values jsonb NOT NULL DEFAULT '{{}}'::jsonb,
-                changed_attributes jsonb NOT NULL DEFAULT '[]'::jsonb,
-                classified_at timestamp with time zone,
-                created_at timestamp with time zone NOT NULL DEFAULT now()
-            );
-            """
-        )
-
-        cursor.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self._table("change_attributes")} (
-                change_attribute_id bigserial PRIMARY KEY,
-                change_id bigint NOT NULL
-                    REFERENCES {self._table("changes")} (change_id)
-                    ON DELETE CASCADE,
-                attribute_name text NOT NULL,
-                old_value jsonb,
-                new_value jsonb,
-                changed boolean NOT NULL DEFAULT true,
-                permitted boolean NOT NULL,
-                classification text NOT NULL
-            );
-            """
-        )
-
-        cursor.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self._table("findings")} (
-                finding_id bigserial PRIMARY KEY,
-                change_id bigint NOT NULL
-                    REFERENCES {self._table("changes")} (change_id)
-                    ON DELETE CASCADE,
-                code text,
-                severity text,
-                attribute_name text,
-                message text,
-                raw jsonb NOT NULL DEFAULT '{{}}'::jsonb
-            );
-            """
-        )
-
-    def _create_indexes(
-        self,
-        cursor,
-    ) -> None:
-        cursor.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS changes_class_object_idx
-            ON {self._table("changes")} (class_id, object_id);
-            """
-        )
-
-        cursor.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS changes_classification_idx
-            ON {self._table("changes")} (classification);
-            """
-        )
-
-        cursor.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS change_attributes_change_id_idx
-            ON {self._table("change_attributes")} (change_id);
-            """
-        )
-
-        cursor.execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS findings_change_id_idx
-            ON {self._table("findings")} (change_id);
-            """
-        )
-
-    def _write_metadata(
+    def _delete_existing_job(
         self,
         *,
         cursor,
+        job_id: str,
+    ) -> None:
+        cursor.execute(
+            f"""
+            DELETE FROM {self._table("metadata")}
+            WHERE job_id = %s;
+            """,
+            (
+                job_id,
+            ),
+        )
+
+    def _insert_metadata(
+        self,
+        *,
+        cursor,
+        job_id: str,
         metadata: Mapping[
             str,
             Any,
         ],
-    ) -> None:
-        for key, value in metadata.items():
-            cursor.execute(
-                f"""
-                INSERT INTO {self._table("metadata")} (
-                    key,
-                    value
-                )
-                VALUES (
-                    %s,
-                    %s::jsonb
-                )
-                ON CONFLICT (key)
-                DO UPDATE SET
-                    value = EXCLUDED.value;
-                """,
-                (
-                    key,
-                    self._json_dumps(
-                        value,
-                    ),
-                ),
-            )
-
-    def _insert_change(
-        self,
-        *,
-        cursor,
-        classified_change: ClassifiedChange,
+        validation_success: bool,
+        job_status: str,
     ) -> int:
-        change = classified_change.change
-        metadata = classified_change.metadata
-
         cursor.execute(
             f"""
-            INSERT INTO {self._table("changes")} (
-                class_id,
-                object_id,
-                operation,
-                classification,
-                permitted,
-                severity,
-                reason,
-                old_values,
-                new_values,
-                changed_attributes,
-                classified_at
+            INSERT INTO {self._table("metadata")} (
+                job_id,
+                job_status,
+                validation_success,
+                source_model,
+                source_file,
+                import_schema,
+                live_schema,
+                metadata
             )
             VALUES (
                 %s,
@@ -323,261 +196,416 @@ class TwwDiffSchemaService:
                 %s,
                 %s,
                 %s,
-                %s::jsonb,
-                %s::jsonb,
-                %s::jsonb,
-                %s
+                %s::jsonb
             )
-            RETURNING change_id;
+            RETURNING id;
             """,
             (
-                change.table_name,
-                change.object_id,
-                self._enum_value(
-                    change.operation,
+                job_id,
+                job_status,
+                validation_success,
+                metadata.get(
+                    "source_model",
                 ),
-                self._enum_value(
-                    metadata.classification,
+                metadata.get(
+                    "source_file",
                 ),
-                metadata.permitted,
-                self._enum_value(
-                    metadata.severity,
+                metadata.get(
+                    "import_schema",
                 ),
-                metadata.reason,
-                self._json_dumps(
-                    change.old_values,
-                ),
-                self._json_dumps(
-                    change.new_values,
+                metadata.get(
+                    "live_schema",
                 ),
                 self._json_dumps(
-                    self._changed_attributes_payload(
-                        change,
-                    ),
+                    metadata,
                 ),
-                metadata.classified_at,
             ),
         )
 
-        row = cursor.fetchone()
+        return cursor.fetchone()[0]
 
-        return row[0]
-
-    def _insert_change_attributes(
+    def _insert_feature(
         self,
         *,
         cursor,
-        change_id: int,
-        classified_change: ClassifiedChange,
-    ) -> int:
-        change = classified_change.change
-        metadata = classified_change.metadata
-
-        count = 0
-
-        for attribute_name in self._changed_attribute_names(
-            change,
-        ):
-            cursor.execute(
-                f"""
-                INSERT INTO {self._table("change_attributes")} (
-                    change_id,
-                    attribute_name,
-                    old_value,
-                    new_value,
-                    changed,
-                    permitted,
-                    classification
-                )
-                VALUES (
-                    %s,
-                    %s,
-                    %s::jsonb,
-                    %s::jsonb,
-                    %s,
-                    %s,
-                    %s
-                );
-                """,
-                (
-                    change_id,
-                    attribute_name,
-                    self._json_dumps(
-                        change.old_values.get(
-                            attribute_name,
-                        )
-                    ),
-                    self._json_dumps(
-                        change.new_values.get(
-                            attribute_name,
-                        )
-                    ),
-                    True,
-                    metadata.permitted,
-                    self._enum_value(
-                        metadata.classification,
-                    ),
-                ),
-            )
-
-            count += 1
-
-        return count
-
-    def _insert_findings(
-        self,
-        *,
-        cursor,
-        change_id: int,
-        classified_change: ClassifiedChange,
-    ) -> int:
-        count = 0
-
-        for finding in classified_change.metadata.findings:
-            cursor.execute(
-                f"""
-                INSERT INTO {self._table("findings")} (
-                    change_id,
-                    code,
-                    severity,
-                    attribute_name,
-                    message,
-                    raw
-                )
-                VALUES (
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s::jsonb
-                );
-                """,
-                (
-                    change_id,
-                    getattr(
-                        finding,
-                        "code",
-                        None,
-                    ),
-                    self._enum_value(
-                        getattr(
-                            finding,
-                            "severity",
-                            None,
-                        )
-                    ),
-                    getattr(
-                        finding,
-                        "attribute_name",
-                        None,
-                    ),
-                    getattr(
-                        finding,
-                        "message",
-                        None,
-                    ),
-                    self._json_dumps(
-                        self._raw_payload(
-                            finding,
-                        )
-                    ),
-                ),
-            )
-
-            count += 1
-
-        return count
-
-    def _iter_classified_changes(
-        self,
-        classified: ClassifiedChanges,
-    ) -> Iterable[
-        ClassifiedChange,
-    ]:
-        yield from classified.created_objects
-        yield from classified.altered_objects
-        yield from classified.deleted_objects
-        yield from classified.unpermitted_changes
-
-    def _changed_attribute_names(
-        self,
-        change: Change,
-    ) -> tuple[
-        str,
-        ...
-    ]:
-        names = []
-
-        for attribute in change.changed_attributes:
-            attribute_name = getattr(
-                attribute,
-                "attribute_name",
-                None,
-            )
-
-            if attribute_name is not None:
-                names.append(
-                    attribute_name,
-                )
-
-        return tuple(
-            names,
+        job_db_id: int,
+        table_name: str,
+        feature: ReviewFeature,
+        table_columns: set[
+            str,
+        ],
+    ) -> None:
+        values = self._base_column_values(
+            job_db_id=job_db_id,
+            feature=feature,
         )
 
-    def _changed_attributes_payload(
-        self,
-        change: Change,
-    ) -> list[
-        dict[
-            str,
-            Any,
-        ]
-    ]:
-        payload = []
+        extra_values = self._extra_column_values(
+            feature=feature,
+            table_columns=table_columns,
+        )
 
-        for attribute_name in self._changed_attribute_names(
-            change,
-        ):
-            payload.append(
-                {
-                    "attribute_name": attribute_name,
-                    "old_value": change.old_values.get(
-                        attribute_name,
-                    ),
-                    "new_value": change.new_values.get(
-                        attribute_name,
-                    ),
-                }
+        values.update(
+            extra_values,
+        )
+
+        columns = []
+        expressions = []
+        parameters = []
+
+        for column_name, value in values.items():
+            if column_name not in table_columns:
+                continue
+
+            columns.append(
+                self._quote_identifier(
+                    column_name,
+                )
             )
 
-        return payload
+            expression, expression_parameters = self._value_expression(
+                column_name=column_name,
+                value=value,
+            )
 
-    def _raw_payload(
+            expressions.append(
+                expression,
+            )
+
+            parameters.extend(
+                expression_parameters,
+            )
+
+        for geometry_name, geometry_value in feature.geometries.items():
+            if geometry_name not in table_columns:
+                continue
+
+            columns.append(
+                self._quote_identifier(
+                    geometry_name,
+                )
+            )
+
+            expression, expression_parameters = self._geometry_expression(
+                geometry_value,
+            )
+
+            expressions.append(
+                expression,
+            )
+
+            parameters.extend(
+                expression_parameters,
+            )
+
+        cursor.execute(
+            f"""
+            INSERT INTO {self._table(table_name)} (
+                {", ".join(columns)}
+            )
+            VALUES (
+                {", ".join(expressions)}
+            );
+            """,
+            tuple(
+                parameters,
+            ),
+        )
+
+    def _base_column_values(
         self,
-        value: Any,
+        *,
+        job_db_id: int,
+        feature: ReviewFeature,
     ) -> dict[
         str,
         Any,
     ]:
-        if is_dataclass(
-            value,
-        ):
-            return asdict(
-                value,
+        attributes = feature.attributes
+
+        return {
+            "job_id": job_db_id,
+            "obj_id": feature.object_id,
+            "is_created": attributes.get(
+                "is_created",
+                False,
+            ),
+            "is_altered": attributes.get(
+                "is_altered",
+                False,
+            ),
+            "is_deleted": attributes.get(
+                "is_deleted",
+                False,
+            ),
+            "import_values": attributes.get(
+                "import_values",
+                {},
+            ),
+            "canonical_values": attributes.get(
+                "canonical_values",
+                {},
+            ),
+            "changed_attributes": attributes.get(
+                "changed_attributes",
+                (),
+            ),
+            "unpermitted_values": attributes.get(
+                "unpermitted_values",
+                {},
+            ),
+            "permission_findings": attributes.get(
+                "permission_findings",
+                (),
+            ),
+            "validation_findings": attributes.get(
+                "validation_findings",
+                (),
+            ),
+        }
+
+    def _extra_column_values(
+        self,
+        *,
+        feature: ReviewFeature,
+        table_columns: set[
+            str,
+        ],
+    ) -> dict[
+        str,
+        Any,
+    ]:
+        reserved_columns = {
+            "diff_id",
+            "job_id",
+            "obj_id",
+            "is_created",
+            "is_altered",
+            "is_deleted",
+            "is_rejected",
+            "import_values",
+            "canonical_values",
+            "changed_attributes",
+            "unpermitted_values",
+            "permission_findings",
+            "validation_findings",
+            "created_at",
+        }
+
+        return {
+            key: value
+            for key, value in feature.attributes.items()
+            if key in table_columns
+            and key not in reserved_columns
+        }
+
+    def _value_expression(
+        self,
+        *,
+        column_name: str,
+        value: Any,
+    ) -> tuple[
+        str,
+        list[
+            Any,
+        ],
+    ]:
+        if column_name in {
+            "import_values",
+            "canonical_values",
+            "changed_attributes",
+            "unpermitted_values",
+            "permission_findings",
+            "validation_findings",
+        }:
+            return (
+                "%s::jsonb",
+                [
+                    self._json_dumps(
+                        value,
+                    )
+                ],
             )
+
+        return (
+            "%s",
+            [
+                self._database_value(
+                    value,
+                )
+            ],
+        )
+
+    def _geometry_expression(
+        self,
+        value: Any,
+    ) -> tuple[
+        str,
+        list[
+            Any,
+        ],
+    ]:
+        if value is None:
+            return (
+                "%s",
+                [
+                    None,
+                ],
+            )
+
+        if isinstance(
+            value,
+            bytes,
+        ):
+            return (
+                "ST_GeomFromWKB(%s, %s)",
+                [
+                    value,
+                    self.srid,
+                ],
+            )
+
+        wkt = self._geometry_to_wkt(
+            value,
+        )
+
+        if wkt is None:
+            return (
+                "%s",
+                [
+                    None,
+                ],
+            )
+
+        return (
+            "ST_GeomFromText(%s, %s)",
+            [
+                wkt,
+                self.srid,
+            ],
+        )
+
+    def _geometry_to_wkt(
+        self,
+        value: Any,
+    ) -> str | None:
+        if value is None:
+            return None
 
         if hasattr(
             value,
-            "__dict__",
+            "asWkt",
         ):
-            return dict(
-                value.__dict__,
+            return value.asWkt()
+
+        if hasattr(
+            value,
+            "ExportToWkt",
+        ):
+            return value.ExportToWkt()
+
+        if hasattr(
+            value,
+            "wkt",
+        ):
+            return value.wkt
+
+        if isinstance(
+            value,
+            str,
+        ):
+            return value
+
+        return None
+
+    def _database_value(
+        self,
+        value: Any,
+    ) -> Any:
+        if isinstance(
+            value,
+            (
+                datetime,
+                date,
+            ),
+        ):
+            return value.isoformat()
+
+        if hasattr(
+            value,
+            "value",
+        ):
+            return value.value
+
+        if is_dataclass(
+            value,
+        ):
+            return self._json_dumps(
+                asdict(
+                    value,
+                )
             )
 
+        return value
+
+    def _table_columns(
+        self,
+        *,
+        cursor,
+        table_name: str,
+    ) -> set[
+        str,
+    ]:
+        cursor.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = %s
+              AND table_name = %s;
+            """,
+            (
+                self.schema,
+                table_name,
+            ),
+        )
+
         return {
-            "value": value,
+            row[0]
+            for row in cursor.fetchall()
         }
+
+    def _assert_required_columns(
+        self,
+        *,
+        table_name: str,
+        table_columns: set[
+            str,
+        ],
+    ) -> None:
+        required_columns = {
+            "job_id",
+            "obj_id",
+            "is_created",
+            "is_altered",
+            "is_deleted",
+            "import_values",
+            "canonical_values",
+            "changed_attributes",
+            "unpermitted_values",
+            "permission_findings",
+            "validation_findings",
+        }
+
+        missing_columns = required_columns.difference(
+            table_columns,
+        )
+
+        if missing_columns:
+            raise RuntimeError(
+                "Diff table "
+                f"{self.schema}.{table_name} is missing columns: "
+                f"{sorted(missing_columns)}"
+            )
 
     def _json_dumps(
         self,
@@ -613,23 +641,6 @@ class TwwDiffSchemaService:
             return asdict(
                 value,
             )
-
-        return str(
-            value,
-        )
-
-    def _enum_value(
-        self,
-        value: Any,
-    ) -> str | None:
-        if value is None:
-            return None
-
-        if hasattr(
-            value,
-            "value",
-        ):
-            return value.value
 
         return str(
             value,

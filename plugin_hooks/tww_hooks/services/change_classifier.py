@@ -4,9 +4,11 @@ from dataclasses import dataclass, replace
 from collections.abc import Mapping, Sequence
 
 from ..models.rights import (
+    PermissionFinding,
     RightsEvaluationContext,
 )
 from ..models.validation import (
+    Severity,
     ValidationFinding,
     ChangeClassification,
     ChangeClassificationMetadata,
@@ -30,22 +32,23 @@ ChangeKey = tuple[
 @dataclass(slots=True)
 class ChangeClassifier:
     """
-    Classify changes into review/export groups.
-
-    The classifier is framework-side because it depends only on hook models
-    and rights evaluation.
+    Classify changes into review groups and attach findings.
 
     Classification rules:
 
-    - INSERT + permitted -> created_objects
-    - UPDATE + permitted -> altered_objects
-    - DELETE + permitted -> deleted_objects
+    - INSERT + no blocking findings -> created_objects
+    - UPDATE + no blocking findings -> altered_objects
+    - DELETE + no blocking findings -> deleted_objects
     - rights denied -> unpermitted_changes
-    - validation error -> unpermitted_changes
+    - validation errors -> unpermitted_changes
     - unknown operation -> unpermitted_changes
 
-    Validation warnings and info findings stay attached to the change but do
-    not make it unpermitted.
+    Permission failures are represented as PermissionFinding.
+
+    Validation findings stay in validation_findings. Only blocking validation
+    errors are stored there, because the database diff schema derives
+    is_rejected from the presence of permission_findings or
+    validation_findings.
     """
 
     rights_evaluator: RightsEvaluator
@@ -56,7 +59,7 @@ class ChangeClassifier:
             Change,
         ],
         context: RightsEvaluationContext,
-        findings_by_change_key: Mapping[
+        validation_findings_by_change_key: Mapping[
             ChangeKey,
             tuple[
                 ValidationFinding,
@@ -80,7 +83,7 @@ class ChangeClassifier:
             Base rights evaluation context. Operation, old_values and
             new_values are replaced per change before rights evaluation.
 
-        findings_by_change_key:
+        validation_findings_by_change_key:
             Optional validation findings keyed by
             (table_name, object_id, operation).
 
@@ -88,14 +91,17 @@ class ChangeClassifier:
             Optional workflow-level metadata copied into the result.
         """
 
-        findings_by_change_key = findings_by_change_key or {}
+        validation_findings_by_change_key = (
+            validation_findings_by_change_key
+            or {}
+        )
 
         result = ClassifiedChanges(
             metadata=metadata or {},
         )
 
         for change in changes:
-            findings = findings_by_change_key.get(
+            validation_findings = validation_findings_by_change_key.get(
                 self.change_key(
                     change,
                 ),
@@ -105,7 +111,7 @@ class ChangeClassifier:
             classified_change = self._classify_change(
                 change=change,
                 base_context=context,
-                findings=findings,
+                validation_findings=validation_findings,
             )
 
             result.add(
@@ -118,50 +124,47 @@ class ChangeClassifier:
         self,
         change: Change,
         base_context: RightsEvaluationContext,
-        findings: tuple[
+        validation_findings: tuple[
             ValidationFinding,
             ...
         ],
     ) -> ClassifiedChange:
-        highest_severity = self._highest_severity(
-            findings,
-        )
-
-        if self._has_error_finding(
-            findings,
-        ):
-            return ClassifiedChange(
-                change=change,
-                metadata=ChangeClassificationMetadata(
-                    classification=ChangeClassification.UNPERMITTED_CHANGE,
-                    permitted=False,
-                    severity=highest_severity,
-                    reason=(
-                        "Change has validation errors."
-                    ),
-                    validation_findings=findings,
-                ),
-            )
-
         context = self._context_for_change(
             base_context=base_context,
             change=change,
         )
 
-        if not self._is_permitted(
+        blocking_validation_findings = self._blocking_validation_findings(
+            validation_findings,
+        )
+
+        permitted = self._is_permitted(
             change=change,
             context=context,
-        ):
+        )
+
+        permission_findings = self._permission_findings(
+            change=change,
+            context=context,
+            permitted=permitted,
+        )
+
+        blocking_findings = (
+            *permission_findings,
+            *blocking_validation_findings,
+        )
+
+        if blocking_findings:
             return ClassifiedChange(
                 change=change,
                 metadata=ChangeClassificationMetadata(
                     classification=ChangeClassification.UNPERMITTED_CHANGE,
-                    permitted=False,
-                    severity=highest_severity,
-                    reason=(
-                        "Change is not permitted by rights evaluation."
+                    permitted=permitted,
+                    severity=self._highest_severity(
+                        blocking_findings,
                     ),
-                    validation_findings=findings,
+                    permission_findings=permission_findings,
+                    validation_findings=blocking_validation_findings,
                 ),
             )
 
@@ -170,16 +173,21 @@ class ChangeClassifier:
         )
 
         if classification == ChangeClassification.UNPERMITTED_CHANGE:
+            permission_finding = self._unsupported_operation_finding(
+                change=change,
+                context=context,
+            )
+
             return ClassifiedChange(
                 change=change,
                 metadata=ChangeClassificationMetadata(
-                    classification=classification,
+                    classification=ChangeClassification.UNPERMITTED_CHANGE,
                     permitted=False,
-                    severity=highest_severity,
-                    reason=(
-                        f"Unsupported change operation: {change.operation!r}."
+                    severity=permission_finding.severity,
+                    permission_findings=(
+                        permission_finding,
                     ),
-                    validation_findings=findings,
+                    validation_findings=(),
                 ),
             )
 
@@ -188,9 +196,9 @@ class ChangeClassifier:
             metadata=ChangeClassificationMetadata(
                 classification=classification,
                 permitted=True,
-                severity=highest_severity,
-                reason=None,
-                validation_findings=findings,
+                severity=None,
+                permission_findings=(),
+                validation_findings=(),
             ),
         )
 
@@ -235,6 +243,89 @@ class ChangeClassifier:
 
         return False
 
+    def _permission_findings(
+        self,
+        *,
+        change: Change,
+        context: RightsEvaluationContext,
+        permitted: bool,
+    ) -> tuple[
+        PermissionFinding,
+        ...
+    ]:
+        if permitted:
+            return ()
+
+        return (
+            PermissionFinding(
+                code="permission_denied",
+                severity=Severity.ERROR,
+                message=(
+                    "Change is not permitted by rights evaluation."
+                ),
+                attribute_name=None,
+                provider_oid=context.provider_oid,
+                dataowner_oid=context.dataowner_oid,
+                transitive_evaluation_enabled=(
+                    self._transitive_evaluation_enabled()
+                ),
+                details={
+                    "class_id": change.table_name,
+                    "object_id": change.object_id,
+                    "operation": change.operation.value,
+                },
+            ),
+        )
+
+    def _unsupported_operation_finding(
+        self,
+        *,
+        change: Change,
+        context: RightsEvaluationContext,
+    ) -> PermissionFinding:
+        return PermissionFinding(
+            code="unsupported_change_operation",
+            severity=Severity.ERROR,
+            message=(
+                f"Unsupported change operation: {change.operation!r}."
+            ),
+            attribute_name=None,
+            provider_oid=context.provider_oid,
+            dataowner_oid=context.dataowner_oid,
+            transitive_evaluation_enabled=(
+                self._transitive_evaluation_enabled()
+            ),
+            details={
+                "class_id": change.table_name,
+                "object_id": change.object_id,
+                "operation": str(
+                    change.operation,
+                ),
+            },
+        )
+
+    def _blocking_validation_findings(
+        self,
+        findings: Sequence[
+            ValidationFinding,
+        ],
+    ) -> tuple[
+        ValidationFinding,
+        ...
+    ]:
+        """
+        Return validation findings that should reject the import.
+
+        The database diff schema derives is_rejected from the presence of
+        validation_findings, so only ERROR findings are persisted here.
+        """
+
+        return tuple(
+            finding
+            for finding in findings
+            if finding.severity == Severity.ERROR
+        )
+
     def _classification_for_operation(
         self,
         operation: ChangeOperation,
@@ -250,23 +341,10 @@ class ChangeClassifier:
 
         return ChangeClassification.UNPERMITTED_CHANGE
 
-    def _has_error_finding(
-        self,
-        findings: Sequence[
-            ValidationFinding,
-        ],
-    ) -> bool:
-        return any(
-            finding.severity.value == "error"
-            for finding in findings
-        )
-
     def _highest_severity(
         self,
-        findings: Sequence[
-            ValidationFinding,
-        ],
-    ):
+        findings: Sequence,
+    ) -> Severity | None:
         """
         Return the highest finding severity.
 
@@ -283,23 +361,52 @@ class ChangeClassifier:
             for finding in findings
         )
 
-        for severity_value in (
-            "error",
-            "warning",
-            "info",
+        for severity in (
+            Severity.ERROR,
+            Severity.WARNING,
+            Severity.INFO,
         ):
-            for severity in severities:
-                if severity.value == severity_value:
-                    return severity
+            if severity in severities:
+                return severity
 
         return severities[0]
+
+    def _transitive_evaluation_enabled(
+        self,
+    ) -> bool | None:
+        """
+        Return whether recursive/transitive rights evaluation is enabled,
+        if this information is available on the evaluator.
+        """
+
+        resolved_rights = getattr(
+            self.rights_evaluator,
+            "resolved_rights",
+            None,
+        )
+
+        if resolved_rights is None:
+            resolved_rights = getattr(
+                self.rights_evaluator,
+                "rights",
+                None,
+            )
+
+        if resolved_rights is None:
+            return None
+
+        return getattr(
+            resolved_rights,
+            "allow_transitive_transitions",
+            None,
+        )
 
     def change_key(
         self,
         change: Change,
     ) -> ChangeKey:
         """
-        Return a stable key for attaching findings to a change.
+        Return a stable key for attaching validation findings to a change.
 
         This avoids using Change objects as dictionary keys, because Change is
         a workflow model and may be mutable.

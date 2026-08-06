@@ -11,21 +11,34 @@ from tww_hooks.capabilities.canonical_model import (
 from tww_hooks.capabilities.relation_lookup import (
     RelationLookupCapability,
 )
-from tww_hooks.models.canonical_model import (
+from tww_hooks.models.canonical_object import (
     CanonicalModelMetadata,
 )
-from tww_hooks.models.canonical_object import (
-    CanonicalObjectIdentity,
-)
-from tww_hooks.models.change import (
-    Change,
-)
 from tww_hooks.models.effects import (
-    Effect,
     EffectDocument,
+)
+from tww_hooks.models.review import (
+    ReviewFeature,
+)
+from tww_hooks.models.rights import (
+    RightsEvaluationContext,
+)
+from tww_hooks.models.validation import (
+    Change,
+    ClassifiedChanges,
+    ValidationFinding,
+)
+from tww_hooks.evaluators.rights import (
+    RightsEvaluator,
 )
 from tww_hooks.services.change_builder import (
     ChangeBuilder,
+)
+from tww_hooks.services.change_classifier import (
+    ChangeClassifier,
+)
+from tww_hooks.services.change_review_export import (
+    ChangeReviewExportService,
 )
 
 from ...interlis import config
@@ -38,14 +51,10 @@ from ..adapters.tww_interlis_service_adapter import (
 from ..adapters.tww_quarantine_runner import (
     TwwQuarantineRunner,
 )
-from ..adapters.tww_relation_lookup_adapter import (
-    TwwRelationLookupAdapter,
+from .tww_diff_schema_service import (
+    DiffSchemaWriteResult,
+    TwwDiffSchemaService,
 )
-
-from tww_hooks.models.validation import (
-    ValidationFinding,
-)
-
 
 
 class QuarantineEffectProjector(Protocol):
@@ -69,6 +78,36 @@ class QuarantineEffectProjector(Protocol):
         """
 
 
+class RightsEvaluatorFactory(Protocol):
+    """
+    Factory protocol for creating a rights evaluator for a workflow run.
+    """
+
+    def rights_evaluator(
+        self,
+        *,
+        relation_lookup: RelationLookupCapability,
+    ) -> RightsEvaluator:
+        """
+        Return a rights evaluator using the supplied relation lookup.
+        """
+
+
+class ChangeFeatureProviderFactory(Protocol):
+    """
+    Factory protocol for creating a feature provider for review feature
+    preparation.
+    """
+
+    def change_feature_provider(
+        self,
+        *,
+        live_schema: str,
+        import_schema: str,
+    ):
+        """
+        Return a ChangeFeatureProvider implementation.
+        """
 
 
 @dataclass(slots=True)
@@ -78,33 +117,51 @@ class ChangeCreationResult:
 
     The result can be enriched incrementally while a long-running workflow is
     executing, for example while waiting for user confirmation or while
-    exporting review artifacts.
+    writing tww_diff state.
     """
+
+    job_id: str | None = None
 
     import_model: str | None = None
 
-    created_models: list[str] = field(
+    created_models: list[
+        str
+    ] = field(
         default_factory=list,
     )
 
     effect_document: EffectDocument | None = None
 
-    changes: list[Change] = field(
+    changes: list[
+        Change
+    ] = field(
         default_factory=list,
     )
 
-    validation_findings: list[ValidationFinding] = field(
+    validation_findings: list[
+        ValidationFinding
+    ] = field(
         default_factory=list,
     )
 
-    review_artifacts: dict[str, Path] = field(
+    classified_changes: ClassifiedChanges | None = None
+
+    features_by_class: dict[
+        str,
+        list[
+            ReviewFeature,
+        ],
+    ] = field(
         default_factory=dict,
     )
+
+    diff_schema_result: DiffSchemaWriteResult | None = None
+
 
 @dataclass(slots=True)
 class TwwChangeCreationService:
     """
-    Plugin-side service for creating canonical changes from imported data.
+    Plugin-side service for creating a tww_diff review job from imported data.
 
     The service coordinates:
 
@@ -113,9 +170,12 @@ class TwwChangeCreationService:
     - loading canonical metadata;
     - projecting quarantine data into canonical effects;
     - resolving live/current objects;
-    - building row-level Change objects.
+    - building row-level Change objects;
+    - classifying changes;
+    - preparing review features;
+    - writing the result into tww_diff.
 
-    The service does not persist changes. It creates a reviewable change set.
+    The service does not persist accepted changes to live data.
     """
 
     quarantine_runner: TwwQuarantineRunner = field(
@@ -132,27 +192,36 @@ class TwwChangeCreationService:
         default_factory=ChangeBuilder,
     )
 
+    diff_schema_service: TwwDiffSchemaService = field(
+        default_factory=TwwDiffSchemaService,
+    )
+
+    rights_evaluator_factory: RightsEvaluatorFactory | None = None
+
+    feature_provider_factory: ChangeFeatureProviderFactory | None = None
+
     live_relation_lookup: RelationLookupCapability | None = None
 
-    def create_changes_from_xtf(
+    def create_diff_job_from_xtf(
         self,
         *,
+        job_id: str,
         xtf_file: Path,
-        context: TwwInterlisContext,
-        validation_log_path: Path,
+        rights_context: RightsEvaluationContext,
+        context: TwwInterlisContext | None = None,
+        validation_log_path: Path | None = None,
         import_schema: str = config.IMPORT_SCHEMA,
         live_schema: str = config.TWW_OD_SCHEMA,
+        metadata: dict[
+            str,
+            str,
+        ] | None = None,
     ) -> ChangeCreationResult:
         """
-        Create canonical changes from an XTF.
-
-        This method imports the XTF into the import-side quarantine schema,
-        validates the quarantine schema, projects the imported data into an
-        EffectDocument, and builds Change objects by comparing the effects
-        against the current live database state.
+        Import an XTF into quarantine and create a tww_diff review job.
         """
 
-        self._ensure_projector()
+        self._ensure_ready_for_diff_job()
 
         import_model, created_models = (
             self.quarantine_runner.import_xtf_to_quarantine(
@@ -167,33 +236,68 @@ class TwwChangeCreationService:
                 import_model,
             ),
             log_path=validation_log_path,
-            srid=context.srid,
             schema=import_schema,
         )
 
-        return self.create_changes_from_quarantine(
+        return self.create_diff_job_from_quarantine(
+            job_id=job_id,
             source_model=import_model,
             created_models=created_models,
+            rights_context=rights_context,
             import_schema=import_schema,
             live_schema=live_schema,
+            metadata={
+                **dict(
+                    metadata or {},
+                ),
+                "source_model": import_model,
+                "source_file": str(
+                    xtf_file,
+                ),
+                "import_schema": import_schema,
+                "live_schema": live_schema,
+            },
         )
 
-    def create_changes_from_quarantine(
+    def create_diff_job_from_quarantine(
         self,
         *,
+        job_id: str,
         source_model: str,
-        created_models: Sequence[str] = (),
+        rights_context: RightsEvaluationContext,
+        created_models: Sequence[
+            str
+        ] = (),
         import_schema: str = config.IMPORT_SCHEMA,
         live_schema: str = config.TWW_OD_SCHEMA,
+        metadata: dict[
+            str,
+            str,
+        ] | None = None,
     ) -> ChangeCreationResult:
         """
-        Create canonical changes from an already populated quarantine schema.
-
-        This method assumes quarantine import and validation have already
-        happened or are intentionally handled by the caller.
+        Create a tww_diff re*iew job from an already populated *uarantine
+        schema.
         """
 
-        self._ensure_projector()
+        self._ensure_ready_for_diff_job()
+
+        workflow_metadata = dict(
+            metadata or {},
+        )
+
+        workflow_metadata.setdefault(
+            "source_model",
+            source_model,
+        )
+        workflow_metadata.setdefault(
+            "import_schema",
+            import_schema,
+        )
+        workflow_metadata.setdefault(
+            "live_schema",
+            live_schema,
+        )
 
         canonical_metadata = self.canonical_model.canonical_model()
 
@@ -208,104 +312,57 @@ class TwwChangeCreationService:
             live_schema=live_schema,
         )
 
-        return ChangeCreationResult(
-            import_model=source_model,
-            created_models=tuple(
-                created_models,
-            ),
-            effect_document=effect_document,
-            changes=changes,
-        )
-
-    def _build_changes(
-        self,
-        *,
-        effect_document: EffectDocument,
-        live_schema: str,
-    ) -> tuple[
-        Change,
-        ...
-    ]:
         relation_lookup = self._live_relation_lookup(
             live_schema,
         )
 
-        changes: list[
-            Change
-        ] = []
-
-        for identity, effects in self._effects_by_identity(
-            effect_document.effects,
-        ).items():
-            current_object = relation_lookup.current_object(
-                identity,
-            )
-
-            change = self.change_builder.build(
-                identity=identity,
-                current_object=current_object,
-                effects=effects,
-            )
-
-            changes.append(
-                change,
-            )
-
-        return tuple(
-            changes,
+        rights_evaluator = self.rights_evaluator_factory.rights_evaluator(
+            relation_lookup=relation_lookup,
         )
 
-    def _effects_by_identity(
-        self,
-        effects: Sequence[
-            Effect,
-        ],
-    ) -> dict[
-        CanonicalObjectIdentity,
-        tuple[
-            Effect,
-            ...
-        ],
-    ]:
-        grouped: dict[
-            CanonicalObjectIdentity,
-            list[
-                Effect
-            ],
-        ] = {}
-
-        for effect in effects:
-            grouped.setdefault(
-                effect.identity,
-                [],
-            ).append(
-                effect,
-            )
-
-        return {
-            identity: tuple(
-                grouped_effects,
-            )
-            for identity, grouped_effects in grouped.items()
-        }
-
-    def _live_relation_lookup(
-        self,
-        live_schema: str,
-    ) -> RelationLookupCapability:
-        if self.live_relation_lookup is not None:
-            return self.live_relation_lookup
-
-        return TwwRelationLookupAdapter(
-            schema=live_schema,
+        classified_changes = ChangeClassifier(
+            rights_evaluator=rights_evaluator,
+        ).classify(
+            changes=changes,
+            context=rights_context,
+            metadata=workflow_metadata,
+        )
+        review_service = ChangeReviewExportService(
+            feature_provider=(
+                self.feature_provider_factory.change_feature_provider(
+                    live_schema=live_schema,
+                    import_schema=import_schema,
+                )
+            ),
+            geometry_attribute_names_by_class=self._geometry_attribute_map(
+                canonical_metadata,
+            ),
         )
 
-    def _ensure_projector(
-        self,
-    ) -> None:
-        if self.effect_projector is None:
-            raise RuntimeError(
-                "TwwChangeCreationService requires an effect_projector. "
-                "Provide a QuarantineEffectProjector implementation before "
-                "creating changes."
-            )
+        features_by_class = review_service.export(
+            classified_changes,
+        )
+
+        diff_schema_result = self.diff_schema_service.write(
+            job_id=job_id,
+            features_by_class=features_by_class,
+            metadata=workflow_metadata,
+            validation_success=True,
+            job_status="pending",
+            reset_job=True,
+        )
+
+        return ChangeCreationResult(
+            job_id=job_id,
+            import_model=source_model,
+            created_models=list(
+                created_models,
+            ),
+            effect_document=effect_document,
+            changes=list(
+                changes,
+            ),
+            classified_changes=classified_changes,
+            features_by_class=features_by_class,
+            diff_schema_result=diff_schema_result,
+        )

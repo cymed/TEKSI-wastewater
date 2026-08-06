@@ -37,7 +37,7 @@ DECLARE
     rec record;
 BEGIN
     FOR rec IN
-        SELECT table_name
+        SELECT tablename as table_name
         FROM tww_sys.dictionary_od_table
     LOOP
         EXECUTE FORMAT(
