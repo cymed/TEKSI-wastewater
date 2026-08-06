@@ -1,7 +1,8 @@
 import subprocess
 import time
-
+from pathlib import Path
 import pytest
+
 
 from teksi_wastewater.hooks.adapters.tww_interlis_service_adapter import (
     TwwInterlisContext,
@@ -17,6 +18,18 @@ DB_HOST = "db"
 DB_NAME = "tww"
 DB_USER = "postgres"
 DB_PASSWORD = "postgres"
+
+TWW_TEST_LOG_DIR = Path(
+    "/tmp/tww2ili",
+)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_interlis_log_dir() -> None:
+    TWW_TEST_LOG_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
 
 def run(
@@ -151,6 +164,6 @@ def interlis_context() -> TwwInterlisContext:
     return TwwInterlisContext(
         schema=config.IMPORT_SCHEMA,
         srid=2056,
-        logs_next_to_file=True,
+        logs_next_to_file=False,
         filter_nulls=True,
     )

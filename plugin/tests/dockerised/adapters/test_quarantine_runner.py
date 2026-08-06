@@ -44,7 +44,7 @@ def interlis_context() -> TwwInterlisContext:
     return TwwInterlisContext(
         schema=config.IMPORT_SCHEMA,
         srid=2056,
-        logs_next_to_file=True,
+        logs_next_to_file=False,
         filter_nulls=True,
         import_orgs=False,
     )

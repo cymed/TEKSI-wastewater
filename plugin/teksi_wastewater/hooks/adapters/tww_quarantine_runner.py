@@ -448,6 +448,9 @@ class TwwQuarantineRunner:
         if context is None:
             return TwwInterlisContext(
                 schema=schema,
+                srid=2056,
+                logs_next_to_file=False,
+                filter_nulls=True,
             )
 
         return replace(
