@@ -5,7 +5,6 @@ from collections.abc import Mapping, Sequence
 
 from ..models.rights import (
     PermissionFinding,
-    RightsEvaluationContext,
 )
 from ..models.validation import (
     Severity,
@@ -19,6 +18,7 @@ from ..models.validation import (
 )
 from ..evaluators.rights import (
     RightsEvaluator,
+    RightsEvaluationContext,
 )
 
 
