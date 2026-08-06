@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Protocol
 from collections.abc import Sequence
 
-from tww_hooks.capabilities.canonical_model import (
+from tww_hooks.capabilities.canonical_object import (
     CanonicalModelCapability,
 )
 from tww_hooks.capabilities.relation_lookup import (
