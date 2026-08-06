@@ -20,16 +20,14 @@ from tww_hooks.models.effects import (
 from tww_hooks.models.review import (
     ReviewFeature,
 )
-from tww_hooks.models.rights import (
+from tww_hooks.evaluators.rights import (
     RightsEvaluationContext,
+    RightsEvaluator,
 )
 from tww_hooks.models.validation import (
     Change,
     ClassifiedChanges,
     ValidationFinding,
-)
-from tww_hooks.evaluators.rights import (
-    RightsEvaluator,
 )
 from tww_hooks.services.change_builder import (
     ChangeBuilder,
