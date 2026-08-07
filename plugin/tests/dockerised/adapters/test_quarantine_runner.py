@@ -60,7 +60,7 @@ def imported_sia405_to_quarantine(
     tuple[str, ...],
 ]:
     quarantine_runner.import_xtf_to_quarantine(
-        xtf_file=DATA_DIR / "minimal-dataset-organisation.xtf",
+        xtf_file=DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
         context=interlis_context,
     )
 
