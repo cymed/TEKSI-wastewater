@@ -139,6 +139,17 @@ class CanonicalClassMetadata:
     """
     Canonical metadata for a TEKSI Wastewater class/table.
     """
+    class_source_id: int = field(
+        metadata={
+            "doc": (
+                "Numeric class identifier from "
+                "tww_sys.dictionary_od_field.class_id. This corresponds to "
+                "dictionary_od_table.id, although the database table may not "
+                "declare a foreign key."
+            )
+        },
+    )
+
     class_id: str = field(
         metadata={
             "doc": (
@@ -180,15 +191,6 @@ class CanonicalAttributeMetadata:
             "doc": (
                 "Numeric attribute identifier from "
                 "tww_sys.dictionary_od_field.attribute_id."
-            )
-        },
-    )
-
-    class_id: str = field(
-        metadata={
-            "doc": (
-                "Canonical class identifier resolved from "
-                "dictionary_od_table.tablename."
             )
         },
     )
@@ -261,24 +263,6 @@ class CanonicalValueMetadata:
         },
     )
 
-    class_id: str = field(
-        metadata={
-            "doc": (
-                "Canonical class identifier resolved from "
-                "dictionary_od_table.tablename."
-            )
-        },
-    )
-
-    attribute_id: str = field(
-        metadata={
-            "doc": (
-                "Canonical attribute identifier resolved from "
-                "dictionary_od_field.field_name."
-            )
-        },
-    )
-
     value_id: str = field(
         metadata={
             "doc": (
@@ -315,7 +299,7 @@ class CanonicalModelMetadata:
         default_factory=dict,
         metadata={
             "doc": (
-                "Class metadata keyed by canonical class_id."
+                "Class metadata keyed by canonical class_source_id."
             )
         },
     )
@@ -331,7 +315,7 @@ class CanonicalModelMetadata:
         metadata={
             "doc": (
                 "Attribute metadata keyed by "
-                "(class_id, attribute_id)."
+                "(class_source_id, attribute_source_id)."
             )
         },
     )
@@ -348,7 +332,7 @@ class CanonicalModelMetadata:
         metadata={
             "doc": (
                 "Value metadata keyed by "
-                "(class_id, attribute_id, value_id)."
+                "(class_source_id, attribute_source_id, value_source_id)."
             )
         },
     )

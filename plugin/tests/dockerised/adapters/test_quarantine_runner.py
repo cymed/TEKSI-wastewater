@@ -21,7 +21,7 @@ pytestmark = pytest.mark.no_qgis
 
 
 DATA_DIR = Path(
-    "/usr/src/plugin/tests/qgis/data",
+    "/usr/src/plugin/tests/dockerised/qgis/data",
 )
 
 OUTPUT_DIR = Path(

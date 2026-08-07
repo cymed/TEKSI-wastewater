@@ -14,8 +14,8 @@ from ..helpers import (
 pytestmark = pytest.mark.no_qgis
 
 
-DATA_DIR = "/usr/src/plugin/tests/qgis/data"
-CONTAINER_OUTPUT_DIR = "/usr/src/plugin/tests/no_qgis/output"
+DATA_DIR = "/usr/src/plugin/tests/dockerised/qgis/data"
+CONTAINER_OUTPUT_DIR = "/usr/src/plugin/tests/dockerised/no_qgis/output"
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(

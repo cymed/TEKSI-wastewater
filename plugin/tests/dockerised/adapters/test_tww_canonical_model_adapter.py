@@ -21,12 +21,12 @@ def test_tww_canonical_model_adapter_loads_classes(
     assert classes
 
     assert all(
-        class_id == metadata.class_id
+        class_id == metadata.identifier
         for class_id, metadata in classes.items()
     )
 
     assert all(
-        metadata.class_source_id is not None
+        metadata.source_id is not None
         for metadata in classes.values()
     )
 
@@ -41,23 +41,21 @@ def test_tww_canonical_model_adapter_loads_attributes(
     assert attributes
 
     assert any(
-        metadata.attribute_id == "obj_id"
+        metadata.identifier == "obj_id"
         for metadata in attributes.values()
     )
 
     assert all(
-        class_id == metadata.class_id
-        and attribute_id == metadata.attribute_id
+        attribute_id == metadata.identifier
         for (
-            class_id,
+            _class_id,
             attribute_id,
         ),
         metadata in attributes.items()
     )
 
     assert all(
-        metadata.class_source_id is not None
-        and metadata.attribute_source_id is not None
+        metadata.source_id is not None
         for metadata in attributes.values()
     )
 
@@ -72,21 +70,17 @@ def test_tww_canonical_model_adapter_loads_values(
     assert values
 
     assert all(
-        class_id == metadata.class_id
-        and attribute_id == metadata.attribute_id
-        and value_id == metadata.value_id
+        value_id == metadata.identifier
         for (
-            class_id,
-            attribute_id,
+            _class_id,
+            _attribute_id,
             value_id,
         ),
         metadata in values.items()
     )
 
     assert all(
-        metadata.class_source_id is not None
-        and metadata.attribute_source_id is not None
-        and metadata.value_source_id is not None
+        metadata.source_id is not None
         for metadata in values.values()
     )
 
@@ -149,26 +143,36 @@ def test_tww_canonical_model_adapter_loads_geometry_metadata(
 
     attributes = adapter.attributes()
 
-    geometry_attributes = [
-        metadata
-        for metadata in attributes.values()
+    geometry_items = [
+        (
+            class_id,
+            attribute_id,
+            metadata,
+        )
+        for (
+            class_id,
+            attribute_id,
+        ),
+        metadata in attributes.items()
         if metadata.field_datatype is not None
         and metadata.field_datatype.strip().lower() == "geometry"
     ]
 
-    assert geometry_attributes
+    assert geometry_items
 
-    geometry_attribute = geometry_attributes[0]
+    class_id, attribute_id, metadata = geometry_items[0]
+
+    assert metadata.identifier == attribute_id
 
     assert adapter.is_geometry_attribute(
-        class_id=geometry_attribute.class_id,
-        attribute_id=geometry_attribute.attribute_id,
+        class_id=class_id,
+        attribute_id=attribute_id,
     )
 
     assert (
-        geometry_attribute.attribute_id
+        attribute_id
         in adapter.geometry_attribute_names(
-            geometry_attribute.class_id,
+            class_id,
         )
     )
 

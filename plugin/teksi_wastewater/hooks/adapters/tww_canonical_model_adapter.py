@@ -74,7 +74,7 @@ class TwwCanonicalModelAdapter:
         query = DatabaseUtils.compose_sql(
             """
             SELECT
-                t.id AS class_source_id,
+                t.id AS source_id,
                 t.tablename AS class_id,
                 {localized_table_column} AS localized_name
             FROM {schema}.dictionary_od_table t
@@ -93,8 +93,8 @@ class TwwCanonicalModelAdapter:
 
         return {
             row["class_id"]: CanonicalClassMetadata(
-                class_source_id=row["class_source_id"],
-                class_id=row["class_id"],
+                source_id=row["source_id"],
+                identifier=row["class_id"],
                 localized=self._localized_metadata(
                     language=language,
                     value=row.get(
@@ -142,8 +142,7 @@ class TwwCanonicalModelAdapter:
         query = DatabaseUtils.compose_sql(
             """
             SELECT
-                f.class_id AS class_source_id,
-                f.attribute_id AS attribute_source_id,
+                f.attribute_id AS source_id,
                 t.tablename AS class_id,
                 f.field_name AS attribute_id,
                 f.field_datatype AS field_datatype,
@@ -172,10 +171,8 @@ class TwwCanonicalModelAdapter:
                 row["class_id"],
                 row["attribute_id"],
             ): CanonicalAttributeMetadata(
-                class_source_id=row["class_source_id"],
-                attribute_source_id=row["attribute_source_id"],
-                class_id=row["class_id"],
-                attribute_id=row["attribute_id"],
+                source_id=row["source_id"],
+                identifier=row["attribute_id"],
                 field_datatype=row.get(
                     "field_datatype",
                 ),
@@ -248,9 +245,7 @@ class TwwCanonicalModelAdapter:
         query = DatabaseUtils.compose_sql(
             """
             SELECT
-                v.class_id AS class_source_id,
-                v.attribute_id AS attribute_source_id,
-                v.value_id AS value_source_id,
+                v.value_id AS source_id,
                 t.tablename AS class_id,
                 f.field_name AS attribute_id,
                 v.value_name AS value_id,
@@ -284,12 +279,8 @@ class TwwCanonicalModelAdapter:
                 row["attribute_id"],
                 row["value_id"],
             ): CanonicalValueMetadata(
-                class_source_id=row["class_source_id"],
-                attribute_source_id=row["attribute_source_id"],
-                value_source_id=row["value_source_id"],
-                class_id=row["class_id"],
-                attribute_id=row["attribute_id"],
-                value_id=row["value_id"],
+                source_id=row["source_id"],
+                identifier=row["value_id"],
                 localized=self._localized_metadata(
                     language=language,
                     value=row.get(
@@ -373,7 +364,7 @@ class TwwCanonicalModelAdapter:
         """
 
         return tuple(
-            attribute.attribute_id
+            attribute.identifier
             for attribute in self.attributes(
                 class_id=class_id,
                 language=language,
