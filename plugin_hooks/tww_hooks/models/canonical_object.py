@@ -134,27 +134,34 @@ class LocalizedMetadata:
             )
         return name
 
+
 @dataclass(slots=True, frozen=True)
-class CanonicalClassMetadata:
+class CanonicalModelElementMetadata:
     """
-    Canonical metadata for a TEKSI Wastewater class/table.
+    Base metadata for a canonical TEKSI Wastewater model element.
+
+    The concrete subclass determines the element level:
+
+    - class
+    - attribute
+    - value-list value
     """
-    class_source_id: int = field(
+
+    source_id: int = field(
         metadata={
             "doc": (
-                "Numeric class identifier from "
-                "tww_sys.dictionary_od_field.class_id. This corresponds to "
-                "dictionary_od_table.id, although the database table may not "
-                "declare a foreign key."
+                "Numeric source identifier from the corresponding "
+                "tww_sys dictionary table. The meaning is scoped by the "
+                "concrete metadata level."
             )
         },
     )
 
-    class_id: str = field(
+    identifier: str = field(
         metadata={
             "doc": (
-                "Canonical class identifier. This corresponds to "
-                "tww_sys.dictionary_od_table.tablename."
+                "Canonical string identifier for this model element. The "
+                "meaning is scoped by the concrete metadata level."
             )
         },
     )
@@ -163,46 +170,35 @@ class CanonicalClassMetadata:
         default_factory=LocalizedMetadata,
         metadata={
             "doc": (
-                "Localized technical class names loaded from "
-                "dictionary_od_table.name_{lang} columns."
+                "Localized technical names for this model element."
             )
         },
     )
 
 @dataclass(slots=True, frozen=True)
-class CanonicalAttributeMetadata:
+class CanonicalClassMetadata(CanonicalModelElementMetadata):
+    """
+    Canonical metadata for a TEKSI Wastewater class/table.
+
+    source_id:
+        tww_sys.dictionary_od_table.id
+
+    identifier:
+        tww_sys.dictionary_od_table.tablename
+    """
+
+
+@dataclass(slots=True, frozen=True)
+class CanonicalAttributeMetadata(CanonicalModelElementMetadata):
     """
     Canonical metadata for a TEKSI Wastewater attribute/field.
+
+    source_id:
+        tww_sys.dictionary_od_field.attribute_id
+
+    identifier:
+        tww_sys.dictionary_od_field.field_name
     """
-
-    class_source_id: int = field(
-        metadata={
-            "doc": (
-                "Numeric class identifier from "
-                "tww_sys.dictionary_od_field.class_id. This corresponds to "
-                "dictionary_od_table.id, although the database table may not "
-                "declare a foreign key."
-            )
-        },
-    )
-
-    attribute_source_id: int = field(
-        metadata={
-            "doc": (
-                "Numeric attribute identifier from "
-                "tww_sys.dictionary_od_field.attribute_id."
-            )
-        },
-    )
-
-    attribute_id: str = field(
-        metadata={
-            "doc": (
-                "Canonical attribute identifier. This corresponds to "
-                "tww_sys.dictionary_od_field.field_name."
-            )
-        },
-    )
 
     field_datatype: str | None = field(
         default=None,
@@ -210,77 +206,25 @@ class CanonicalAttributeMetadata:
             "doc": (
                 "Source field datatype from canonical metadata. For TEKSI "
                 "Wastewater dictionary metadata this corresponds to "
-                "tww_sys.dictionary_od_field.field_datatype. Geometry attributes "
-                "are identified with field_datatype='geometry'."
+                "tww_sys.dictionary_od_field.field_datatype. Geometry "
+                "attributes are identified with field_datatype='geometry'."
             )
         },
     )
 
-    localized: LocalizedMetadata = field(
-        default_factory=LocalizedMetadata,
-        metadata={
-            "doc": (
-                "Localized technical attribute names loaded from "
-                "dictionary_od_field.field_name_{lang} columns."
-            )
-        },
-    )
 
 @dataclass(slots=True, frozen=True)
-class CanonicalValueMetadata:
+class CanonicalValueMetadata(CanonicalModelElementMetadata):
     """
     Canonical metadata for a TEKSI Wastewater value-list value.
+
+    source_id:
+        tww_sys.dictionary_od_values.value_id
+
+    identifier:
+        tww_sys.dictionary_od_values.value_name
     """
 
-    class_source_id: int = field(
-        metadata={
-            "doc": (
-                "Numeric class identifier from "
-                "tww_sys.dictionary_od_values.class_id. This corresponds to "
-                "dictionary_od_table.id, although the database table may not "
-                "declare a foreign key."
-            )
-        },
-    )
-
-    attribute_source_id: int = field(
-        metadata={
-            "doc": (
-                "Numeric attribute identifier from "
-                "tww_sys.dictionary_od_values.attribute_id. This corresponds "
-                "to dictionary_od_field.attribute_id, although the database "
-                "table may not declare a foreign key."
-            )
-        },
-    )
-
-    value_source_id: int = field(
-        metadata={
-            "doc": (
-                "Numeric value identifier from "
-                "tww_sys.dictionary_od_values.value_id."
-            )
-        },
-    )
-
-    value_id: str = field(
-        metadata={
-            "doc": (
-                "Canonical value identifier. This corresponds to "
-                "tww_sys.dictionary_od_values.value_name."
-            )
-        },
-    )
-
-    localized: LocalizedMetadata = field(
-        default_factory=LocalizedMetadata,
-        metadata={
-            "doc": (
-                "Localized technical value names loaded from "
-                "dictionary_od_values.value_name_{lang} columns."
-            )
-        },
-    )
 
 @dataclass(slots=True, frozen=True)
 class CanonicalModelMetadata:
@@ -299,7 +243,7 @@ class CanonicalModelMetadata:
         default_factory=dict,
         metadata={
             "doc": (
-                "Class metadata keyed by canonical class_source_id."
+                "Class metadata keyed by canonical class_id."
             )
         },
     )
@@ -315,7 +259,7 @@ class CanonicalModelMetadata:
         metadata={
             "doc": (
                 "Attribute metadata keyed by "
-                "(class_source_id, attribute_source_id)."
+                "(class_id, attribute_id)."
             )
         },
     )
@@ -332,7 +276,7 @@ class CanonicalModelMetadata:
         metadata={
             "doc": (
                 "Value metadata keyed by "
-                "(class_source_id, attribute_source_id, value_source_id)."
+                "(class_id, attribute_id, value_id)."
             )
         },
     )
