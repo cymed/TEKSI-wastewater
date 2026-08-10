@@ -1031,7 +1031,7 @@ Implemented:
 
 ```python
 ModelMappingCapability
-DictionaryMappingCapability
+ImplicitModelMappingCapability
 ```
 
 Dictionary mapping API follows:
@@ -1045,8 +1045,8 @@ value_mapping_for_ili(...)
 Open work:
 
 ```text
-DictionaryMappingCapability.value_mapping_for_ili
-DictionaryMappingCapability._load_value_mapping
+ImplicitModelMappingCapability.value_mapping_for_ili
+ImplicitModelMappingCapability._load_value_mapping
 value mapping tests
 ```
 

@@ -7,7 +7,7 @@ from tww_hooks.models.mapping import (
     ModelMapping,
 )
 from tww_hooks.capabilities.mapping import (
-    DictionaryMappingCapability,
+    ImplicitModelMappingCapability,
     ModelMappingCapability,
 )
 
@@ -29,7 +29,7 @@ class FakeModel:
 
 @pytest.fixture
 def dictionary_mapping():
-    mapping = Mock(spec=DictionaryMappingCapability)
+    mapping = Mock(spec=ImplicitModelMappingCapability)
 
     mapping.class_mapping_for_ili.return_value = (
         "wastewater_node"
@@ -44,11 +44,18 @@ def empty_model_mapping():
         ModelMapping(),
     )
 
+@pytest.fixture
+def effective_mapping():
+    return EffectiveModelMappingCapability(
+        explicit_mapping=empty_model_mapping,
+        implicit_mapping=implicit_model_mapping,
+    )
 
-def test_relation_context_provider_uses_dictionary_mapping_for_dss(
+
+def test_relation_context_provider_uses_implicit_model_mapping_for_dss(
     monkeypatch,
-    dictionary_mapping,
-    empty_model_mapping,
+    implicit_model_mapping,
+    effective_mapping,
 ):
     monkeypatch.setattr(
         TwwRelationContextProvider,
@@ -58,8 +65,7 @@ def test_relation_context_provider_uses_dictionary_mapping_for_dss(
 
     provider = TwwRelationContextProvider(
         ili_model="DSS_2020_1_LV95",
-        dictionary_mapping=dictionary_mapping,
-        model_mapping=empty_model_mapping,
+        model_mapping=effective_mapping,
     )
 
     contexts = provider.relation_contexts()
@@ -74,14 +80,14 @@ def test_relation_context_provider_uses_dictionary_mapping_for_dss(
         "wastewater_node"
     )
 
-    dictionary_mapping.class_mapping_for_ili.assert_called_once_with(
+    implicit_model_mapping.class_mapping_for_ili.assert_called_once_with(
         "FakeRelation",
     )
 
 
 def test_relation_context_provider_prefers_explicit_agxx_mapping(
     monkeypatch,
-    dictionary_mapping,
+    implicit_model_mapping,
 ):
     monkeypatch.setattr(
         TwwRelationContextProvider,
@@ -99,10 +105,14 @@ def test_relation_context_provider_prefers_explicit_agxx_mapping(
         ),
     )
 
+    effective_model_mapping = EffectiveModelMappingCapability(
+        explicit_mapping=model_mapping,
+        implicit_mapping=implicit_model_mapping,
+    )
+
     provider = TwwRelationContextProvider(
         ili_model="Abwasserkataster_AG_V2_LV95",
-        dictionary_mapping=dictionary_mapping,
-        model_mapping=model_mapping,
+        model_mapping=effective_model_mapping,
     )
 
     contexts = provider.relation_contexts()
@@ -117,12 +127,12 @@ def test_relation_context_provider_prefers_explicit_agxx_mapping(
         "agxx_wastewater_node"
     )
 
-    dictionary_mapping.class_mapping_for_ili.assert_not_called()
+    implicit_model_mapping.class_mapping_for_ili.assert_not_called()
 
 
 def test_relation_context_provider_falls_back_to_dictionary_for_unmapped_agxx_class(
     monkeypatch,
-    dictionary_mapping,
+    effective_mapping,
 ):
     monkeypatch.setattr(
         TwwRelationContextProvider,
@@ -130,14 +140,10 @@ def test_relation_context_provider_falls_back_to_dictionary_for_unmapped_agxx_cl
         lambda self, schema: FakeModel(),
     )
 
-    model_mapping = ModelMappingCapability(
-        ModelMapping(),
-    )
 
     provider = TwwRelationContextProvider(
         ili_model="Abwasserkataster_AG_V2_LV95",
-        dictionary_mapping=dictionary_mapping,
-        model_mapping=model_mapping,
+        model_mapping=effective_mapping,
     )
 
     contexts = provider.relation_contexts()
@@ -150,15 +156,14 @@ def test_relation_context_provider_falls_back_to_dictionary_for_unmapped_agxx_cl
         "wastewater_node"
     )
 
-    dictionary_mapping.class_mapping_for_ili.assert_called_once_with(
+    implicit_model_mapping.class_mapping_for_ili.assert_called_once_with(
         "FakeRelation",
     )
 
 
 def test_relation_context_provider_returns_immutable_tuple(
     monkeypatch,
-    dictionary_mapping,
-    empty_model_mapping,
+    effective_mapping,
 ):
     monkeypatch.setattr(
         TwwRelationContextProvider,
@@ -168,8 +173,7 @@ def test_relation_context_provider_returns_immutable_tuple(
 
     provider = TwwRelationContextProvider(
         ili_model="DSS_2020_1_LV95",
-        dictionary_mapping=dictionary_mapping,
-        model_mapping=empty_model_mapping,
+        model_mapping=effective_mapping,
     )
 
     contexts = provider.relation_contexts()
@@ -182,8 +186,7 @@ def test_relation_context_provider_returns_immutable_tuple(
 
 def test_relation_context_provider_raises_for_unknown_group(
     monkeypatch,
-    dictionary_mapping,
-    empty_model_mapping,
+    effective_mapping,
 ):
     monkeypatch.setattr(
         "teksi_wastewater.hooks.adapters.tww_relation_context_provider.config.groups_for_models",
@@ -196,6 +199,5 @@ def test_relation_context_provider_raises_for_unknown_group(
     ):
         TwwRelationContextProvider(
             ili_model="UnknownModel",
-            dictionary_mapping=dictionary_mapping,
-            model_mapping=empty_model_mapping,
+            model_mapping=effective_mapping,
         )

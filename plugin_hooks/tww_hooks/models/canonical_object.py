@@ -58,6 +58,26 @@ class CanonicalObject:
         },
     )
 
+@dataclass(slots=True, frozen=True)
+class CanonicalIdentityMapping:
+    """
+    Mapping from source object identity to canonical object identity.
+    """
+
+    source_attribute: str = field(
+        metadata={
+            "doc": (
+                "Source object identity."
+            )
+        },
+    )
+    canonical_attribute: str = field(
+        metadata={
+            "doc": (
+                "Canonical object identity."
+            )
+        },
+    )
 
 class Localization(StrEnum):
     """

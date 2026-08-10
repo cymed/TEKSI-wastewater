@@ -20,12 +20,15 @@ from teksi_wastewater.utils.database_utils import (
 pytestmark = pytest.mark.no_qgis
 
 
-DATA_DIR = Path(
-    "/usr/src/plugin/tests/dockerised/qgis/data",
+DATA_DIR = (
+    Path(__file__).parent
+    / "qgis"
+    / "data"
 )
 
 OUTPUT_DIR = Path(
-    "/usr/src/plugin/tests/dockerised/adapters/output",
+    Path(__file__)
+        / "output",
 )
 
 OUTPUT_DIR.mkdir(

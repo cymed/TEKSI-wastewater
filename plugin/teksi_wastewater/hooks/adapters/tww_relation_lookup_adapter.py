@@ -141,33 +141,4 @@ class TwwRelationLookupAdapter(
             where_clause=where_clause,
         )
 
-        return self._fetchall_dict(
-            query,
-        )
-
-    def _fetchall_dict(
-        self,
-        query,
-    ) -> list[dict[str, Any]]:
-        with DatabaseUtils.PsycopgConnection() as connection:
-            cursor = connection.cursor()
-            cursor.execute(
-                query,
-            )
-
-            rows = cursor.fetchall()
-
-            column_names = [
-                column[0]
-                for column in cursor.description
-            ]
-
-        return [
-            dict(
-                zip(
-                    column_names,
-                    row,
-                )
-            )
-            for row in rows
-        ]
+        return DatabaseUtils.fetchall_dict(query)

@@ -1,7 +1,7 @@
 
+from __future__ import annotations
 from dataclasses import dataclass
-
-from teksi_hooks.capabilities import SqlCapability
+from typing import Protocol
 
 from ..models.mapping import (
     AttributeMapping,
@@ -9,7 +9,6 @@ from ..models.mapping import (
     ValueMapping,
     ModelMapping,
 )
-
 
 
 @dataclass(slots=True, frozen=True)
@@ -163,220 +162,200 @@ class ModelMappingCapability:
         return attribute.values.get(value)
 
 
-@dataclass(slots=True)
-class DictionaryMappingCapability:
-
+class ImplicitModelMappingCapability(Protocol):
     """
-    Database-backed mapping capability for TWW dictionary metadata.
+    Provides source-to-canonical mappings derived implicitly from metadata.
 
-    This capability reads metadata from the TWW dictionary tables and exposes
-    lookup methods for resolving INTERLIS class, attribute and value names to
-    canonical internal TWW identifiers.
-
-    The current implementation expects the dictionary tables to expose
-    language-specific INTERLIS identifier columns such as:
-
-    - `ili_name_de`
-    - `ili_name_fr`
-    - `ili_name_en`
-
-    Loaded mappings are cached in memory during initialization.
+    Implementations may use dictionary metadata, generated code, static maps,
+    or another source. SQL-backed implementations belong in the plugin layer.
     """
 
-    def __init__(
-            self,
-            sql: SqlCapability,
-            lang: str = "de",
-        ):
-
-        """
-        Initialize the dictionary mapping capability.
-
-        Parameters
-        ----------
-        sql:
-            SQL capability used to read dictionary metadata.
-
-        lang:
-            Language suffix used for INTERLIS identifier columns.
-            Supported values are `de`, `fr` and `en`.
-        """
-
-        self.sql=sql
-        self.lang=lang
-        ALLOWED_LANGS = {"de", "fr", "en"}
-        if self.lang not in ALLOWED_LANGS:
-            raise ValueError(
-                f"Unsupported language: {self.lang}"
-            )
-        self.schema="tww_sys"
-        self.metadata_tbl="dictionary_od_table"
-        self.metadata_attr="dictionary_od_field"
-        self.metadata_vals="dictionary_od_values"
-
-        self._table_mapping = self._load_table_mapping()
-        self._attribute_mapping = self._load_attribute_mapping()
-        self._value_mapping = self._load_value_mapping()
- 
-    def class_mapping_for_ili(
+    def class_definition(
         self,
-        ili_name: str,
-    ) -> str:
-        """
-        Return the canonical TWW table/class identifier for an INTERLIS class.
+        class_id: str,
+    ) -> ClassMapping:
+        ...
 
-        Parameters
-        ----------
-        ili_name:
-            INTERLIS class identifier in the configured language.
-
-        Returns
-        -------
-        str
-            Canonical TWW class/table identifier.
-        """
-
-        return self._table_mapping[ili_name]
-
-    def attribute_mapping_for_ili(
+    def try_class_definition(
         self,
-        ili_class: str,
-        ili_attribute: str,
-    ) -> tuple[str, str]:
-        
-        """
-        Return the canonical TWW table and field for an INTERLIS attribute.
+        class_id: str,
+    ) -> ClassMapping | None:
+        ...
 
-        Parameters
-        ----------
-        ili_class:
-            INTERLIS class identifier.
-
-        ili_attribute:
-            INTERLIS attribute identifier.
-
-        Returns
-        -------
-        tuple[str, str]
-            A tuple containing `(table_name, field_name)`.
-        """
-
-        return self._attribute_mapping[
-                (ili_class, ili_attribute)
-            ]
-
-    def value_mapping_for_ili(
+    def attribute_definition(
         self,
-        ili_class: str,
-        ili_attribute: str,
-        ili_value: str,
-    ) -> tuple[str, str, str]:
-        """
-        Return the canonical TWW value mapping for an INTERLIS value.
+        class_id: str,
+        attribute_name: str,
+    ) -> AttributeMapping:
+        ...
 
-        Parameters
-        ----------
-        ili_class:
-            INTERLIS class identifier.
+    def try_attribute_definition(
+        self,
+        class_id: str,
+        attribute_name: str,
+    ) -> AttributeMapping | None:
+        ...
 
-        ili_attribute:
-            INTERLIS attribute identifier.
+    def value_mapping(
+        self,
+        class_id: str,
+        attribute_name: str,
+        value: str,
+    ) -> ValueMapping:
+        ...
 
-        ili_value:
-            INTERLIS value identifier.
+    def try_value_mapping(
+        self,
+        class_id: str,
+        attribute_name: str,
+        value: str,
+    ) -> ValueMapping | None:
+        ...
 
-        Returns
-        -------
-        tuple[str, str, str]
-            Intended to return `(table_name, field_name, value_name)` or a
-            similar canonical value tuple. Exact return shape may be adjusted
-            once value mapping is implemented.
-        """
+@dataclass(slots=True, frozen=True)
+class EffectiveModelMappingCapability:
+    """
+    Resolves effective source-to-canonical mappings.
 
-        raise NotImplementedError(
-            "Value mapping is not implemented yet."
+    Explicit ModelMapping entries take precedence. If a class, attribute or
+    value is not explicitly mapped, the implicit mapping provider is used as
+    fallback.
+    """
+
+    explicit_mapping: ModelMappingCapability
+    implicit_mapping: ImplicitModelMappingCapability | None = None
+
+    def class_definition(
+        self,
+        class_id: str,
+    ) -> ClassMapping:
+        explicit = self.explicit_mapping.try_class_definition(
+            class_id,
         )
-    
-    def _load_table_mapping(self):
-        """
-        Load INTERLIS class to canonical TWW table mappings.
 
-        Returns
-        -------
-        dict[str, str]
-            Mapping from INTERLIS class identifier to canonical TWW table name.
-        """
+        if explicit is not None:
+            return explicit
 
-        query = """
-            SELECT
-                tablename,
-                ili_name_{lang}
-            FROM {schema}.{metadata_tbl};
-            """.format(lang=self.lang,schema=self.schema, metadata_tbl=self.metadata_tbl)
-        
-        rows = self.sql.fetchall(query)
-
-        return {
-            ili_name: tablename
-            for ili_name, tablename in rows
-        }
- 
-    def _load_attribute_mapping(self):
-        """
-        Load INTERLIS attribute to canonical TWW field mappings.
-
-        Returns
-        -------
-        dict[tuple[str, str], tuple[str, str]]
-            Mapping from `(ili_class, ili_attribute)` to
-            `(table_name, field_name)`.
-        """
-
-        query = """
-            SELECT
-                a.tablename,
-                a.field_name,
-                t.ili_name_{lang} as ili_cls_name,
-                a.ili_name_{lang} as ili_attr_name
-            FROM {schema}.{metadata_attr} a
-            INNER JOIN {schema}.{metadata_tbl} t on a.class_id=t.id;
-            """.format(
-                lang=self.lang,
-                schema=self.schema,
-                metadata_attr=self.metadata_attr,
-                metadata_tbl=self.metadata_tbl,
-            )
-        
-        mapping: dict[
-            tuple[str, str],
-            tuple[str, str],
-        ] = {}
-
-        for (
-            table_name,
-            field_name,
-            ili_cls_name,
-            ili_attr_name,
-        ) in self.sql.fetchall(query):
-            mapping[
-                (
-                    ili_cls_name,
-                    ili_attr_name,
-                )
-            ] = (
-                table_name,
-                field_name,
+        if self.implicit_mapping is None:
+            return self.explicit_mapping.class_definition(
+                class_id,
             )
 
-        return mapping
-    
-    def _load_value_mapping(self):
-        """
-        Load INTERLIS value to canonical TWW value mappings.
+        return self.implicit_mapping.class_definition(
+            class_id,
+        )
 
-        This is currently a placeholder. It should eventually return a mapping
-        keyed by `(ili_class, ili_attribute, ili_value)`.
-        """
-        raise NotImplementedError(
-            "Value mapping loading is not implemented yet."
+    def try_class_definition(
+        self,
+        class_id: str,
+    ) -> ClassMapping | None:
+        explicit = self.explicit_mapping.try_class_definition(
+            class_id,
+        )
+
+        if explicit is not None:
+            return explicit
+
+        if self.implicit_mapping is None:
+            return None
+
+        return self.implicit_mapping.try_class_definition(
+            class_id,
+        )
+
+    def attribute_definition(
+        self,
+        class_id: str,
+        attribute_name: str,
+    ) -> AttributeMapping:
+        explicit = self.explicit_mapping.try_attribute_definition(
+            class_id,
+            attribute_name,
+        )
+
+        if explicit is not None:
+            return explicit
+
+        if self.implicit_mapping is None:
+            return self.explicit_mapping.attribute_definition(
+                class_id,
+                attribute_name,
+            )
+
+        return self.implicit_mapping.attribute_definition(
+            class_id,
+            attribute_name,
+        )
+
+    def try_attribute_definition(
+        self,
+        class_id: str,
+        attribute_name: str,
+    ) -> AttributeMapping | None:
+        explicit = self.explicit_mapping.try_attribute_definition(
+            class_id,
+            attribute_name,
+        )
+
+        if explicit is not None:
+            return explicit
+
+        if self.implicit_mapping is None:
+            return None
+
+        return self.implicit_mapping.try_attribute_definition(
+            class_id,
+            attribute_name,
+        )
+
+    def value_mapping(
+        self,
+        class_id: str,
+        attribute_name: str,
+        value: str,
+    ) -> ValueMapping:
+        explicit = self.explicit_mapping.try_value_mapping(
+            class_id,
+            attribute_name,
+            value,
+        )
+
+        if explicit is not None:
+            return explicit
+
+        if self.implicit_mapping is None:
+            return self.explicit_mapping.value_mapping(
+                class_id,
+                attribute_name,
+                value,
+            )
+
+        return self.implicit_mapping.value_mapping(
+            class_id,
+            attribute_name,
+            value,
+        )
+
+    def try_value_mapping(
+        self,
+        class_id: str,
+        attribute_name: str,
+        value: str,
+    ) -> ValueMapping | None:
+        explicit = self.explicit_mapping.try_value_mapping(
+            class_id,
+            attribute_name,
+            value,
+        )
+
+        if explicit is not None:
+            return explicit
+
+        if self.implicit_mapping is None:
+            return None
+
+        return self.implicit_mapping.try_value_mapping(
+            class_id,
+            attribute_name,
+            value,
         )

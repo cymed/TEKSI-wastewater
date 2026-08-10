@@ -1,3 +1,10 @@
+from __future__ import annotations
+
+from dataclasses import replace
+
+from sqlalchemy import inspect
+from sqlalchemy.exc import NoInspectionAvailable
+
 from ...interlis import config
 from ...interlis.interlis_model_mapping.model_interlis_ag64 import (
     ModelInterlisAG64,
@@ -19,11 +26,15 @@ from ...interlis.interlis_model_mapping.model_interlis_vsa_kek import (
 )
 
 from tww_hooks.capabilities.mapping import (
-    DictionaryMappingCapability,
-    ModelMappingCapability,
+    EffectiveModelMappingCapability,
+)
+from tww_hooks.models.canonical_object import (
+    CanonicalIdentityMapping,
 )
 from tww_hooks.models.mapping import (
+    AttributeMapping,
     ClassMapping,
+    ForeignKeyMapping,
     RelationContext,
 )
 from tww_hooks.services.relation_context_provider import (
@@ -35,21 +46,30 @@ class TwwRelationContextProvider(
     RelationContextProvider,
 ):
     """
-    Plugin-side provider that builds RelationContext objects from the
-    concrete TEKSI Wastewater INTERLIS import model classes.
+    Plugin-side provider that builds RelationContext objects from concrete
+    TEKSI Wastewater INTERLIS import model classes.
 
-    This adapter is intentionally plugin-specific. The core `tww_hooks`
-    package only depends on the RelationContextProvider abstraction.
+    The provider:
 
-    The provider only knows about the imported INTERLIS schema. It does not
-    compare against an export schema and does not load canonical objects.
+    - loads the SQLAlchemy/automap import model for the selected INTERLIS
+      model group;
+    - resolves the effective ClassMapping for each import relation;
+    - enriches missing foreign-key AttributeMappings from SQLAlchemy automap
+      relationship metadata.
+
+    Mapping precedence is handled outside this class by
+    EffectiveModelMappingCapability:
+
+        explicit mapping > implicit dictionary mapping
+
+    This provider only adds automap-derived FK mappings where no explicit
+    source-attribute mapping already exists.
     """
 
     def __init__(
         self,
         ili_model: str,
-        dictionary_mapping: DictionaryMappingCapability,
-        model_mapping: ModelMappingCapability,
+        model_mapping: EffectiveModelMappingCapability,
         import_schema: str = config.IMPORT_SCHEMA,
     ):
         self.ili_model = ili_model
@@ -72,7 +92,6 @@ class TwwRelationContextProvider(
             )
         )
 
-        self.dictionary_mapping = dictionary_mapping
         self.model_mapping = model_mapping
 
         self.import_model = self._get_model(
@@ -133,22 +152,152 @@ class TwwRelationContextProvider(
     ) -> ClassMapping:
         ili_class_name = relation.__name__
 
-        if self.group in {
-            "ag64",
-            "ag96",
-        }:
-            mapping = self.model_mapping.try_class_definition(
-                ili_class_name,
-            )
-
-            if mapping is not None:
-                return mapping
-
-        tww_class_id = self.dictionary_mapping.class_mapping_for_ili(
+        class_mapping = self.model_mapping.class_definition(
             ili_class_name,
         )
 
-        return ClassMapping(
-            tww_class_id=tww_class_id,
-            attributes={},
+        return self._with_automap_foreign_keys(
+            relation=relation,
+            class_mapping=class_mapping,
         )
+
+    def _with_automap_foreign_keys(
+        self,
+        *,
+        relation,
+        class_mapping: ClassMapping,
+    ) -> ClassMapping:
+        """
+        Return class_mapping enriched with automap-derived FK AttributeMappings.
+
+        Explicit mappings are preserved. Automap-derived mappings are only
+        added for source attributes that are not already present in
+        class_mapping.attributes.
+        """
+
+        foreign_key_mappings = self._automap_foreign_key_mappings(
+            relation=relation,
+            class_mapping=class_mapping,
+        )
+
+        if not foreign_key_mappings:
+            return class_mapping
+
+        attributes = dict(
+            class_mapping.attributes,
+        )
+
+        for source_attribute, attribute_mapping in (
+            foreign_key_mappings.items()
+        ):
+            attributes.setdefault(
+                source_attribute,
+                attribute_mapping,
+            )
+
+        return replace(
+            class_mapping,
+            attributes=attributes,
+        )
+
+    def _automap_foreign_key_mappings(
+        self,
+        *,
+        relation,
+        class_mapping: ClassMapping,
+    ) -> dict[
+        str,
+        AttributeMapping,
+    ]:
+        if class_mapping.tww_class_id is None:
+            return {}
+
+        try:
+            mapper = inspect(
+                relation,
+            )
+        except NoInspectionAvailable:
+            return {}
+
+        mappings: dict[
+            str,
+            AttributeMapping,
+        ] = {}
+
+        for relationship in mapper.relationships:
+            referenced_relation = relationship.mapper.class_
+            referenced_ili_class_name = referenced_relation.__name__
+
+            referenced_class_mapping = (
+                self.model_mapping.try_class_definition(
+                    referenced_ili_class_name,
+                )
+            )
+
+            if referenced_class_mapping is None:
+                continue
+
+            if referenced_class_mapping.tww_class_id is None:
+                continue
+
+            referenced_identity = self._identity_mapping(
+                referenced_class_mapping,
+            )
+
+            for local_column in relationship.local_columns:
+                if not local_column.foreign_keys:
+                    continue
+
+                source_attribute = self._column_attribute_name(
+                    local_column,
+                )
+
+                mappings[source_attribute] = AttributeMapping(
+                    tww_class_id=class_mapping.tww_class_id,
+                    tww_attr_id=source_attribute,
+                    foreign_key=ForeignKeyMapping(
+                        referenced_class_id=(
+                            referenced_class_mapping.tww_class_id
+                        ),
+                        referenced_attribute_id=(
+                            referenced_identity.canonical_attribute
+                        ),
+                    ),
+                )
+
+        return mappings
+
+    def _identity_mapping(
+        self,
+        class_mapping: ClassMapping,
+    ) -> CanonicalIdentityMapping:
+        """
+        Return the effective identity mapping for a class mapping.
+
+        If the mapping does not explicitly define one, use the default
+        ili2pg identity convention:
+
+            t_ili_tid -> obj_id
+        """
+
+        if class_mapping.identity is not None:
+            return class_mapping.identity
+
+        return CanonicalIdentityMapping(
+            source_attribute="t_ili_tid",
+            canonical_attribute="obj_id",
+        )
+
+    def _column_attribute_name(
+        self,
+        column,
+    ) -> str:
+        """
+        Return the source attribute name for a SQLAlchemy column.
+        """
+
+        return getattr(
+            column,
+            "key",
+            None,
+        ) or column.name

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..capabilities.mapping import (
-    DictionaryMappingCapability,
+    ImplicitModelMappingCapability,
 )
 from ..models.mapping import (
     AttributeMapping,
@@ -13,7 +13,7 @@ from ..models.mapping import (
 
 
 @dataclass(slots=True, frozen=True)
-class DictionaryMappingResolver:
+class ImplicitModelMappingResolver:
     """
     Builds a canonical ModelMapping from dictionary metadata.
 
@@ -26,7 +26,7 @@ class DictionaryMappingResolver:
     model mapping.
     """
 
-    dictionary: DictionaryMappingCapability
+    dictionary: ImplicitModelMappingCapability
 
     def resolve(self) -> ModelMapping:
         classes: dict[str, ClassMapping] = {}

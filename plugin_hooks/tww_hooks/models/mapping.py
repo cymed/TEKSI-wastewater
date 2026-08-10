@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from collections.abc import Mapping
 
+from .canonical_object import CanonicalIdentityMapping
 
 @dataclass(slots=True, frozen=True)
 class ValueMapping:
@@ -164,23 +165,24 @@ class ClassMapping:
             )
         },
     )
-    tww_identity_attr: str = field(
-        default="obj_id",
-        metadata={
-            "doc": (
-                "Canonical TWW attribute used to identify and match objects "
-                "of this class across models or schemas. Usually corresponds "
-                "to `obj_id`, but should be understood as semantic object "
-                "identity rather than necessarily the physical database "
-                "primary key."
-            )
-        },
+    identity: CanonicalIdentityMapping = field(
+        default_factory=lambda: CanonicalIdentityMapping(
+            source_attribute="t_ili_tid",
+            canonical_attribute="obj_id",
+        ),
     )
+        
     attributes: Mapping[str, AttributeMapping] = field(
         default_factory=dict,
         metadata={
-            "doc": "Attribute mappings keyed by source-model attribute identifier.."
+            "doc": (
+                "Attribute mappings keyed by source runtime attribute identifier. "
+                "For ili2pg imports this is the actual SQLAlchemy/ili2pg column "
+                "name, which may differ from the original INTERLIS attribute name "
+                "when ili2pg had to avoid reserved words."
+            )
         },
+    )
     )
     function: FunctionMapping | None = field(
         default=None,

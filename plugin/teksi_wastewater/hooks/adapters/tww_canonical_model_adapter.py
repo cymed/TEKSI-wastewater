@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from ...utils.database_utils import (
     DatabaseUtils,
@@ -87,9 +86,7 @@ class TwwCanonicalModelAdapter:
             localized_table_column=localized_table_column,
         )
 
-        rows = self._fetchall_dict(
-            query,
-        )
+        rows = DatabaseUtils.fetchall_dict(query)
 
         return {
             row["class_id"]: CanonicalClassMetadata(
@@ -162,9 +159,7 @@ class TwwCanonicalModelAdapter:
             where_clause=where_clause,
         )
 
-        rows = self._fetchall_dict(
-            query,
-        )
+        rows = DatabaseUtils.fetchall_dict(query)
 
         return {
             (
@@ -269,9 +264,7 @@ class TwwCanonicalModelAdapter:
             where_clause=where_clause,
         )
 
-        rows = self._fetchall_dict(
-            query,
-        )
+        rows = DatabaseUtils.fetchall_dict(query)
 
         return {
             (
@@ -482,43 +475,3 @@ class TwwCanonicalModelAdapter:
             ),
         )
 
-    def _fetchall_dict(
-        self,
-        query,
-    ) -> list[
-        dict[
-            str,
-            Any,
-        ]
-    ]:
-        if hasattr(
-            DatabaseUtils,
-            "fetchall_dict",
-        ):
-            return DatabaseUtils.fetchall_dict(
-                query,
-            )
-
-        with DatabaseUtils.PsycopgConnection() as connection:
-            cursor = connection.cursor()
-
-            cursor.execute(
-                query,
-            )
-
-            rows = cursor.fetchall()
-
-            column_names = [
-                column[0]
-                for column in cursor.description
-            ]
-
-        return [
-            dict(
-                zip(
-                    column_names,
-                    row,
-                )
-            )
-            for row in rows
-        ]
