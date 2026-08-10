@@ -21,7 +21,7 @@ pytestmark = pytest.mark.no_qgis
 
 
 DATA_DIR = (
-    Path(__file__).parent
+    Path(__file__).parents[2]
     / "qgis"
     / "data"
 )
