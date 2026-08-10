@@ -183,7 +183,7 @@ class ClassMapping:
             )
         },
     )
-    )
+
     function: FunctionMapping | None = field(
         default=None,
         metadata={
