@@ -27,6 +27,7 @@ services:
       - db
 
   qgis:
+    image: teksi-wastewater-qgis:${QGIS_TEST_VERSION:-3.44-noble}
     build:
       context: .
       dockerfile: plugin/.docker/Dockerfile
