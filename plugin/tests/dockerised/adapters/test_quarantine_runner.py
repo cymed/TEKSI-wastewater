@@ -27,7 +27,7 @@ DATA_DIR = (
 )
 
 OUTPUT_DIR = Path(
-    Path(__file__)
+    Path(__file__).parent
         / "output",
 )
 

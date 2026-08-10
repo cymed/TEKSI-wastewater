@@ -9,6 +9,7 @@ from tww_hooks.models.mapping import (
 from tww_hooks.capabilities.mapping import (
     ImplicitModelMappingCapability,
     ModelMappingCapability,
+    EffectiveModelMappingCapability,
 )
 
 from teksi_wastewater.hooks.adapters.tww_relation_context_provider import (
