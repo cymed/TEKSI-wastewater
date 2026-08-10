@@ -29,7 +29,7 @@ class FakeModel:
 
 
 @pytest.fixture
-def dictionary_mapping():
+def implicit_model_mapping():
     mapping = Mock(spec=ImplicitModelMappingCapability)
 
     mapping.class_mapping_for_ili.return_value = (
@@ -46,7 +46,7 @@ def empty_model_mapping():
     )
 
 @pytest.fixture
-def effective_mapping():
+def effective_mapping(implicit_model_mapping):
     return EffectiveModelMappingCapability(
         explicit_mapping=empty_model_mapping,
         implicit_mapping=implicit_model_mapping,
@@ -157,7 +157,7 @@ def test_relation_context_provider_falls_back_to_dictionary_for_unmapped_agxx_cl
         "wastewater_node"
     )
 
-    implicit_model_mapping.class_mapping_for_ili.assert_called_once_with(
+    effective_mapping.class_mapping_for_ili.assert_called_once_with(
         "FakeRelation",
     )
 
