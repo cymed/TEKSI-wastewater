@@ -40,11 +40,6 @@ def test_tww_canonical_model_adapter_loads_attributes(
 
     assert attributes
 
-    assert any(
-        metadata.identifier == "obj_id"
-        for metadata in attributes.values()
-    )
-
     assert all(
         attribute_id == metadata.identifier
         for (

@@ -349,6 +349,10 @@ class InterlisImporterExporter:
         model = config.interlis_models[group]
 
         import_model = model.lang_name('de')
+
+        if not import_model:
+            error_text = f"No german name found in model '{model}'."
+            raise InterlisImporterExporterError("Import error", error_text, None)
         created_models = model.names
 
         logger.info(
