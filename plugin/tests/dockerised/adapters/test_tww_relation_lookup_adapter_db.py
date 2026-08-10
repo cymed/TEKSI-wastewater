@@ -25,7 +25,7 @@ pytestmark = [
 
 DATA_DIR = (
     Path(__file__)
-    .parents[2]
+    .parents[1]
     / "qgis"
     / "data"
 )
