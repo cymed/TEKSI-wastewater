@@ -11,6 +11,7 @@ on:
       - "plugin/scripts/download-interlis-libs.sh"
       - "docker-compose.yml"
       - ".github/workflows/plugin-adapter-tests.yml"
+      - ".github/actions/start_qgis_docker/action.yml"
 
   pull_request:
     branches:
@@ -24,6 +25,7 @@ on:
       - "plugin/scripts/download-interlis-libs.sh"
       - "docker-compose.yml"
       - ".github/workflows/plugin-adapter-tests.yml"
+      - ".github/actions/start_qgis_docker/action.yml"
 
 jobs:
   unit-tests:

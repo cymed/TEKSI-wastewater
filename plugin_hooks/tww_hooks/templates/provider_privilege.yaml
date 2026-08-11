@@ -87,7 +87,6 @@ classes:
     derive_rights_from:
       - class: reach
         remote_attribute: fk_reach_point_from
-        direction: reverse
       - class: reach
         remote_attribute: fk_reach_point_to
 
@@ -166,7 +165,7 @@ classes:
           - privileges: [DBW_WI]
             from: unknown
             to: operational
-          - privileges: [DBW_GEP]
+          - privileges: [DBW_WI]
             from: operational.*
             to: abandoned.*
           - privileges: [DBW_GEP]
@@ -198,9 +197,9 @@ classes:
   - id: discharge_point
     extends: wastewater_structure
     attributes:
-      hochwasserkote:
+      highwater_level:
         update: [DBW_GEP]
-      wasserspiegel_hydraulik:
+      waterlevel_hydraulic:
         update: [DBW_GEP]
 
   - id: channel
@@ -241,15 +240,15 @@ classes:
     crud_rules:
       - privileges: [DBW_GEP, DBW_WI]
 
-  - id: retentionskoerper
+  - id: retention_body
     crud_rules:
       - privileges: [DBW_GEP]
   
-  - id: abwasserbauwerk_symbol 
+  - id: wastewater_structure_symbol 
     crud_rules:
       - privileges: [DBW_WI]
 
-  - id: abwasserbauwerk_text 
+  - id: wastewater_structure_text 
     crud_rules:
       - privileges: [DBW_WI]
 
