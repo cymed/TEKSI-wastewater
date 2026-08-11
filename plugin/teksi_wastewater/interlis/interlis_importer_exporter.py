@@ -640,6 +640,26 @@ class InterlisImporterExporter:
                 log_path,
             )
         except CmdException:
+            try:
+                with open(
+                    log_path,
+                    encoding="utf-8",
+                    errors="replace",
+                ) as log_file:
+                    log_content = log_file.read()
+
+                print(
+                    "\n===== ilivalidator log start =====\n"
+                    f"{log_content}"
+                    "\n===== ilivalidator log end =====\n"
+                )
+            except OSError as exc:
+                print(
+                    "\n===== ilivalidator log unavailable =====\n"
+                    f"log_path: {log_path}\n"
+                    f"error: {exc!r}\n"
+                    "===== ilivalidator log unavailable end =====\n"
+                )
             raise InterlisImporterExporterError(
                 "Invalid file",
                 "The input file is not a valid XTF file. Open the logs for more details on the error.",
