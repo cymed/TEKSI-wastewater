@@ -34,10 +34,12 @@ classes:
         targets:
           - class: catchment_area
             attribute: drainage_system_planned
+            vl_extension: true
       entwaesserungssystemag_ist:
         targets:
           - class: catchment_area
             attribute: drainage_system_current
+            vl_extension: true
 
 
   Ueberlauf_Foerderaggregat:
@@ -66,6 +68,7 @@ classes:
         targets:
           - class: building_group
             attribute: function
+            vl_extension: true
       beseitigung_haeusliches_abwasser:
         targets:
           - class: agxx_building_group

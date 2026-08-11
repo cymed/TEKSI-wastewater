@@ -86,7 +86,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Start qgis docker compose stack
-        uses: ./.github/actions/start-qgis-compose
+        uses: ./.github/actions/start_qgis_docker
         with:
           qgis-test-version: ${{ env.QGIS_TEST_VERSION }}
 
