@@ -89,8 +89,6 @@ classes:
         remote_attribute: fk_reach_point_from
       - class: reach
         remote_attribute: fk_reach_point_to
-
-
     
   - id: hydr_geometry
     crud_rules:
@@ -521,9 +519,9 @@ classes:
     crud_rules:
       - privileges: [DBW_GEP]
 
-  # ---------------------------------------------------------
+  # ---------------------
   # VSA-KEK und Unterhalt
-  # ---------------------------------------------------------
+  # ---------------------
 
   - id: examination
     extends: maintenance_event
@@ -554,5 +552,3 @@ classes:
           attribute: fk_provider
     delete_rules:
       - inherit: update_rules
-   
-

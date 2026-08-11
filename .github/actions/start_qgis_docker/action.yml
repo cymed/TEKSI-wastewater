@@ -29,6 +29,10 @@ runs:
       shell: bash
       run: mkdir -p .ilicache
 
+    - name: Download Interlis libs
+      shell: bash
+      run: sudo ./plugin/scripts/download-interlis-libs.sh
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
 
