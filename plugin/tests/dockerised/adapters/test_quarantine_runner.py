@@ -43,18 +43,6 @@ def quarantine_runner() -> TwwQuarantineRunner:
 
 
 @pytest.fixture
-def interlis_context() -> TwwInterlisContext:
-    return TwwInterlisContext(
-        schema=config.IMPORT_SCHEMA,
-        srid=2056,
-        logs_next_to_file=False,
-        filter_nulls=True,
-        import_orgs=True,
-        orgs_path=DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
-    )
-
-
-@pytest.fixture
 def imported_sia405_to_quarantine(
     clean_db_once,
     quarantine_runner,

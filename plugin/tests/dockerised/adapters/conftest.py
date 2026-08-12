@@ -24,6 +24,13 @@ TWW_TEST_LOG_DIR = Path(
 )
 
 
+DATA_DIR = (
+    Path(__file__).parents[1]
+    / "qgis"
+    / "data"
+)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def ensure_interlis_log_dir() -> None:
     TWW_TEST_LOG_DIR.mkdir(
@@ -159,11 +166,13 @@ def quarantine_runner() -> TwwQuarantineRunner:
     return TwwQuarantineRunner()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def interlis_context() -> TwwInterlisContext:
     return TwwInterlisContext(
         schema=config.IMPORT_SCHEMA,
         srid=2056,
         logs_next_to_file=False,
         filter_nulls=True,
+        import_orgs=True,
+        orgs_path=DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
     )

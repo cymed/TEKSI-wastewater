@@ -30,19 +30,16 @@ DATA_DIR = (
     / "data"
 )
 
-
 @pytest.fixture(scope="module")
 def imported_sia405_to_quarantine(
     clean_db_once,
+    interlis_context
 ) -> None:
     runner = TwwQuarantineRunner()
 
     runner.import_xtf_to_quarantine(
-        DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
-    )
-
-    runner.import_xtf_to_quarantine(
         DATA_DIR / "minimal-dataset-SIA405-ABWASSER.xtf",
+        context=interlis_context,
     )
 
 

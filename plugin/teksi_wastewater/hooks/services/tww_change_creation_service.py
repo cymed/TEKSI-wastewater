@@ -221,7 +221,7 @@ class TwwChangeCreationService:
 
         self._ensure_ready_for_diff_job()
 
-        import_model, created_models = (
+        import_model = (
             self.quarantine_runner.import_xtf_to_quarantine(
                 xtf_file=xtf_file,
                 context=context,
@@ -240,7 +240,6 @@ class TwwChangeCreationService:
         return self.create_diff_job_from_quarantine(
             job_id=job_id,
             source_model=import_model,
-            created_models=created_models,
             rights_context=rights_context,
             import_schema=import_schema,
             live_schema=live_schema,

@@ -8,10 +8,41 @@ from .privilege import Privilege
 from .validation import AttributeValidation, TransitionValidation
 from .rulesets import CrudRules, ResolvedCrudRules, StateTransitionRule
 from .canonical_object import CanonicalObjectIdentity
+from pathlib import Path
 
 from ..exceptions import  Finding
 
 from teksi_hooks.ili_definitions import Standardoid
+
+
+@dataclass(slots=True)
+class RightsProfile:
+
+
+    identifier: str = field(
+        metadata={
+            "doc": (
+                "Unique identifier of the entity to which the rights profile applies. "
+                "If None, defaults to the template path."
+            )
+        },
+    )
+    provider_rights_path: Path = field(
+        metadata={
+            "doc": (
+                "Path to the provider rights yaml. "
+                "If None, defaults to the template path."
+            )
+        },
+    )
+    provider_privileges_path: Path = field(
+        metadata={
+            "doc": (
+                "Path to the provider privilege yaml. "
+                "If None, defaults to the template path."
+            )
+        },
+    )
 
 @dataclass(slots=True, frozen=True)
 class PermissionFinding(

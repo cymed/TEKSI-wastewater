@@ -39,12 +39,6 @@ def imported_sia405_to_quarantine(
     quarantine_runner,
     interlis_context
 ) -> None:
-
-    quarantine_runner.import_xtf_to_quarantine(
-        DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
-        context=interlis_context,
-    )
-
     return quarantine_runner.import_xtf_to_quarantine(
         DATA_DIR / "minimal-dataset-SIA405-ABWASSER.xtf",
         context=interlis_context,
