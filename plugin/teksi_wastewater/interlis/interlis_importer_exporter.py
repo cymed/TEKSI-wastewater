@@ -368,7 +368,13 @@ class InterlisImporterExporter:
         if not import_model:
             error_text = f"No german name found in model '{model}'."
             raise InterlisImporterExporterError("Import error", error_text, None)
-        created_models = model.names
+
+        created_models = tuple(model.names or ())
+        if not created_models:
+            raise InterlisImporterExporterError(
+            "Import error",
+            (f"No created model names configured for model '{model}'. "
+            f"Found import models: {import_models!r}."),None,)
 
         logger.info(
             f"Models '{created_models}' were chosen for import among found models '{import_models}'"
