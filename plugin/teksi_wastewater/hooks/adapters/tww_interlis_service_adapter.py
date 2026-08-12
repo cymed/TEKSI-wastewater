@@ -47,6 +47,8 @@ class TwwInterlisContext(InterlisContext):
     )
     import_orgs:  bool = False
 
+    orgs_path: Path | None = None
+
     def apply(
         self,
         importer_exporter,

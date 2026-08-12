@@ -223,6 +223,7 @@ class InterlisImporterExporter:
     def interlis_import_to_quarantine(
         self,
         xtf_file_input,
+        orgs_path: Path | None = None,
         logs_next_to_file=True,
         filter_nulls=True,
         srid: int = 2056,
@@ -231,6 +232,17 @@ class InterlisImporterExporter:
     ):
             import_model, created_models=self._prepare_interlis_import(xtf_file_input, logs_next_to_file,filter_nulls,srid,progress_scope)
 
+            created_models = tuple(created_models)
+
+            if not created_models:
+                raise InterlisImporterExporterError(
+                    "Missing model",
+                    (
+                        "Could not determine INTERLIS model names required to create "
+                        "the quarantine schema."
+                    ), None,
+                )
+
             # Validating the input file
             self._progress_done_in_scope(progress_scope, 10, "Validating the input file...")
             self._import_validate_xtf_file(xtf_file_input)
@@ -238,14 +250,17 @@ class InterlisImporterExporter:
 
             # Prepare the temporary ili2pg model
             self._progress_done_in_scope(progress_scope, 35, "Creating ili schema...")
-            self._clear_ili_schema(recreate_tables=True)
 
             self._create_ili_schema(
                 created_models, ext_columns_no_constraints=True, create_basket_col=True
             )
 
-            if import_orgs:
-                self.import_vsa_orgs()
+            if import_orgs or orgs_path:
+                if orgs_path:
+                    self._import_validate_xtf_file(orgs_path)
+                    self._import_xtf_file(orgs_path)
+                else:
+                    self.import_vsa_orgs()
 
             # Import from xtf file to ili2pg model
             self._progress_done_in_scope(progress_scope,50, "Importing XTF data...")

@@ -49,7 +49,8 @@ def interlis_context() -> TwwInterlisContext:
         srid=2056,
         logs_next_to_file=False,
         filter_nulls=True,
-        import_orgs=False,
+        import_orgs=True,
+        orgs_path=DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
     )
 
 
@@ -62,10 +63,6 @@ def imported_sia405_to_quarantine(
     str,
     tuple[str, ...],
 ]:
-    quarantine_runner.import_xtf_to_quarantine(
-        xtf_file=DATA_DIR / "minimal-dataset-organisation-arbon-only.xtf",
-        context=interlis_context,
-    )
 
     return quarantine_runner.import_xtf_to_quarantine(
         xtf_file=DATA_DIR / "minimal-dataset-SIA405-ABWASSER.xtf",

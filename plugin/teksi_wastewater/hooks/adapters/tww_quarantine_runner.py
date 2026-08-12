@@ -88,6 +88,7 @@ class TwwQuarantineRunner:
                 filter_nulls=context.filter_nulls,
                 srid=context.srid,
                 import_orgs=context.import_orgs,
+                orgs_path=context.orgs_path,
             )
         )
 
