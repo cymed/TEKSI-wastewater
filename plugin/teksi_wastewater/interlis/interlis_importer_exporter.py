@@ -230,7 +230,13 @@ class InterlisImporterExporter:
         import_orgs=False,
         progress_scope: ProgressScope = ProgressScope(),
     ):
-            import_model, created_models=self._prepare_interlis_import(xtf_file_input, logs_next_to_file,filter_nulls,srid,progress_scope)
+            import_model, created_models=self._prepare_interlis_import(
+                xtf_file_input=xtf_file_input,
+                logs_next_to_file=logs_next_to_file,
+                filter_nulls=filter_nulls,
+                srid=srid,
+                progress_scope=progress_scope
+                )
 
             created_models = tuple(created_models)
 
