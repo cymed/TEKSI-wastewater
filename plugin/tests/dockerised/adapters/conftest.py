@@ -166,7 +166,7 @@ def quarantine_runner() -> TwwQuarantineRunner:
     return TwwQuarantineRunner()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def interlis_context() -> TwwInterlisContext:
     return TwwInterlisContext(
         schema=config.IMPORT_SCHEMA,
