@@ -81,7 +81,7 @@ interlis_models = {
             ),
             InterlisLangModel(
                 lang="fr",
-                model="VSA_IVI_2020_1_LV95 ",
+                model="VSA_IVI_2020_1_LV95",
                 topics=frozenset({
                     "IVI",
                 }),
@@ -99,7 +99,7 @@ interlis_models = {
             ),
             InterlisLangModel(
                 lang="fr",
-                model="SIA405_Eaux_usees_1_LV95",
+                model="SIA405_EAUX_USEES_2020_1_LV95",
                 topics=frozenset({
                     "SIA405_Eaux_usees",
                 }),
