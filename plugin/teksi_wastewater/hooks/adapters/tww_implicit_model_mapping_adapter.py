@@ -218,7 +218,7 @@ class TwwImplicitModelMappingAdapter(ImplicitModelMappingCapability):
 
             to:
 
-                (tww_class_id, tww_attr_id, tww_value_id)
+                (canonical_class_id, canonical_attr_id, tww_value_id)
 
         The INTERLIS names are only an intermediate bridge. The resulting
         ModelMapping should ultimately be keyed by the actual ili2pg runtime

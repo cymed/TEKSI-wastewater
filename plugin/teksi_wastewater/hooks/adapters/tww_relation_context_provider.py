@@ -209,7 +209,7 @@ class TwwRelationContextProvider(
         str,
         AttributeMapping,
     ]:
-        if class_mapping.tww_class_id is None:
+        if class_mapping.canonical_class_id is None:
             return {}
 
         try:
@@ -237,7 +237,7 @@ class TwwRelationContextProvider(
             if referenced_class_mapping is None:
                 continue
 
-            if referenced_class_mapping.tww_class_id is None:
+            if referenced_class_mapping.canonical_class_id is None:
                 continue
 
             referenced_identity = self._identity_mapping(
@@ -253,11 +253,11 @@ class TwwRelationContextProvider(
                 )
 
                 mappings[source_attribute] = AttributeMapping(
-                    tww_class_id=class_mapping.tww_class_id,
-                    tww_attr_id=source_attribute,
+                    canonical_class_id=class_mapping.canonical_class_id,
+                    canonical_attr_id=source_attribute,
                     foreign_key=ForeignKeyMapping(
                         referenced_class_id=(
-                            referenced_class_mapping.tww_class_id
+                            referenced_class_mapping.canonical_class_id
                         ),
                         referenced_attribute_id=(
                             referenced_identity.canonical_attribute

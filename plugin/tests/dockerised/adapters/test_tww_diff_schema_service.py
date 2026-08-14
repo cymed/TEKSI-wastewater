@@ -3,7 +3,7 @@ import pytest
 from teksi_wastewater.hooks.services.tww_diff_schema_service import (
     TwwDiffSchemaService,
 )
-from tww_hooks.models.review import (
+from teksi_hooks.models.review import (
     ReviewFeature,
 )
 

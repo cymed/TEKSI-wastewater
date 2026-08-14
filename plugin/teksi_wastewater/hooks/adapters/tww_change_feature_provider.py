@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from tww_hooks.capabilities.review import (
+from teksi_hooks.capabilities.review import (
     ChangeFeatureProvider,
 )
-from tww_hooks.models.review import (
+from teksi_hooks.models.review import (
     ReviewFeature,
 )
-from tww_hooks.models.validation import (
+from teksi_hooks.models.validation import (
     Change,
 )
 

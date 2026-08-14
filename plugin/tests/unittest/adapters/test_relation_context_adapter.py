@@ -1,6 +1,6 @@
 import pytest
 
-from tww_hooks.capabilities.mapping import (
+from teksi_hooks.capabilities.mapping import (
     EffectiveModelMappingCapability,
     ModelMappingCapability,
 )
@@ -38,7 +38,7 @@ def implicit_model_mapping():
         ModelMapping(
             classes={
                 "FakeRelation": ClassMapping(
-                    tww_class_id="wastewater_node",
+                    canonical_class_id="wastewater_node",
                 ),
             },
         ),
@@ -78,7 +78,7 @@ def test_relation_context_provider_uses_effective_implicit_mapping_for_dss(
     context = contexts[0]
 
     assert context.relation is FakeRelation
-    assert context.class_mapping.tww_class_id == "wastewater_node"
+    assert context.class_mapping.canonical_class_id == "wastewater_node"
 
 
 def test_relation_context_provider_prefers_explicit_agxx_mapping(
@@ -95,7 +95,7 @@ def test_relation_context_provider_prefers_explicit_agxx_mapping(
         ModelMapping(
             classes={
                 "FakeRelation": ClassMapping(
-                    tww_class_id="agxx_wastewater_node",
+                    canonical_class_id="agxx_wastewater_node",
                 ),
             },
         ),
@@ -118,7 +118,7 @@ def test_relation_context_provider_prefers_explicit_agxx_mapping(
     context = contexts[0]
 
     assert context.relation is FakeRelation
-    assert context.class_mapping.tww_class_id == "agxx_wastewater_node"
+    assert context.class_mapping.canonical_class_id == "agxx_wastewater_node"
 
 
 def test_relation_context_provider_falls_back_to_implicit_mapping_for_unmapped_agxx_class(
@@ -143,7 +143,7 @@ def test_relation_context_provider_falls_back_to_implicit_mapping_for_unmapped_a
     context = contexts[0]
 
     assert context.relation is FakeRelation
-    assert context.class_mapping.tww_class_id == "wastewater_node"
+    assert context.class_mapping.canonical_class_id == "wastewater_node"
 
 
 def test_relation_context_provider_returns_immutable_tuple(

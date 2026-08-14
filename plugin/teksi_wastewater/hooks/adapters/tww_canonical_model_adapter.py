@@ -6,7 +6,7 @@ from ...utils.database_utils import (
     DatabaseUtils,
 )
 
-from tww_hooks.models.canonical_object import (
+from teksi_hooks.models.canonical_object import (
     CanonicalAttributeMetadata,
     CanonicalClassMetadata,
     CanonicalModelMetadata,
@@ -22,7 +22,7 @@ class TwwCanonicalModelAdapter:
     Plugin-side adapter that loads canonical TEKSI Wastewater model metadata
     from tww_sys dictionary tables.
 
-    The adapter exposes database metadata through tww_hooks canonical metadata
+    The adapter exposes database metadata through teksi_hooks canonical metadata
     models. Database access and tww_sys table knowledge intentionally stay in
     the plugin layer.
     """

@@ -18,10 +18,10 @@ from .tww_interlis_service_adapter import (
     TwwInterlisContext,
 )
 
-from tww_hooks.exceptions import (
+from teksi_hooks.exceptions import (
     Severity,
 )
-from tww_hooks.models.validation import (
+from teksi_hooks.models.validation import (
     ValidationFinding,
 )
 

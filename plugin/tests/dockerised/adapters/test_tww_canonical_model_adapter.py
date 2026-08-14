@@ -3,7 +3,7 @@ import pytest
 from teksi_wastewater.hooks.adapters.tww_canonical_model_adapter import (
     TwwCanonicalModelAdapter,
 )
-from tww_hooks.models.canonical_object import (
+from teksi_hooks.models.canonical_object import (
     Localization,
 )
 

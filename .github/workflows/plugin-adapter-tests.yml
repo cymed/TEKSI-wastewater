@@ -75,7 +75,8 @@ jobs:
       DB_NAME: tww
       QGIS_TEST_VERSION: ${{ matrix.qgis_version }}
       COMPOSE_PROFILES: qgis
-
+      ILI_CACHE: /usr/src/.ilicache
+      
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -99,7 +100,7 @@ jobs:
             . /tmp/teksi-hooks-venv/bin/activate
             python -m pip install --upgrade pip
             python -m pip install pytest
-            python -m pip install "teksi-hooks @ git+https://github.com/cymed/teksi_hooks.git"
+            python -m pip install "teksi-hooks @ git+https://github.com/teksi/teksi_hooks.git"
           '
 
       - name: Initialize database

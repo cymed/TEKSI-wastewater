@@ -1,6 +1,25 @@
+privileges:
+  DBW_WI:
+    labels:
+      de: Datenbewirtschafter Werkinformation
+      fr: Gestionnaire cadastral
+
+  DBW_GEP:
+    labels:
+      de: Datenbewirtschafter GEP-Themen
+      fr: Gestionnaire PGEE
+
+  FI_BU:
+    labels:
+      de: Fachingenieur Betrieb und Unterhalt
+      fr: Ingénieur de maintenance
+
 settings:
   allow_transitive_transitions: true
+
 defaults:
+  read_rules:
+      - privileges: all
   validation_rules:
     last_modification:
       rules:
@@ -21,15 +40,13 @@ defaults:
           operations: 
             - insert
 
+  attribute_defaults:
+    ag64_*:
+      update: [DBW_WI]
+    ag96_*:
+      update: [DBW_GEP]
+
 classes:
-
-# Die Attribute, die es nur im Aargau gibt werden in sep. yaml 
-# Ausserdem sind Subklassen, die von der Superklasse erben, auskommentiert
-
-  # ---------------------------------------------------------
-  # Netztopologie / Abwassernetzelement
-  # ---------------------------------------------------------
-
   - id: wastewater_networkelement
     rights_from_subclass: false
     create_rules:
@@ -552,3 +569,50 @@ classes:
           attribute: fk_provider
     delete_rules:
       - inherit: update_rules
+
+  - id: agxx_wastewater_networkelement
+    derive_rights_from:
+      - class: wastewater_networkelement
+        local_attribute: fk_wastewater_networkelement
+
+  - id: agxx_last_modification
+    derive_rights_from:
+      - class: overflow
+        local_attribute: fk_element
+      - class: wastewater_networkelement
+        local_attribute: fk_element
+
+  - id: agxx_wastewater_node
+    derive_rights_from:
+      - class: wastewater_node
+        local_attribute: fk_wastewater_node
+
+  - id: agxx_wastewater_structure
+    derive_rights_from:
+      - class: wastewater_structure
+        local_attribute: fk_wastewater_structure
+
+  - id: agxx_reach
+    derive_rights_from:
+      - class: reach
+        local_attribute: fk_reach
+
+  - id: agxx_overflow
+    derive_rights_from:
+      - class: overflow
+        local_attribute: fk_overflow
+
+  - id: agxx_building_group
+    derive_rights_from:
+      - class: building_group
+        local_attribute: fk_building_group
+
+  - id: agxx_catchment_area_totals
+    derive_rights_from:
+      - class: catchment_area_totals
+        local_attribute: fk_catchment_area_totals
+
+  - id: agxx_infiltration_zone
+    derive_rights_from:
+      - class: infiltration_zone
+        local_attribute: fk_infiltration_zone

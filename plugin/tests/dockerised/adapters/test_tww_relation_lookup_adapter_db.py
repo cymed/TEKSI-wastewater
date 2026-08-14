@@ -12,7 +12,7 @@ from teksi_wastewater.interlis import config
 from teksi_wastewater.utils.database_utils import (
     DatabaseUtils,
 )
-from tww_hooks.models.canonical_object import (
+from teksi_hooks.models.canonical_object import (
     CanonicalObjectIdentity,
 )
 

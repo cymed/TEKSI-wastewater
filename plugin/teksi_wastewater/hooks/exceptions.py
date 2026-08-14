@@ -1,7 +1,7 @@
-from tww_hooks.exceptions import (
+from teksi_hooks.exceptions import (
     ValidationError,
 )
-from tww_hooks.models.validation import (
+from teksi_hooks.models.validation import (
     ValidationFinding,
 )
 

@@ -36,9 +36,6 @@ The main classes involved are:
 ``RightsParser``
    Parses the full rights YAML structure.
 
-``WildcardRightsParser``
-   Parses compact wildcard-based rights files, for example AGXX privilege
-   defaults.
 
 ``RightsResolver``
    Converts parsed rights definitions into resolved runtime structures.
@@ -61,16 +58,22 @@ Example:
    settings:
      allow_transitive_transitions: true
 
-     defaults:
-       create_rules:
-         - ownership:
-             attribute: fk_provider
+   defaults:
+     create_rules:
+       - ownership:
+         attribute: fk_provider
 
      validation_rules:
        last_modification:
          rules:
            - id: newer_than_existing
              level: info
+
+     wildcard_attributes:
+       ag64_*:
+         update: [DBW_WI]
+       ag96_*:
+         update: [DBW_GEP]
 
    classes:
 

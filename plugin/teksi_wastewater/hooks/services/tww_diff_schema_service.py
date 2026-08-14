@@ -6,7 +6,7 @@ import json
 from typing import Any
 from collections.abc import Mapping, Sequence
 
-from tww_hooks.models.review import (
+from teksi_hooks.models.review import (
     ReviewFeature,
 )
 

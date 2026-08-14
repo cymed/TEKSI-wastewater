@@ -5,37 +5,37 @@ from pathlib import Path
 from typing import Protocol
 from collections.abc import Sequence
 
-from tww_hooks.capabilities.canonical_object import (
+from teksi_hooks.capabilities.canonical_object import (
     CanonicalModelCapability,
 )
-from tww_hooks.capabilities.relation_lookup import (
+from teksi_hooks.capabilities.relation_lookup import (
     RelationLookupCapability,
 )
-from tww_hooks.models.canonical_object import (
+from teksi_hooks.models.canonical_object import (
     CanonicalModelMetadata,
 )
-from tww_hooks.models.effects import (
+from teksi_hooks.models.effects import (
     EffectDocument,
 )
-from tww_hooks.models.review import (
+from teksi_hooks.models.review import (
     ReviewFeature,
 )
-from tww_hooks.evaluators.rights import (
+from teksi_hooks.evaluators.rights import (
     RightsEvaluationContext,
     RightsEvaluator,
 )
-from tww_hooks.models.validation import (
+from teksi_hooks.models.validation import (
     Change,
     ClassifiedChanges,
     ValidationFinding,
 )
-from tww_hooks.services.change_builder import (
+from teksi_hooks.services.change_builder import (
     ChangeBuilder,
 )
-from tww_hooks.services.change_classifier import (
+from teksi_hooks.services.change_classifier import (
     ChangeClassifier,
 )
-from tww_hooks.services.change_review_export import (
+from teksi_hooks.services.change_review_export import (
     ChangeReviewExportService,
 )
 
