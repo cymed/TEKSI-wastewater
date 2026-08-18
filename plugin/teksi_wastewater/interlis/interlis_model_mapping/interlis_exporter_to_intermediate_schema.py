@@ -3345,119 +3345,139 @@ class InterlisExporterToIntermediateSchema:
         with open(self.labels_file) as labels_file_handle:
             labels = json.load(labels_file_handle)
 
-        geojson_crs_def = labels["crs"]
+        # Check that labels were generated
+        labels_count = len(labels["features"])
+        logger.debug(f"{labels_count} labels generated")
+        if labels_count > 0:
 
-        for label in labels["features"]:
-            layer_name = label["properties"]["Layer"]
-            obj_id = label["properties"]["tww_obj_id"]
+            geojson_crs_def = labels["crs"]
 
-            print(f"label[properties]: {label['properties']}")
+            for label in labels["features"]:
+                layer_name = label["properties"]["Layer"]
+                obj_id = label["properties"]["tww_obj_id"]
 
-            if self.subset_ids and obj_id not in self.subset_ids:
-                logger.warning(
-                    f"Label for {layer_name} `{obj_id}` exists, but that object is not part of the subset export"
-                )
-                continue
+                print(f"label[properties]: {label['properties']}")
 
-            if not label["properties"]["LabelText"]:
-                logger.warning(
-                    f"Label of object '{obj_id}' from layer '{layer_name}' is empty and will not be exported"
-                )
-                continue
-
-            t_id = tid_for_obj_id.get(layer_name, {}).get(obj_id, None)
-            if not t_id:
-                logger.warning(
-                    f"Label for '{layer_name}' '{obj_id}' exists, but that object is not part of the export"
-                )
-                continue
-
-            # Adapt plantype if subtype of Werkplan as VSA-DSS does not yet supports subvalues.
-            plantyp = (label["properties"]["scale"],)
-            # ('Werkplan.500',)
-            plantyp_short = str(plantyp)
-            plantyp_short = plantyp_short[2:10]
-            logger.debug(f"Debug Plantyp_short: '{plantyp_short}'")
-            if plantyp_short == "Werkplan":
-                plantyp = "Werkplan"
-                logger.debug(f"Debug Plantyp adapted '{plantyp}'")
-            else:
-                logger.debug(f"Debug Plantyp not adapted '{plantyp}'")
-
-            if not {"ag64", "ag96"} & self.export_model_groups:
-                if layer_name == "vw_tww_reach":
-                    ili_label = self.model_classes_interlis.haltung_text(
-                        **self._textpos_common(
-                            # label, "haltung_text", geojson_crs_def, "RX", self.oid_prefix
-                            label,
-                            "haltung_text",
-                            geojson_crs_def,
-                            "RX",
-                            self.oid_prefix,
-                            plantyp,
-                        ),
-                        haltungref=t_id,
-                    )
-
-                elif layer_name == "vw_tww_wastewater_structure":
-                    ili_label = self.model_classes_interlis.abwasserbauwerk_text(
-                        **self._textpos_common(
-                            # label, "abwasserbauwerk_text", geojson_crs_def, "WX", self.oid_prefix
-                            label,
-                            "abwasserbauwerk_text",
-                            geojson_crs_def,
-                            "WX",
-                            self.oid_prefix,
-                            plantyp,
-                        ),
-                        abwasserbauwerkref=t_id,
-                    )
-
-                elif layer_name == "vw_tww_catchment_area":
-                    ili_label = self.model_classes_interlis.einzugsgebiet_text(
-                        **self._textpos_common(
-                            # label, "einzugsgebiet_text", geojson_crs_def, "CX", self.oid_prefix
-                            label,
-                            "einzugsgebiet_text",
-                            geojson_crs_def,
-                            "CX",
-                            self.oid_prefix,
-                            plantyp,
-                        ),
-                        einzugsgebietref=t_id,
-                    )
-                else:
+                t_id = tid_for_obj_id.get(layer_name, {}).get(obj_id, None)
+                if not t_id:
                     logger.warning(
-                        f"Unknown layer `{layer_name}` for label with id '{obj_id}'. Label will be ignored",
+                        f"Label for '{layer_name}' '{obj_id}' exists, but that object is not part of the export"
                     )
                     continue
-            else:
-                if "ag64" in self.export_model_groups:
+
+                # Adapt plantype if subtype of Werkplan as VSA-DSS does not yet supports subvalues.
+                plantyp = (label["properties"]["scale"],)
+                # ('Werkplan.500',)
+                plantyp_short = str(plantyp)
+                plantyp_short = plantyp_short[2:10]
+                logger.debug(f"Debug Plantyp_short: '{plantyp_short}'")
+                if plantyp_short == "Werkplan":
+                    plantyp = "Werkplan"
+                    logger.debug(f"Debug Plantyp adapted '{plantyp}'")
+                else:
+                    logger.debug(f"Debug Plantyp not adapted '{plantyp}'")
+
+                    if not label["properties"]["LabelText"]:
+                        logger.warning(
+                            f"Label of object '{obj_id}' from layer '{layer_name}' is empty and will not be exported"
+                        )
+                        continue
+
+                    t_id = tid_for_obj_id.get(layer_name, {}).get(obj_id, None)
+                    if not t_id:
+                        logger.warning(
+                            f"Label for '{layer_name}' '{obj_id}' exists, but that object is not part of the export"
+                        )
+                        continue
+
+                    # Adapt plantype if subtype of Werkplan as VSA-DSS does not yet supports subvalues.
+                    plantyp = (label["properties"]["scale"],)
+                    # ('Werkplan.500',)
+                    plantyp_short = str(plantyp)
+                    plantyp_short = plantyp_short[2:10]
+                    logger.debug(f"Debug Plantyp_short: '{plantyp_short}'")
+                    if plantyp_short == "Werkplan":
+                        plantyp = "Werkplan"
+                        logger.debug(f"Debug Plantyp adapted '{plantyp}'")
+                    else:
+                        logger.debug(f"Debug Plantyp not adapted '{plantyp}'")
+
+                if not {"ag64", "ag96"} & self.export_model_groups:
                     if layer_name == "vw_tww_reach":
                         ili_label = self.model_classes_interlis.haltung_text(
                             **self._textpos_common(
+                                # label, "haltung_text", geojson_crs_def, "RX", self.oid_prefix
                                 label,
-                                "infrastrukturhaltung_text",
+                                "haltung_text",
                                 geojson_crs_def,
                                 "RX",
                                 self.oid_prefix,
                                 plantyp,
                             ),
-                            infrastrukturhaltungref=t_id,
+                            haltungref=t_id,
                         )
 
                     elif layer_name == "vw_tww_wastewater_structure":
                         ili_label = self.model_classes_interlis.abwasserbauwerk_text(
                             **self._textpos_common(
+                                # label, "abwasserbauwerk_text", geojson_crs_def, "WX", self.oid_prefix
                                 label,
-                                "infrastrukturknoten_text",
+                                "abwasserbauwerk_text",
                                 geojson_crs_def,
                                 "WX",
                                 self.oid_prefix,
                                 plantyp,
                             ),
-                            infrastrukturknotenref=t_id,
+                            abwasserbauwerkref=t_id,
                         )
+
+                    elif layer_name == "vw_tww_catchment_area":
+                        ili_label = self.model_classes_interlis.einzugsgebiet_text(
+                            **self._textpos_common(
+                                # label, "einzugsgebiet_text", geojson_crs_def, "CX", self.oid_prefix
+                                label,
+                                "einzugsgebiet_text",
+                                geojson_crs_def,
+                                "CX",
+                                self.oid_prefix,
+                                plantyp,
+                            ),
+                            einzugsgebietref=t_id,
+                        )
+                    else:
+                        logger.warning(
+                            f"Label for {layer_name} `{obj_id}` exists, but that object is not part of the subset export"
+                        )
+                        continue
+                elif "ag64" in self.export_model_groups:
+                    if layer_name == "vw_tww_reach":
+                        ili_label = self.model_classes_interlis.haltung_text(
+                            **self._textpos_common(
+                                # label, "haltung_text", geojson_crs_def, "RX", self.oid_prefix
+                                label,
+                                "haltung_text",
+                                geojson_crs_def,
+                                "RX",
+                                self.oid_prefix,
+                                plantyp,
+                            ),
+                            haltungref=t_id,
+                        )
+
+                    elif layer_name == "vw_tww_wastewater_structure":
+                        ili_label = self.model_classes_interlis.abwasserbauwerk_text(
+                            **self._textpos_common(
+                                # label, "abwasserbauwerk_text", geojson_crs_def, "WX", self.oid_prefix
+                                label,
+                                "abwasserbauwerk_text",
+                                geojson_crs_def,
+                                "WX",
+                                self.oid_prefix,
+                                plantyp,
+                            ),
+                            abwasserbauwerkref=t_id,
+                        )
+
                     else:
                         logger.warning(
                             f"Unknown layer `{layer_name}` for label with id '{obj_id}'. Label will be ignored",
@@ -3561,10 +3581,13 @@ class InterlisExporterToIntermediateSchema:
                         )
                         continue
 
-            self.abwasser_session.add(ili_label)
-            print(".", end="")
-        logger.info("done")
-        self.abwasser_session.flush()
+                    self.abwasser_session.add(ili_label)
+                    print(".", end="")
+                logger.info("done")
+                self.abwasser_session.flush()
+
+        else:
+            logger.warning("No labels found - check if labels in tww-layers are activated!")
 
     def close_sessions(self):
         self.tww_session.close()
