@@ -25,19 +25,19 @@ from ...interlis.interlis_model_mapping.model_interlis_vsa_kek import (
     ModelInterlisVsaKek,
 )
 
-from tww_hooks.capabilities.mapping import (
+from teksi_hooks.capabilities.mapping import (
     EffectiveModelMappingCapability,
 )
-from tww_hooks.models.canonical_object import (
+from teksi_hooks.models.canonical_object import (
     CanonicalIdentityMapping,
 )
-from tww_hooks.models.mapping import (
+from teksi_hooks.models.mapping import (
     AttributeMapping,
     ClassMapping,
     ForeignKeyMapping,
     RelationContext,
 )
-from tww_hooks.services.relation_context_provider import (
+from teksi_hooks.services.relation_context_provider import (
     RelationContextProvider,
 )
 

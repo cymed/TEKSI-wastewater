@@ -22,7 +22,7 @@ from teksi_wastewater.hooks.adapters.tww_rights_evaluator_factory import (
     TwwRightsEvaluatorFactory,
 )
 
-from tww_hooks.evaluators.rights import (
+from teksi_hooks.evaluators.rights import (
     RightsEvaluatorFactory,
 )
 from teksi_wastewater.hooks.services.tww_change_creation_service import (

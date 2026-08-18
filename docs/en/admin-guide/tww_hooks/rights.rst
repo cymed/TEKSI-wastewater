@@ -113,35 +113,38 @@ Example:
          gross_costs:
            update: [DBW_GEP]
 
-Settings
---------
+Settings and Defaults
+---------------------
 
 ``settings.allow_transitive_transitions``
    Controls whether state transition checks may consider transitive
    transitions.
 
-``settings.defaults``
-   Defines default rules applied by the resolver when a class does not define
-   its own corresponding rule set.
+``defaults.create_rules``
+   Defines reusable create rules. These are parsed as lightweight
+   declarations and interpreted by rules creation logic later.
 
-``settings.validation_rules``
+``defaults.validation_rules``
    Defines reusable validation rules. These are parsed as lightweight
    validation declarations and interpreted by validation logic later.
 
-Default Rules
+``defaults.wildcard_attributes``
+   Defines reusable attribute name wildcards. These are parsed as lightweight
+   declarations and interpreted by validation logic later.
+
+Defaults
 -------------
 
-Defaults are defined below ``settings.defaults``.
+Defaults are defined below ``defaults``.
 
 Example:
 
 .. code-block:: yaml
 
-   settings:
-     defaults:
-       create_rules:
-         - ownership:
-             attribute: fk_provider
+   defaults:
+     create_rules:
+       - ownership:
+           attribute: fk_provider
 
 This example means that classes without explicit create rules inherit a
 default ownership rule based on ``fk_provider``.

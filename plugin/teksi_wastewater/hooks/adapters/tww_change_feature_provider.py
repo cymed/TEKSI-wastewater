@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
+from collections.abc import Mapping
 
 from teksi_hooks.capabilities.review import (
-    ChangeFeatureProvider,
+    ChangeObjectProvider,
 )
 from teksi_hooks.models.review import (
     ReviewFeature,
@@ -11,27 +13,31 @@ from teksi_hooks.models.review import (
 from teksi_hooks.models.validation import (
     Change,
 )
-
-from ..adapters.tww_relation_lookup_adapter import (
-    TwwRelationLookupAdapter,
+from teksi_hooks.capabilities.canonical_object import (
+    CanonicalGeometryCapability,
+)
+from teksi_hooks.capabilitites.relation_lookup import (
+    RelationLookupCapability,
 )
 
 
 @dataclass(slots=True)
-class TwwChangeFeatureProvider(
-    ChangeFeatureProvider,
+class TwwChangeObjectProvider(
+    ChangeObjectProvider,
 ):
     """
-    Plugin-side provider for old and new review features.
+    Plugin-side provider for review feature state.
 
-    This adapter translates canonical Change objects into ReviewFeature
-    instances by reading from TEKSI Wastewater schemas or future projected
-    feature stores.
+    The provider supplies old and new feature representations used by
+    ChangeReviewExportService when preparing review features.
+
+    Geometry extraction and change analysis are handled by the hook-side
+    ChangeReviewExportService.
     """
 
-    live_lookup: TwwRelationLookupAdapter
-
-    new_lookup: TwwRelationLookupAdapter | None = None
+    live_lookup: RelationLookupCapability
+    geometry_capability: CanonicalGeometryCapability
+    new_lookup: RelationLookupCapability | None = None
 
     def old_feature(
         self,
@@ -47,10 +53,12 @@ class TwwChangeFeatureProvider(
         return ReviewFeature(
             class_id=change.table_name,
             object_id=change.object_id,
-            attributes=dict(
+            attributes=self._attribute_values(
+                change.table_name,
                 current_object.values,
             ),
             geometries=self._geometry_values(
+                change.table_name,
                 current_object.values,
             ),
         )
@@ -59,49 +67,47 @@ class TwwChangeFeatureProvider(
         self,
         change: Change,
     ) -> ReviewFeature | None:
-        attributes = {
-
-            change.old_values,
-            change.new_values,
-        }
+        """
+        Return the proposed feature state represented by the change.
+        """
 
         return ReviewFeature(
             class_id=change.table_name,
             object_id=change.object_id,
-            attributes=attributes,
+            attributes=self._attribute_values(
+                change.table_name,
+                change.new_values,
+            ),
             geometries=self._geometry_values(
-                attributes,
+                change.table_name,
+                change.new_values,
             ),
         )
 
-    def   _geometry_values(
+    def _geometry_values(
         self,
-        values,
-    ):
+        class_id: str,
+        values: Mapping[str, Any],
+    ) -> dict[str, Any]:
         return {
             key: value
-            for key, value in values.items  
-            if self._looks_like_geometry_attribute(
+            for key, value in values.items()
+            if self.geometry_capability.is_geometry_attribute(
+                class_id,
                 key,
             )
         }
-
-    def _looks_like_geometry_attribute(
-            self,
-            attribute_name  : str,
-    ) -> bool:
-        lowered = attribute_name.lower()
-
-        return (
-            lowered == "geometry"
-            or lowered == "geom"
-            or lowered.startswith(
-                "geom_",
+    
+    def _attribute_values(
+        self,
+        class_id: str,
+        values: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            key: value
+            for key, value in values.items()
+            if not self.geometry_capability.is_geometry_attribute(
+                class_id,
+                key,
             )
-            or lowered.endswith(
-                "_geometry",
-            )
-            or lowered.endswith(
-                "_geom",
-            )
-        )
+        }

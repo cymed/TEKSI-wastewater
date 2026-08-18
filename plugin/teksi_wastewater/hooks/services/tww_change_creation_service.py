@@ -1,28 +1,35 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
-from collections.abc import Sequence
 
 from teksi_hooks.capabilities.canonical_object import (
+    CanonicalGeometryCapability,
     CanonicalModelCapability,
 )
 from teksi_hooks.capabilities.relation_lookup import (
     RelationLookupCapability,
 )
-from teksi_hooks.models.canonical_object import (
-    CanonicalModelMetadata,
-)
-from teksi_hooks.models.effects import (
-    EffectDocument,
-)
-from teksi_hooks.models.review import (
-    ReviewFeature,
+from teksi_hooks.capabilities.review import (
+    ChangeObjectProvider,
 )
 from teksi_hooks.evaluators.rights import (
     RightsEvaluationContext,
     RightsEvaluator,
+)
+from teksi_hooks.models.canonical_object import (
+    CanonicalModelMetadata,
+    CanonicalObjectIdentity,
+)
+from teksi_hooks.models.effects import (
+    EffectDocument,
+    UpdateAttributeEffect,
+)
+from teksi_hooks.models.review import (
+    ReviewFeature,
 )
 from teksi_hooks.models.validation import (
     Change,
@@ -48,6 +55,9 @@ from ..adapters.tww_interlis_service_adapter import (
 )
 from ..adapters.tww_quarantine_runner import (
     TwwQuarantineRunner,
+)
+from ..adapters.tww_relation_lookup_adapter import (
+    TwwRelationLookupAdapter,
 )
 from .tww_diff_schema_service import (
     DiffSchemaWriteResult,
@@ -91,20 +101,21 @@ class RightsEvaluatorFactory(Protocol):
         """
 
 
-class ChangeFeatureProviderFactory(Protocol):
+class ChangeObjectProviderFactory(Protocol):
     """
-    Factory protocol for creating a feature provider for review feature
-    preparation.
+    Factory protocol for creating a canonical object provider for review
+    feature preparation.
     """
 
-    def change_feature_provider(
+    def change_object_provider(
         self,
         *,
         live_schema: str,
         import_schema: str,
-    ):
+        canonical_metadata: CanonicalModelMetadata,
+    ) -> ChangeObjectProvider:
         """
-        Return a ChangeFeatureProvider implementation.
+        Return a ChangeObjectProvider implementation.
         """
 
 
@@ -122,34 +133,23 @@ class ChangeCreationResult:
 
     import_model: str | None = None
 
-    created_models: list[
-        str
-    ] = field(
+    created_models: list[str] = field(
         default_factory=list,
     )
 
     effect_document: EffectDocument | None = None
 
-    changes: list[
-        Change
-    ] = field(
+    changes: list[Change] = field(
         default_factory=list,
     )
 
-    validation_findings: list[
-        ValidationFinding
-    ] = field(
+    validation_findings: list[ValidationFinding] = field(
         default_factory=list,
     )
 
     classified_changes: ClassifiedChanges | None = None
 
-    features_by_class: dict[
-        str,
-        list[
-            ReviewFeature,
-        ],
-    ] = field(
+    features_by_class: dict[str, list[ReviewFeature]] = field(
         default_factory=dict,
     )
 
@@ -196,7 +196,7 @@ class TwwChangeCreationService:
 
     rights_evaluator_factory: RightsEvaluatorFactory | None = None
 
-    feature_provider_factory: ChangeFeatureProviderFactory | None = None
+    object_provider_factory: ChangeObjectProviderFactory | None = None
 
     live_relation_lookup: RelationLookupCapability | None = None
 
@@ -210,10 +210,7 @@ class TwwChangeCreationService:
         validation_log_path: Path | None = None,
         import_schema: str = config.IMPORT_SCHEMA,
         live_schema: str = config.TWW_OD_SCHEMA,
-        metadata: dict[
-            str,
-            str,
-        ] | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> ChangeCreationResult:
         """
         Import an XTF into quarantine and create a tww_diff review job.
@@ -221,7 +218,7 @@ class TwwChangeCreationService:
 
         self._ensure_ready_for_diff_job()
 
-        import_model = (
+        import_model, created_models = (
             self.quarantine_runner.import_xtf_to_quarantine(
                 xtf_file=xtf_file,
                 context=context,
@@ -233,13 +230,18 @@ class TwwChangeCreationService:
             model_names=(
                 import_model,
             ),
-            log_path=validation_log_path,
+            log_path=self._validation_log_path(
+                validation_log_path=validation_log_path,
+                xtf_file=xtf_file,
+                name="validate_import_quarantine",
+            ),
             schema=import_schema,
         )
 
         return self.create_diff_job_from_quarantine(
             job_id=job_id,
             source_model=import_model,
+            created_models=created_models,
             rights_context=rights_context,
             import_schema=import_schema,
             live_schema=live_schema,
@@ -262,18 +264,13 @@ class TwwChangeCreationService:
         job_id: str,
         source_model: str,
         rights_context: RightsEvaluationContext,
-        created_models: Sequence[
-            str
-        ] = (),
+        created_models: Sequence[str] = (),
         import_schema: str = config.IMPORT_SCHEMA,
         live_schema: str = config.TWW_OD_SCHEMA,
-        metadata: dict[
-            str,
-            str,
-        ] | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> ChangeCreationResult:
         """
-        Create a tww_diff re*iew job from an already populated *uarantine
+        Create a tww_diff review job from an already populated quarantine
         schema.
         """
 
@@ -304,13 +301,13 @@ class TwwChangeCreationService:
             canonical_metadata=canonical_metadata,
         )
 
-        changes = self._build_changes(
-            effect_document=effect_document,
-            live_schema=live_schema,
-        )
-
         relation_lookup = self._live_relation_lookup(
             live_schema,
+        )
+
+        changes = self._build_changes(
+            effect_document=effect_document,
+            relation_lookup=relation_lookup,
         )
 
         rights_evaluator = self.rights_evaluator_factory.rights_evaluator(
@@ -324,11 +321,13 @@ class TwwChangeCreationService:
             context=rights_context,
             metadata=workflow_metadata,
         )
+
         review_service = ChangeReviewExportService(
-            feature_provider=(
-                self.feature_provider_factory.change_feature_provider(
+            object_provider=(
+                self.object_provider_factory.change_object_provider(
                     live_schema=live_schema,
                     import_schema=import_schema,
+                    canonical_metadata=canonical_metadata,
                 )
             ),
             geometry_attribute_names_by_class=self._geometry_attribute_map(
@@ -362,4 +361,154 @@ class TwwChangeCreationService:
             classified_changes=classified_changes,
             features_by_class=features_by_class,
             diff_schema_result=diff_schema_result,
+        )
+
+    def _build_changes(
+        self,
+        *,
+        effect_document: EffectDocument,
+        relation_lookup: RelationLookupCapability,
+    ) -> tuple[Change, ...]:
+        """
+        Build row-level Change objects from update effects.
+
+        Constraint effects such as EnforceExistsEffect and
+        EnforceNotExistsEffect are intentionally not converted into changes.
+        They should be evaluated as findings.
+        """
+
+        effects_by_identity: dict[
+            tuple,
+            list[UpdateAttributeEffect],
+        ] = defaultdict(
+            list,
+        )
+
+        identities: dict[
+            tuple,
+            CanonicalObjectIdentity,
+        ] = {}
+
+        for effect in effect_document.effects:
+            if not isinstance(
+                effect,
+                UpdateAttributeEffect,
+            ):
+                continue
+
+            key = effect.identity.key()
+
+            identities[key] = effect.identity
+
+            effects_by_identity[key].append(
+                effect,
+            )
+
+        changes: list[Change] = []
+
+        for key, effects in effects_by_identity.items():
+            identity = identities[key]
+
+            current_object = relation_lookup.current_object(
+                identity,
+            )
+
+            changes.append(
+                self.change_builder.build(
+                    current_object=current_object,
+                    effects=tuple(
+                        effects,
+                    ),
+                )
+            )
+
+        return tuple(
+            changes,
+        )
+
+    def _live_relation_lookup(
+        self,
+        live_schema: str,
+    ) -> RelationLookupCapability:
+        """
+        Return the relation lookup used against the live canonical schema.
+        """
+
+        if self.live_relation_lookup is not None:
+            return self.live_relation_lookup
+
+        return TwwRelationLookupAdapter(
+            schema=live_schema,
+        )
+
+    def _geometry_attribute_map(
+        self,
+        canonical_metadata: CanonicalModelMetadata,
+    ) -> dict[str, tuple[str, ...]]:
+        """
+        Return geometry attribute names keyed by canonical class id.
+        """
+
+        geometry_capability = CanonicalGeometryCapability(
+            metadata=canonical_metadata,
+        )
+
+        return {
+            class_id: geometry_capability.geometry_attribute_names(
+                class_id,
+            )
+            for class_id in canonical_metadata.classes
+        }
+
+    def _ensure_ready_for_diff_job(
+        self,
+    ) -> None:
+        """
+        Ensure required collaborators are configured.
+        """
+
+        missing = []
+
+        if self.effect_projector is None:
+            missing.append(
+                "effect_projector",
+            )
+
+        if self.rights_evaluator_factory is None:
+            missing.append(
+                "rights_evaluator_factory",
+            )
+
+        if self.object_provider_factory is None:
+            missing.append(
+                "object_provider_factory",
+            )
+
+        if missing:
+            raise RuntimeError(
+                "TwwChangeCreationService is not ready for diff job "
+                f"creation. Missing: {', '.join(missing)}"
+            )
+
+    def _validation_log_path(
+        self,
+        *,
+        validation_log_path: Path | None,
+        xtf_file: Path | None = None,
+        name: str,
+    ) -> Path:
+        """
+        Return the validation log path.
+        """
+
+        if validation_log_path is not None:
+            return validation_log_path
+
+        if xtf_file is not None:
+            return xtf_file.with_name(
+                f"{xtf_file.stem}_{name}.log"
+            )
+
+        return Path(
+            f"{name}.log"
         )

@@ -4,7 +4,7 @@ from teksi_hooks.capabilities.mapping import (
     EffectiveModelMappingCapability,
     ModelMappingCapability,
 )
-from tww_hooks.models.mapping import (
+from teksi_hooks.models.mapping import (
     ClassMapping,
     ModelMapping,
 )

@@ -1,366 +1,286 @@
-from tww_hooks.capabilities import ImplicitModelMappingCapability
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from teksi_hooks.models.mapping import (
+    AttributeMapping,
+    ClassMapping,
+    ModelMapping,
+    ValueMapping,
+)
 
 from ...utils.database_utils import (
     DatabaseUtils,
 )
 
+
 @dataclass(slots=True)
-class TwwImplicitModelMappingAdapter(ImplicitModelMappingCapability):
-
+class TwwImplicitModelMappingAdapter:
     """
-    Database-backed mapping capability for TWW dictionary metadata.
+    Database-backed provider for implicit canonical mappings.
 
-    This capability reads metadata from the TWW dictionary tables and exposes
-    lookup methods for resolving INTERLIS class, attribute and value names to
-    canonical internal TWW identifiers.
+    The adapter derives ModelMapping definitions directly from TWW
+    dictionary metadata stored in tww_sys.
 
-    The current implementation expects the dictionary tables to expose
-    language-specific INTERLIS identifier columns such as:
+    The resulting mappings are intended as a fallback source when no
+    explicit ModelMapping definition exists.
 
-    - `ili_name_de`
-    - `ili_name_fr`
-    - `ili_name_en`
+    Language-specific INTERLIS identifiers are resolved from dictionary
+    columns such as:
 
-    Loaded mappings are cached in memory during initialization.
+    - ili_name_de
+    - ili_name_fr
+    - ili_name_en
     """
 
-    def __init__(
-            self,
-            lang: str = "de",
-        ):
+    language: str = "de"
+    schema: str = "tww_sys"
+    table_dictionary: str = "dictionary_od_table"
+    attribute_dictionary: str = "dictionary_od_field"
+    value_dictionary: str = "dictionary_od_values"
+    _model_mapping: ModelMapping | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
 
-        """
-        Initialize the dictionary mapping capability.
+    def __post_init__(
+        self,
+    ) -> None:
+        allowed_languages = {
+            "de",
+            "fr",
+            "en",
+        }
 
-        Parameters
-        ----------
-        lang:
-            Language suffix used for INTERLIS identifier columns.
-            Supported values are `de`, `fr` and `en`.
-        """
-
-        self.lang=lang
-        ALLOWED_LANGS = {"de", "fr", "en"}
-        if self.lang not in ALLOWED_LANGS:
+        if self.language not in allowed_languages:
             raise ValueError(
-                f"Unsupported language: {self.lang}"
+                f"Unsupported language: {self.language!r}"
             )
-        self.schema="tww_sys"
-        self.metadata_tbl="dictionary_od_table"
-        self.metadata_attr="dictionary_od_field"
-        self.metadata_vals="dictionary_od_values"
 
-        self._table_mapping = self._load_table_mapping()
-        self._attribute_mapping = self._load_attribute_mapping()
-        self._value_mapping = self._load_value_mapping()
+        self._model_mapping = self._load_model_mapping()
 
-
-    @property
-    def table_mapping(
+    def model_mapping(
         self,
-    ) -> dict[str, str]:
-        return self._table_mapping
+    ) -> ModelMapping:
+        """
+        Return the complete implicit model mapping.
+        """
+        return self._model_mapping
 
-
-    @property
-    def attribute_mapping(
+    def class_mapping(
         self,
-    ) -> dict[
-        tuple[str, str],
-        tuple[str, str],
-    ]:
-        return self._attribute_mapping
-
-
-    @property
-    def value_mapping(
-        self,
-    ) -> dict[
-        tuple[str, str, str],
-        tuple[str, str, str],
-    ]:
-        return self._value_mapping
- 
-    def class_mapping_for_ili(
-        self,
-        ili_name: str,
-    ) -> str:
+        ili_class_name: str,
+    ) -> ClassMapping | None:
         """
-        Return the canonical TWW table/class identifier for an INTERLIS class.
-
-        Parameters
-        ----------
-        ili_name:
-            INTERLIS class identifier in the configured language.
-
-        Returns
-        -------
-        str
-            Canonical TWW class/table identifier.
+        Return the implicit class mapping for one INTERLIS class.
         """
-
-        return self._table_mapping[ili_name]
-
-    def attribute_mapping_for_ili(
-        self,
-        ili_class: str,
-        ili_attribute: str,
-    ) -> tuple[str, str]:
-        
-        """
-        Return the canonical TWW table and field for an INTERLIS attribute.
-
-        Parameters
-        ----------
-        ili_class:
-            INTERLIS class identifier.
-
-        ili_attribute:
-            INTERLIS attribute identifier.
-
-        Returns
-        -------
-        tuple[str, str]
-            A tuple containing `(table_name, field_name)`.
-        """
-
-        return self._attribute_mapping[
-                (ili_class, ili_attribute)
-            ]
-
-    def value_mapping_for_ili(
-        self,
-        ili_class: str,
-        ili_attribute: str,
-        ili_value: str,
-    ) -> tuple[
-        str,
-        str,
-        str,
-    ]:
-        """
-        Return the canonical TWW value mapping for an INTERLIS value.
-
-        Parameters
-        ----------
-        ili_class:
-            INTERLIS class identifier in the configured language.
-
-        ili_attribute:
-            INTERLIS attribute identifier in the configured language.
-
-        ili_value:
-            INTERLIS value identifier in the configured language.
-
-        Returns
-        -------
-        tuple[str, str, str]
-            Tuple containing:
-
-            - canonical class identifier
-            - canonical attribute identifier
-            - canonical value identifier
-        """
-
-        return self._value_mapping[
-            (
-                ili_class,
-                ili_attribute,
-                ili_value,
-            )
-        ]
-
-    def try_value_mapping_for_ili(
-        self,
-        ili_class: str,
-        ili_attribute: str,
-        ili_value: str,
-    ) -> tuple[
-        str,
-        str,
-        str,
-    ] | None:
-        """
-        Return the canonical TWW value mapping if it exists.
-        """
-
-        return self._value_mapping.get(
-            (
-                ili_class,
-                ili_attribute,
-                ili_value,
-            )
+        return self._model_mapping.classes.get(
+            ili_class_name,
         )
 
-    def _load_value_mapping(
+    def _load_model_mapping(
+        self,
+    ) -> ModelMapping:
+        classes = self._load_class_mappings()
+
+        value_mappings = self._load_value_mappings()
+
+        for (
+            ili_class_name,
+            ili_attribute_name,
+        ), values in value_mappings.items():
+            class_mapping = classes.get(
+                ili_class_name,
+            )
+
+            if class_mapping is None:
+                continue
+
+            attribute_mapping = class_mapping.attributes.get(
+                ili_attribute_name,
+            )
+
+            if attribute_mapping is None:
+                continue
+
+            class_mapping.attributes[
+                ili_attribute_name
+            ] = AttributeMapping(
+                canonical_class_id=attribute_mapping.canonical_class_id,
+                canonical_attr_id=attribute_mapping.canonical_attr_id,
+                foreign_key=attribute_mapping.foreign_key,
+                values=values,
+            )
+
+        return ModelMapping(
+            classes=classes,
+            is_ssot=False,
+        )
+
+    def _load_class_mappings(
         self,
     ) -> dict[
-        tuple[
+        str,
+        ClassMapping,
+    ]:
+        classes: dict[
             str,
+            ClassMapping,
+        ] = {}
+
+        attributes_by_class = self._load_attribute_mappings()
+
+        query = f"""
+            SELECT
+                tablename,
+                ili_name_{self.language}
+            FROM
+                {self.schema}.{self.table_dictionary}
+        """
+
+        for canonical_class_id, ili_class_name in (
+            DatabaseUtils.fetchall(
+                query,
+            )
+        ):
+            if not ili_class_name:
+                continue
+
+            classes[
+                ili_class_name
+            ] = ClassMapping(
+                canonical_class_id=canonical_class_id,
+                attributes=attributes_by_class.get(
+                    ili_class_name,
+                    {},
+                ),
+            )
+
+        return classes
+
+    def _load_attribute_mappings(
+        self,
+    ) -> dict[
+        str,
+        dict[
             str,
-            str,
-        ],
-        tuple[
-            str,
-            str,
-            str,
+            AttributeMapping,
         ],
     ]:
-        """
-        Load INTERLIS value to canonical TWW value mappings.
-
-        Returns
-        -------
-        dict[tuple[str, str, str], tuple[str, str, str]]
-            Mapping from:
-
-                (ili_class, ili_attribute, ili_value)
-
-            to:
-
-                (canonical_class_id, canonical_attr_id, tww_value_id)
-
-        The INTERLIS names are only an intermediate bridge. The resulting
-        ModelMapping should ultimately be keyed by the actual ili2pg runtime
-        class and attribute names.
-        """
-
-        query = """
+        query = f"""
             SELECT
                 t.tablename,
-                f.field_name,
-                v.value_name,
-                t.ili_name_{lang} AS ili_cls_name,
-                f.ili_name_{lang} AS ili_attr_name,
-                v.ili_name_{lang} AS ili_value_name
-            FROM {schema}.{metadata_vals} v
-            INNER JOIN {schema}.{metadata_tbl} t
-                ON t.id = v.class_id
-            INNER JOIN {schema}.{metadata_attr} f
-                ON f.class_id = v.class_id
-               AND f.attribute_id = v.attribute_id;
-            """.format(
-            lang=self.lang,
-            schema=self.schema,
-            metadata_vals=self.metadata_vals,
-            metadata_tbl=self.metadata_tbl,
-            metadata_attr=self.metadata_attr,
-        )
+                a.field_name,
+                t.ili_name_{self.language},
+                a.ili_name_{self.language}
+            FROM
+                {self.schema}.{self.attribute_dictionary} a
+            JOIN
+                {self.schema}.{self.table_dictionary} t
+                    ON t.id = a.class_id
+        """
 
-        mapping: dict[
-            tuple[
+        classes: dict[
+            str,
+            dict[
                 str,
-                str,
-                str,
-            ],
-            tuple[
-                str,
-                str,
-                str,
+                AttributeMapping,
             ],
         ] = {}
 
         for (
-            table_name,
-            field_name,
-            value_name,
-            ili_cls_name,
-            ili_attr_name,
-            ili_value_name,
+            canonical_class_id,
+            canonical_attr_id,
+            ili_class_name,
+            ili_attribute_name,
         ) in DatabaseUtils.fetchall(
             query,
         ):
             if (
-                ili_cls_name is None
-                or ili_attr_name is None
-                or ili_value_name is None
+                not ili_class_name
+                or not ili_attribute_name
             ):
                 continue
 
-            mapping[
-                (
-                    ili_cls_name,
-                    ili_attr_name,
-                    ili_value_name,
-                )
-            ] = (
-                table_name,
-                field_name,
-                value_name,
+            classes.setdefault(
+                ili_class_name,
+                {},
+            )[
+                ili_attribute_name
+            ] = AttributeMapping(
+                canonical_class_id=canonical_class_id,
+                canonical_attr_id=canonical_attr_id,
             )
 
-        return mapping
-        ¨
-    def _load_table_mapping(self):
-        """
-        Load INTERLIS class to canonical TWW table mappings.
+        return classes
 
-        Returns
-        -------
-        dict[str, str]
-            Mapping from INTERLIS class identifier to canonical TWW table name.
-        """
-
-        query = """
+    def _load_value_mappings(
+        self,
+    ) -> dict[
+        tuple[
+            str,
+            str,
+        ],
+        dict[
+            str,
+            ValueMapping,
+        ],
+    ]:
+        query = f"""
             SELECT
-                tablename,
-                ili_name_{lang}
-            FROM {schema}.{metadata_tbl};
-            """.format(lang=self.lang,schema=self.schema, metadata_tbl=self.metadata_tbl)
-        
-        rows = DatabaseUtils.fetchall(query)
-
-        return {
-            ili_name: tablename
-            for tablename, ili_name in rows
-        }
- 
-    def _load_attribute_mapping(self):
-        """
-        Load INTERLIS attribute to canonical TWW field mappings.
-
-        Returns
-        -------
-        dict[tuple[str, str], tuple[str, str]]
-            Mapping from `(ili_class, ili_attribute)` to
-            `(table_name, field_name)`.
+                t.ili_name_{self.language},
+                f.ili_name_{self.language},
+                v.ili_name_{self.language},
+                v.value_name
+            FROM
+                {self.schema}.{self.value_dictionary} v
+            JOIN
+                {self.schema}.{self.table_dictionary} t
+                    ON t.id = v.class_id
+            JOIN
+                {self.schema}.{self.attribute_dictionary} f
+                    ON f.class_id = v.class_id
+                   AND f.attribute_id = v.attribute_id
         """
 
-        query = """
-            SELECT
-                t.tablename,
-                a.field_name,
-                t.ili_name_{lang} as ili_cls_name,
-                a.ili_name_{lang} as ili_attr_name
-            FROM {schema}.{metadata_attr} a
-            INNER JOIN {schema}.{metadata_tbl} t on a.class_id=t.id;
-            """.format(
-                lang=self.lang,
-                schema=self.schema,
-                metadata_attr=self.metadata_attr,
-                metadata_tbl=self.metadata_tbl,
-            )
-        
-        mapping: dict[
-            tuple[str, str],
-            tuple[str, str],
+        mappings: dict[
+            tuple[
+                str,
+                str,
+            ],
+            dict[
+                str,
+                ValueMapping,
+            ],
         ] = {}
 
         for (
-            table_name,
-            field_name,
-            ili_cls_name,
-            ili_attr_name,
-        ) in DatabaseUtils.fetchall(query):
-            mapping[
+            ili_class_name,
+            ili_attribute_name,
+            ili_value_name,
+            canonical_value_id,
+        ) in DatabaseUtils.fetchall(
+            query,
+        ):
+            if (
+                not ili_class_name
+                or not ili_attribute_name
+                or not ili_value_name
+            ):
+                continue
+
+            mappings.setdefault(
                 (
-                    ili_cls_name,
-                    ili_attr_name,
-                )
-            ] = (
-                table_name,
-                field_name,
+                    ili_class_name,
+                    ili_attribute_name,
+                ),
+                {},
+            )[
+                ili_value_name
+            ] = ValueMapping(
+                canonical_value_id=canonical_value_id,
+                value=canonical_value_id,
             )
 
-        return mapping
-    
+        return mappings

@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 from collections.abc import Sequence
 
-from tww_hooks.capabilities.relation_lookup import (
+from teksi_hooks.capabilities.relation_lookup import (
     RelationLookupCapability,
 )
-from tww_hooks.models.canonical_object import (
+from teksi_hooks.models.canonical_object import (
     CanonicalObject,
     CanonicalObjectIdentity,
 )
@@ -22,7 +22,7 @@ class TwwRelationLookupAdapter(
     """
     Plugin-side relation lookup implementation backed by the database.
 
-    This adapter bridges tww_hooks RelationLookupCapability to the
+    This adapter bridges teksi_hooks RelationLookupCapability to the
     TEKSI Wastewater database / ili2pg import schema.
     """
 

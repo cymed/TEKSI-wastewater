@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any
 from collections.abc import Mapping, Sequence
 
-from tww_hooks.capabilities.review import (
+from teksi_hooks.capabilities.review import (
     ReviewArtifactWriter,
 )
-from tww_hooks.models.review import (
+from teksi_hooks.models.review import (
     ReviewFeature,
 )
 

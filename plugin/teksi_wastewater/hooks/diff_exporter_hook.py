@@ -8,7 +8,7 @@ from teksi_hooks.hook import (
     HookMetadata,
 )
 
-from tww_hooks.models.rights import (
+from teksi_hooks.models.rights import (
     RightsEvaluationContext,
 )
 
