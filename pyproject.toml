@@ -19,6 +19,9 @@ dev = [
     "pytest",
 ]
 
+[tool.setuptools.packages.find]
+where = ["plugin"]
+include = ["teksi_wastewater*"]
 
 [build-system]
 requires = ["setuptools>=68"]
