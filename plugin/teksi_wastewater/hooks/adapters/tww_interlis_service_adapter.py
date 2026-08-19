@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from ...interlis.interlis_importer_exporter import InterlisImporterExporter
 
-from teksi_hooks.services import (
+from teksi_hooks.services.interlis import (
     InterlisContext,
     InterlisService,
 )
