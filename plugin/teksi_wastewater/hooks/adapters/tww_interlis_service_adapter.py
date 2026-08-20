@@ -49,6 +49,11 @@ class TwwInterlisContext(InterlisContext):
 
     orgs_path: Path | None = None
 
+    limit_to_selection: bool = False
+    export_orientation: int  = 90
+    include_unplaced: bool = False
+    disable_validation: bool = False
+
     def apply(
         self,
         importer_exporter,
@@ -132,9 +137,6 @@ class TwwInterlisServiceAdapter(InterlisService):
                 ),
                 filter_nulls=(
                     context.filter_nulls
-                ),
-                disable_validation=(
-                    context.disable_validation
                 ),
                 srid=context.srid,
             )

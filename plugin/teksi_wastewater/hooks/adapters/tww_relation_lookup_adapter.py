@@ -35,7 +35,7 @@ class TwwRelationLookupAdapter(
         local_attribute: str,
         related_attribute: str,
         value: Any,
-    ) -> Sequence:
+    ) -> Sequence[CanonicalObjectIdentity]:
         query = DatabaseUtils.compose_sql(
             """
             SELECT {identity_attribute}

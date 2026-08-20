@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from teksi_hooks.capabilities.mapping import (
+    ImplicitModelMappingCapability,
+)
 from teksi_hooks.models.mapping import (
     AttributeMapping,
     ClassMapping,
@@ -15,29 +18,32 @@ from ...utils.database_utils import (
 
 
 @dataclass(slots=True)
-class TwwImplicitModelMappingAdapter:
+class TwwImplicitModelMappingAdapter(
+    ImplicitModelMappingCapability,
+):
     """
     Database-backed provider for implicit canonical mappings.
 
-    The adapter derives ModelMapping definitions directly from TWW
-    dictionary metadata stored in tww_sys.
+    The adapter derives ModelMapping definitions from TWW dictionary metadata
+    stored in tww_sys.
 
-    The resulting mappings are intended as a fallback source when no
-    explicit ModelMapping definition exists.
+    The resulting mappings are intended as fallback mappings when no explicit
+    ModelMapping definition exists.
 
     Language-specific INTERLIS identifiers are resolved from dictionary
-    columns such as:
-
-    - ili_name_de
-    - ili_name_fr
-    - ili_name_en
+    columns such as ili_name_de, ili_name_fr and ili_name_en.
     """
 
     language: str = "de"
+
     schema: str = "tww_sys"
+
     table_dictionary: str = "dictionary_od_table"
+
     attribute_dictionary: str = "dictionary_od_field"
+
     value_dictionary: str = "dictionary_od_values"
+
     _model_mapping: ModelMapping | None = field(
         init=False,
         default=None,
@@ -66,6 +72,12 @@ class TwwImplicitModelMappingAdapter:
         """
         Return the complete implicit model mapping.
         """
+
+        if self._model_mapping is None:
+            raise RuntimeError(
+                "Implicit model mapping has not been loaded."
+            )
+
         return self._model_mapping
 
     def class_mapping(
@@ -75,89 +87,210 @@ class TwwImplicitModelMappingAdapter:
         """
         Return the implicit class mapping for one INTERLIS class.
         """
-        return self._model_mapping.classes.get(
+
+        return self.try_class_definition(
             ili_class_name,
+        )
+
+    def class_definition(
+        self,
+        class_id: str,
+    ) -> ClassMapping:
+        """
+        Return the class mapping for a source-model class identifier.
+        """
+
+        class_mapping = self.try_class_definition(
+            class_id,
+        )
+
+        if class_mapping is None:
+            raise KeyError(
+                f"Unknown class: {class_id!r}"
+            )
+
+        return class_mapping
+
+    def try_class_definition(
+        self,
+        class_id: str,
+    ) -> ClassMapping | None:
+        """
+        Return a class mapping if it exists.
+        """
+
+        return self.model_mapping().classes.get(
+            class_id,
+        )
+
+    def attribute_definition(
+        self,
+        class_id: str,
+        attribute_name: str,
+    ) -> AttributeMapping:
+        """
+        Return the attribute mapping for a source-model attribute.
+        """
+
+        attribute_mapping = self.try_attribute_definition(
+            class_id,
+            attribute_name,
+        )
+
+        if attribute_mapping is None:
+            raise KeyError(
+                f"Unknown attribute {attribute_name!r} "
+                f"for class {class_id!r}"
+            )
+
+        return attribute_mapping
+
+    def try_attribute_definition(
+        self,
+        class_id: str,
+        attribute_name: str,
+    ) -> AttributeMapping | None:
+        """
+        Return an attribute mapping if it exists.
+        """
+
+        class_mapping = self.try_class_definition(
+            class_id,
+        )
+
+        if class_mapping is None:
+            return None
+
+        return class_mapping.attributes.get(
+            attribute_name,
+        )
+
+    def value_mapping(
+        self,
+        class_id: str,
+        attribute_name: str,
+        value: str,
+    ) -> ValueMapping:
+        """
+        Return the value mapping for a source-model value.
+        """
+
+        value_mapping = self.try_value_mapping(
+            class_id,
+            attribute_name,
+            value,
+        )
+
+        if value_mapping is None:
+            raise KeyError(
+                f"Unknown value {value!r} for "
+                f"{class_id!r}.{attribute_name!r}"
+            )
+
+        return value_mapping
+
+    def try_value_mapping(
+        self,
+        class_id: str,
+        attribute_name: str,
+        value: str,
+    ) -> ValueMapping | None:
+        """
+        Return a value mapping if it exists.
+        """
+
+        attribute_mapping = self.try_attribute_definition(
+            class_id,
+            attribute_name,
+        )
+
+        if attribute_mapping is None:
+            return None
+
+        return attribute_mapping.values.get(
+            value,
         )
 
     def _load_model_mapping(
         self,
     ) -> ModelMapping:
-        classes = self._load_class_mappings()
+        attributes_by_class = self._load_attribute_mappings()
+        values_by_attribute = self._load_value_mappings()
 
-        value_mappings = self._load_value_mappings()
+        classes: dict[
+            str,
+            ClassMapping,
+        ] = {}
+
+        ili_name_column = self._ili_name_column()
+
+        query = DatabaseUtils.compose_sql(
+            """
+            SELECT
+                tablename,
+                {ili_name_column} AS ili_class_name
+            FROM
+                {schema}.{table_dictionary}
+            """,
+            ili_name_column=DatabaseUtils.wrap_identifier(
+                ili_name_column,
+            ),
+            schema=DatabaseUtils.wrap_identifier(
+                self.schema,
+            ),
+            table_dictionary=DatabaseUtils.wrap_identifier(
+                self.table_dictionary,
+            ),
+        )
 
         for (
+            canonical_class_id,
             ili_class_name,
-            ili_attribute_name,
-        ), values in value_mappings.items():
-            class_mapping = classes.get(
-                ili_class_name,
-            )
-
-            if class_mapping is None:
+        ) in DatabaseUtils.fetchall(
+            query,
+        ):
+            if not ili_class_name:
                 continue
 
-            attribute_mapping = class_mapping.attributes.get(
+            attributes = {}
+
+            for (
                 ili_attribute_name,
-            )
+                attribute_mapping,
+            ) in attributes_by_class.get(
+                ili_class_name,
+                {},
+            ).items():
+                values = values_by_attribute.get(
+                    (
+                        ili_class_name,
+                        ili_attribute_name,
+                    ),
+                    {},
+                )
 
-            if attribute_mapping is None:
-                continue
+                attributes[
+                    ili_attribute_name
+                ] = AttributeMapping(
+                    canonical_class_id=attribute_mapping.canonical_class_id,
+                    canonical_attr_id=attribute_mapping.canonical_attr_id,
+                    foreign_key=attribute_mapping.foreign_key,
+                    values=dict(
+                        values,
+                    ),
+                )
 
-            class_mapping.attributes[
-                ili_attribute_name
-            ] = AttributeMapping(
-                canonical_class_id=attribute_mapping.canonical_class_id,
-                canonical_attr_id=attribute_mapping.canonical_attr_id,
-                foreign_key=attribute_mapping.foreign_key,
-                values=values,
+            classes[
+                ili_class_name
+            ] = ClassMapping(
+                canonical_class_id=canonical_class_id,
+                attributes=attributes,
             )
 
         return ModelMapping(
             classes=classes,
             is_ssot=False,
         )
-
-    def _load_class_mappings(
-        self,
-    ) -> dict[
-        str,
-        ClassMapping,
-    ]:
-        classes: dict[
-            str,
-            ClassMapping,
-        ] = {}
-
-        attributes_by_class = self._load_attribute_mappings()
-
-        query = f"""
-            SELECT
-                tablename,
-                ili_name_{self.language}
-            FROM
-                {self.schema}.{self.table_dictionary}
-        """
-
-        for canonical_class_id, ili_class_name in (
-            DatabaseUtils.fetchall(
-                query,
-            )
-        ):
-            if not ili_class_name:
-                continue
-
-            classes[
-                ili_class_name
-            ] = ClassMapping(
-                canonical_class_id=canonical_class_id,
-                attributes=attributes_by_class.get(
-                    ili_class_name,
-                    {},
-                ),
-            )
-
-        return classes
 
     def _load_attribute_mappings(
         self,
@@ -168,18 +301,34 @@ class TwwImplicitModelMappingAdapter:
             AttributeMapping,
         ],
     ]:
-        query = f"""
+        ili_name_column = self._ili_name_column()
+
+        query = DatabaseUtils.compose_sql(
+            """
             SELECT
-                t.tablename,
-                a.field_name,
-                t.ili_name_{self.language},
-                a.ili_name_{self.language}
+                t.tablename AS canonical_class_id,
+                a.field_name AS canonical_attr_id,
+                t.{ili_name_column} AS ili_class_name,
+                a.{ili_name_column} AS ili_attribute_name
             FROM
-                {self.schema}.{self.attribute_dictionary} a
+                {schema}.{attribute_dictionary} a
             JOIN
-                {self.schema}.{self.table_dictionary} t
+                {schema}.{table_dictionary} t
                     ON t.id = a.class_id
-        """
+            """,
+            ili_name_column=DatabaseUtils.wrap_identifier(
+                ili_name_column,
+            ),
+            schema=DatabaseUtils.wrap_identifier(
+                self.schema,
+            ),
+            attribute_dictionary=DatabaseUtils.wrap_identifier(
+                self.attribute_dictionary,
+            ),
+            table_dictionary=DatabaseUtils.wrap_identifier(
+                self.table_dictionary,
+            ),
+        )
 
         classes: dict[
             str,
@@ -227,22 +376,42 @@ class TwwImplicitModelMappingAdapter:
             ValueMapping,
         ],
     ]:
-        query = f"""
+        ili_name_column = self._ili_name_column()
+
+        query = DatabaseUtils.compose_sql(
+            """
             SELECT
-                t.ili_name_{self.language},
-                f.ili_name_{self.language},
-                v.ili_name_{self.language},
-                v.value_name
+                t.{ili_name_column} AS ili_class_name,
+                f.{ili_name_column} AS ili_attribute_name,
+                v.{ili_name_column} AS ili_value_name,
+                v.value_id AS canonical_value_id,
+                v.value_name AS canonical_value_name
             FROM
-                {self.schema}.{self.value_dictionary} v
+                {schema}.{value_dictionary} v
             JOIN
-                {self.schema}.{self.table_dictionary} t
+                {schema}.{table_dictionary} t
                     ON t.id = v.class_id
             JOIN
-                {self.schema}.{self.attribute_dictionary} f
+                {schema}.{attribute_dictionary} f
                     ON f.class_id = v.class_id
                    AND f.attribute_id = v.attribute_id
-        """
+            """,
+            ili_name_column=DatabaseUtils.wrap_identifier(
+                ili_name_column,
+            ),
+            schema=DatabaseUtils.wrap_identifier(
+                self.schema,
+            ),
+            value_dictionary=DatabaseUtils.wrap_identifier(
+                self.value_dictionary,
+            ),
+            table_dictionary=DatabaseUtils.wrap_identifier(
+                self.table_dictionary,
+            ),
+            attribute_dictionary=DatabaseUtils.wrap_identifier(
+                self.attribute_dictionary,
+            ),
+        )
 
         mappings: dict[
             tuple[
@@ -260,6 +429,7 @@ class TwwImplicitModelMappingAdapter:
             ili_attribute_name,
             ili_value_name,
             canonical_value_id,
+            canonical_value_name,
         ) in DatabaseUtils.fetchall(
             query,
         ):
@@ -280,7 +450,16 @@ class TwwImplicitModelMappingAdapter:
                 ili_value_name
             ] = ValueMapping(
                 canonical_value_id=canonical_value_id,
-                value=canonical_value_id,
+                value=canonical_value_name,
             )
 
         return mappings
+
+    def _ili_name_column(
+        self,
+    ) -> str:
+        """
+        Return the dictionary column containing localized INTERLIS names.
+        """
+
+        return f"ili_name_{self.language}"

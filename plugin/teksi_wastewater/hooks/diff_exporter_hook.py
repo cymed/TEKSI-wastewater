@@ -1,4 +1,6 @@
 from __future__ import annotations
+        
+import os
 
 from pathlib import Path
 
@@ -94,15 +96,20 @@ class Hook(
             )
         )
 
-        provider_rights_path = self._optional_path(
-            parameters.get(
-                "provider_rights_path",
+        hook_config_dir = (
+            parameters.hook_config_dir
+            or (
+                Path(os.environ["TWW_DIFF_CONF_DIR"])
+                if "TWW_DIFF_CONF_DIR" in os.environ
+                else None
             )
         )
 
-        provider_privileges_path = self._optional_path(
+        provider_rights_path,provider_privileges_path = self._eval_rights_profile(
+            hook_config_dir,
             parameters.get(
-                "provider_privileges_path",
+                "rights_profile",
+                'default',
             )
         )
 
@@ -217,4 +224,31 @@ class Hook(
 
         return Path(
             value,
+        )
+
+    def _eval_rights_profile(
+        self,
+        config_dir: Path | None,
+        rights_profile: str,
+    ) -> tuple[Path | None, Path | None]:
+        if config_dir is None:
+            raise TeksiHookError
+        
+        profile_dir = config_dir / rights_profile
+
+        provider_rights_path = (
+            profile_dir / "provider-rights.yaml"
+        )
+
+        provider_privileges_path = (
+            profile_dir / "provider-privileges.yaml"
+        )
+
+        return (
+            provider_rights_path
+            if provider_rights_path.exists()
+            else None,
+            provider_privileges_path
+            if provider_privileges_path.exists()
+            else None,
         )

@@ -240,9 +240,7 @@ class TwwRelationContextProvider(
             if referenced_class_mapping.canonical_class_id is None:
                 continue
 
-            referenced_identity = self._identity_mapping(
-                referenced_class_mapping,
-            )
+            referenced_identity = referenced_class_mapping.identity
 
             for local_column in relationship.local_columns:
                 if not local_column.foreign_keys:
@@ -266,27 +264,6 @@ class TwwRelationContextProvider(
                 )
 
         return mappings
-
-    def _identity_mapping(
-        self,
-        class_mapping: ClassMapping,
-    ) -> CanonicalIdentityMapping:
-        """
-        Return the effective identity mapping for a class mapping.
-
-        If the mapping does not explicitly define one, use the default
-        ili2pg identity convention:
-
-            t_ili_tid -> obj_id
-        """
-
-        if class_mapping.identity is not None:
-            return class_mapping.identity
-
-        return CanonicalIdentityMapping(
-            source_attribute="t_ili_tid",
-            canonical_attribute="obj_id",
-        )
 
     def _column_attribute_name(
         self,

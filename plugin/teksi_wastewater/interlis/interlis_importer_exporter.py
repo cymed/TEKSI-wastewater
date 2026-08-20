@@ -161,6 +161,7 @@ class InterlisImporterExporter:
             filter_nulls=filter_nulls,
             srid = srid,
             import_orgs=import_orgs,
+            disable_validation=False,
             progress_scope=ProgressScope(
                 start=self.current_progress,
                 end=35,
@@ -228,6 +229,7 @@ class InterlisImporterExporter:
         filter_nulls=True,
         srid: int = 2056,
         import_orgs=False,
+        disable_validation=False,
         progress_scope: ProgressScope = ProgressScope(),
     ):
             import_model, created_models=self._prepare_interlis_import(
@@ -250,8 +252,9 @@ class InterlisImporterExporter:
                 )
 
             # Validating the input file
-            self._progress_done_in_scope(progress_scope, 10, "Validating the input file...")
-            self._import_validate_xtf_file(xtf_file_input)
+            if not disable_validation:
+                self._progress_done_in_scope(progress_scope, 10, "Validating the input file...")
+                self._import_validate_xtf_file(xtf_file_input)
 
 
             # Prepare the temporary ili2pg model
