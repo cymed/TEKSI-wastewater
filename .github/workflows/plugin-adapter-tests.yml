@@ -4,8 +4,8 @@ on:
   push:
     paths:
       - "plugin/teksi_wastewater/**"
-      - "plugin/tests/unittest/adapters/**"
-      - "plugin/tests/dockerised/adapters/**"
+      - "plugin/tests/unittest/**"
+      - "plugin/tests/dockerised/hooks/**"
       - "plugin_hooks/**"
       - "pyproject.toml"
       - "plugin/scripts/download-interlis-libs.sh"
@@ -18,8 +18,8 @@ on:
       - main
     paths:
       - "plugin/teksi_wastewater/**"
-      - "plugin/tests/unittest/adapters/**"
-      - "plugin/tests/dockerised/adapters/**"
+      - "plugin/tests/unittest/**"
+      - "plugin/tests/dockerised/hooks/**"
       - "plugin_hooks/**"
       - "pyproject.toml"
       - "plugin/scripts/download-interlis-libs.sh"
@@ -57,7 +57,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/plugin:${{ github.workspace }}/plugin_hooks:${{ github.workspace }}
         run: |
-          pytest -v plugin/tests/unittest/adapters
+          pytest -v plugin/tests/unittest
 
   integration-tests-db-qgis:
     name: Adapter integration tests with DB/QGIS
@@ -135,7 +135,7 @@ jobs:
             . /tmp/teksi-hooks-venv/bin/activate
             PYTHONPATH=/usr/src/plugin:/usr/src/plugin_hooks:/usr/src:/usr/share/qgis/python \
             xvfb-run python -m pytest \
-              /usr/src/plugin/tests/dockerised/adapters \
+              /usr/src/plugin/tests/dockerised/hooks \
               -v -c /usr/src/plugin/pytest.ini -m no_qgis
           '
 
