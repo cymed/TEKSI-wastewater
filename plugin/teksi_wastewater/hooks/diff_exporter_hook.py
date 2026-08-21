@@ -1,8 +1,10 @@
 from __future__ import annotations
-        
-import os
 
+from enum import StrEnum        
+import os
 from pathlib import Path
+from uuid import uuid4
+
 
 from teksi_hooks.hook import (
     HookBase,
@@ -10,10 +12,10 @@ from teksi_hooks.hook import (
     HookMetadata,
 )
 
-from teksi_hooks.models.rights import (
-    RightsEvaluationContext,
-)
+from teksi_hooks.models.oid import Standardoid
+from teksi_hooks.models.rights import RightsEvaluationContext
 
+from teksi_hooks.exceptions import RightsEvaluationError
 from teksi_wastewater.interlis import (
     config,
 )
@@ -24,13 +26,14 @@ from teksi_wastewater.hooks.adapters.tww_quarantine_runner import (
     TwwQuarantineRunner,
 )
 from teksi_wastewater.hooks.services.tww_change_creation_service import (
-    ChangeFeatureProviderFactory,
+    ChangeObjectProviderFactory,
     QuarantineEffectProjector,
     RightsEvaluatorFactory,
     TwwChangeCreationService,
 )
 from teksi_wastewater.hooks.services.tww_diff_schema_service import (
     TwwDiffSchemaService,
+    DiffJobMode,
 )
 
 
@@ -45,7 +48,7 @@ class Hook(
         {
             QuarantineEffectProjector,
             RightsEvaluatorFactory,
-            ChangeFeatureProviderFactory,
+            ChangeObjectProviderFactory,
         }
     )
 
@@ -68,7 +71,14 @@ class Hook(
     ) -> None:
         parameters = context.parameters
 
-        job_id = parameters["job_id"]
+        job_id = parameters.get("job_id",str(uuid4()))
+
+        job_mode = DiffJobMode(
+            parameters.get(
+                "job_mode",
+                DiffJobMode.CREATE,
+            )
+        )
 
         xtf_file = Path(
             parameters["xtf_input"],
@@ -90,14 +100,19 @@ class Hook(
             )
         )
 
-        ag64_adaptation_path = self._optional_path(
+        incremental_xtf = self._optional_path(
             parameters.get(
-                "ag64_adaptation_path",
+                "incremental_xtf",
             )
         )
 
+        incremental_import_schema = parameters.get(
+                "incremental_import_schema",
+                None
+            )
+
         hook_config_dir = (
-            parameters.hook_config_dir
+            self._optional_path(parameters.hook_config_dir)
             or (
                 Path(os.environ["TWW_DIFF_CONF_DIR"])
                 if "TWW_DIFF_CONF_DIR" in os.environ
@@ -113,8 +128,8 @@ class Hook(
             )
         )
 
-        provider_oid = parameters["provider_oid"]
-        dataowner_oid = parameters["dataowner_oid"]
+        provider_oid = Standardoid(parameters["provider_oid"])
+        dataowner_oid = Standardoid(parameters["dataowner_oid"])
 
         rights_context = RightsEvaluationContext(
             provider_oid=provider_oid,
@@ -145,62 +160,36 @@ class Hook(
                 QuarantineEffectProjector,
             ),
             rights_evaluator_factory=rights_evaluator_factory,
-            feature_provider_factory=context.capability(
-                ChangeFeatureProviderFactory,
+            object_provider_factory=context.capability(
+                ChangeObjectProviderFactory,
             ),
             diff_schema_service=TwwDiffSchemaService(),
         )
 
         result = service.create_diff_job_from_xtf(
             job_id=job_id,
+            job_mode=job_mode,
             xtf_file=xtf_file,
             orgs_path=orgs_path,
-            ag64_adaptation_path=ag64_adaptation_path,
+            incremental_xtf=incremental_xtf,
+            incremental_import_schema=incremental_import_schema,
             rights_context=rights_context,
             import_schema=import_schema,
             live_schema=live_schema,
             metadata={
-                "source_file": str(
-                    xtf_file,
-                ),
-                "orgs_path": (
-                    str(
-                        orgs_path,
-                    )
-                    if orgs_path is not None
-                    else None
-                ),
-                "ag64_adaptation_path": (
-                    str(
-                        ag64_adaptation_path,
-                    )
-                    if ag64_adaptation_path is not None
-                    else None
-                ),
                 "provider_rights_path": (
-                    str(
-                        provider_rights_path,
-                    )
+                    str(provider_rights_path)
                     if provider_rights_path is not None
                     else None
                 ),
                 "provider_privileges_path": (
-                    str(
-                        provider_privileges_path,
-                    )
+                    str(provider_privileges_path)
                     if provider_privileges_path is not None
                     else None
                 ),
-                "import_schema": import_schema,
-                "live_schema": live_schema,
-                "provider_oid": str(
-                    provider_oid,
-                ),
-                "dataowner_oid": str(
-                    dataowner_oid,
-                ),
             },
         )
+
 
         context.logger.info(
             "Created tww_diff review job '%s' with %s rows.",
@@ -232,7 +221,7 @@ class Hook(
         rights_profile: str,
     ) -> tuple[Path | None, Path | None]:
         if config_dir is None:
-            raise TeksiHookError
+            raise RightsEvaluationError.from_message("Config Directory not set.")
         
         profile_dir = config_dir / rights_profile
 

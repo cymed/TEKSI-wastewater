@@ -28,7 +28,7 @@ def wait_for_db():
     raise RuntimeError("Database not ready")
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module")
 def clean_db_once():
     run('docker compose exec db sh -c "dropdb -U postgres --if-exists tww"')
     run('docker compose exec db sh -c "createdb -U postgres tww"')
@@ -36,7 +36,7 @@ def clean_db_once():
     yield
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def configure_database():
     DatabaseUtils.databaseConfig.PGSERVICE = None
     DatabaseUtils.databaseConfig.PGHOST = "localhost"

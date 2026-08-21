@@ -538,7 +538,7 @@ def test_diff_schema_service_insert_metadata_executes_insert_and_returns_id() ->
         cursor=cursor,
         job_id="job-1",
         metadata={
-            "source_model": "AG64",
+            "source_model": "Abwasserkataster_AG_V2_LV95",
             "source_file": "/tmp/input.xtf",
             "import_schema": "import_schema",
             "live_schema": "tww_od",
@@ -557,7 +557,7 @@ def test_diff_schema_service_insert_metadata_executes_insert_and_returns_id() ->
         "job-1",
         "pending",
         True,
-        "AG64",
+        "Abwasserkataster_AG_V2_LV95",
         "/tmp/input.xtf",
         "import_schema",
         "tww_od",

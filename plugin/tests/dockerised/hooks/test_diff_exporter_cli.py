@@ -13,13 +13,17 @@ DATA_DIR = (
     / "qgis"
     / "data"
 )
+CONFIG_DIR = (
+    Path(__file__).parent
+    / "config"
+)
 
 
 def test_diff_exporter_creates_review_job(
     clean_db_once,
 ):
     job_id = "test-diff-job"
-
+    job_mode = "create"
     xtf_file = (
         DATA_DIR
         / "minimal-dataset.xtf"
@@ -30,14 +34,25 @@ def test_diff_exporter_creates_review_job(
         / "minimal-dataset-organisation-arbon-only.xtf"
     )
 
+    incremental_xtf = (
+        DATA_DIR
+        / "minimal-dataset-organisation-arbon-only_ag64.xtf"
+    )
+    incremental_import_schema = "xtf_agxx"
+
     run_cli(
         (
             "diff-exporter "
             f"--job-id {job_id} "
+            f"--job_mode {job_mode} "
             f"--xtf-input {xtf_file} "
             "--provider-oid ch:1 "
             "--dataowner-oid ch:1 "
             f"--orgs-path {orgs_file}"
+            f"--incremental-xtf {incremental_xtf}"
+            f"--incremental-import-schema {incremental_import_schema}"
+            "--rights_profile CI"
+            f"--hook_config_dir {CONFIG_DIR}"
         )
     )
 

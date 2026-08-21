@@ -14,6 +14,10 @@ from ...utils.database_utils import (
     DatabaseUtils,
 )
 
+class DiffJobMode(StrEnum):
+    CREATE = "create"
+    REPLACE = "replace"
+    REFRESH = "refresh"
 
 @dataclass(slots=True)
 class DiffSchemaWriteResult:
