@@ -3,19 +3,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-import pytest
-
 from teksi_hooks.models.canonical_object import (
     CanonicalAttributeMetadata,
     CanonicalClassMetadata,
     CanonicalModelMetadata,
     CanonicalValueMetadata,
-    Localization,
+    LocalizedMetadata,
 )
 
-from teksi_wastewater.hooks.adapters import tww_canonical_model_adapter as adapter_module
+from teksi_wastewater.hooks.adapters import (
+    tww_canonical_model_adapter as adapter_module,
+)
 from teksi_wastewater.hooks.adapters.tww_canonical_model_adapter import (
     TwwCanonicalModelAdapter,
+    TwwLanguage,
 )
 
 
@@ -89,6 +90,7 @@ def _patch_database_utils(
             wrap_identifier,
         ),
     )
+
     monkeypatch.setattr(
         adapter_module.DatabaseUtils,
         "wrap_literal",
@@ -96,6 +98,7 @@ def _patch_database_utils(
             wrap_literal,
         ),
     )
+
     monkeypatch.setattr(
         adapter_module.DatabaseUtils,
         "compose_sql",
@@ -103,6 +106,7 @@ def _patch_database_utils(
             compose_sql,
         ),
     )
+
     monkeypatch.setattr(
         adapter_module.DatabaseUtils,
         "fetchall_dict",
@@ -123,41 +127,52 @@ def test_tww_canonical_model_adapter_loads_classes(
             {
                 "source_id": 1,
                 "class_id": "wastewater_structure",
-                "localized_name": "Abwasserbauwerk",
+                "name_de": "Abwasserbauwerk",
+                "name_fr": "Ouvrage des eaux usées",
+                "name_it": "Manufatto delle acque di scarico",
+                "name_en": "Wastewater structure",
             },
             {
                 "source_id": 2,
                 "class_id": "reach",
-                "localized_name": "Haltung",
+                "name_de": "Haltung",
+                "name_fr": "Tronçon",
+                "name_it": "Tratta",
+                "name_en": "Reach",
             },
         ],
     )
 
     adapter = TwwCanonicalModelAdapter()
 
-    classes = adapter.classes(
-        language=Localization.de,
-    )
+    classes = adapter.classes()
 
     assert classes == {
         "wastewater_structure": CanonicalClassMetadata(
             source_id=1,
             identifier="wastewater_structure",
-            localized=classes["wastewater_structure"].localized,
+            localized=LocalizedMetadata(
+                names={
+                    "de": "Abwasserbauwerk",
+                    "fr": "Ouvrage des eaux usées",
+                    "it": "Manufatto delle acque di scarico",
+                    "en": "Wastewater structure",
+                },
+            ),
         ),
         "reach": CanonicalClassMetadata(
             source_id=2,
             identifier="reach",
-            localized=classes["reach"].localized,
+            localized=LocalizedMetadata(
+                names={
+                    "de": "Haltung",
+                    "fr": "Tronçon",
+                    "it": "Tratta",
+                    "en": "Reach",
+                },
+            ),
         ),
     }
-
-    assert classes["wastewater_structure"].localized.name(
-        Localization.de,
-    ) == "Abwasserbauwerk"
-    assert classes["reach"].localized.name(
-        Localization.de,
-    ) == "Haltung"
 
 
 def test_tww_canonical_model_adapter_loads_attributes(
@@ -171,14 +186,20 @@ def test_tww_canonical_model_adapter_loads_attributes(
                 "class_id": "wastewater_structure",
                 "attribute_id": "status",
                 "field_datatype": "integer",
-                "localized_name": "Status",
+                "field_name_de": "Status",
+                "field_name_fr": "État",
+                "field_name_it": "Stato",
+                "field_name_en": "Status",
             },
             {
                 "source_id": 11,
                 "class_id": "wastewater_structure",
                 "attribute_id": "detail_geometry3d_geometry",
                 "field_datatype": "geometry",
-                "localized_name": "Detailgeometrie",
+                "field_name_de": "Detailgeometrie",
+                "field_name_fr": "Géométrie détaillée",
+                "field_name_it": "Geometria dettagliata",
+                "field_name_en": "Detail geometry",
             },
         ],
     )
@@ -187,7 +208,6 @@ def test_tww_canonical_model_adapter_loads_attributes(
 
     attributes = adapter.attributes(
         class_id="wastewater_structure",
-        language=Localization.de,
     )
 
     assert attributes[
@@ -199,12 +219,14 @@ def test_tww_canonical_model_adapter_loads_attributes(
         source_id=10,
         identifier="status",
         field_datatype="integer",
-        localized=attributes[
-            (
-                "wastewater_structure",
-                "status",
-            )
-        ].localized,
+        localized=LocalizedMetadata(
+            names={
+                "de": "Status",
+                "fr": "État",
+                "it": "Stato",
+                "en": "Status",
+            },
+        ),
     )
 
     geometry_attribute = attributes[
@@ -214,11 +236,19 @@ def test_tww_canonical_model_adapter_loads_attributes(
         )
     ]
 
-    assert geometry_attribute.identifier == "detail_geometry3d_geometry"
-    assert geometry_attribute.field_datatype == "geometry"
-    assert geometry_attribute.localized.name(
-        Localization.de,
-    ) == "Detailgeometrie"
+    assert geometry_attribute == CanonicalAttributeMetadata(
+        source_id=11,
+        identifier="detail_geometry3d_geometry",
+        field_datatype="geometry",
+        localized=LocalizedMetadata(
+            names={
+                "de": "Detailgeometrie",
+                "fr": "Géométrie détaillée",
+                "it": "Geometria dettagliata",
+                "en": "Detail geometry",
+            },
+        ),
+    )
 
 
 def test_tww_canonical_model_adapter_loads_values(
@@ -232,14 +262,20 @@ def test_tww_canonical_model_adapter_loads_values(
                 "class_id": "wastewater_structure",
                 "attribute_id": "status",
                 "value_id": "other.planned",
-                "localized_name": "geplant",
+                "value_name_de": "geplant",
+                "value_name_fr": "planifié",
+                "value_name_it": "pianificato",
+                "value_name_en": "planned",
             },
             {
                 "source_id": 101,
                 "class_id": "wastewater_structure",
                 "attribute_id": "status",
                 "value_id": "other.in_operation",
-                "localized_name": "in Betrieb",
+                "value_name_de": "in Betrieb",
+                "value_name_fr": "en service",
+                "value_name_it": "in esercizio",
+                "value_name_en": "in operation",
             },
         ],
     )
@@ -249,38 +285,45 @@ def test_tww_canonical_model_adapter_loads_values(
     values = adapter.values(
         class_id="wastewater_structure",
         attribute_id="status",
-        language=Localization.de,
     )
 
-    planned = values[
+    assert values[
         (
             "wastewater_structure",
             "status",
             "other.planned",
         )
-    ]
-
-    assert planned == CanonicalValueMetadata(
+    ] == CanonicalValueMetadata(
         source_id=100,
         identifier="other.planned",
-        localized=planned.localized,
+        localized=LocalizedMetadata(
+            names={
+                "de": "geplant",
+                "fr": "planifié",
+                "it": "pianificato",
+                "en": "planned",
+            },
+        ),
     )
-    assert planned.localized.name(
-        Localization.de,
-    ) == "geplant"
 
-    in_operation = values[
+    assert values[
         (
             "wastewater_structure",
             "status",
             "other.in_operation",
         )
-    ]
-
-    assert in_operation.identifier == "other.in_operation"
-    assert in_operation.localized.name(
-        Localization.de,
-    ) == "in Betrieb"
+    ] == CanonicalValueMetadata(
+        source_id=101,
+        identifier="other.in_operation",
+        localized=LocalizedMetadata(
+            names={
+                "de": "in Betrieb",
+                "fr": "en service",
+                "it": "in esercizio",
+                "en": "in operation",
+            },
+        ),
+    )
 
 
 def test_tww_canonical_model_adapter_builds_canonical_model(
@@ -292,7 +335,10 @@ def test_tww_canonical_model_adapter_builds_canonical_model(
             {
                 "source_id": 1,
                 "class_id": "reach",
-                "localized_name": "Haltung",
+                "name_de": "Haltung",
+                "name_fr": "Tronçon",
+                "name_it": "Tratta",
+                "name_en": "Reach",
             },
         ],
         attribute_rows=[
@@ -301,7 +347,10 @@ def test_tww_canonical_model_adapter_builds_canonical_model(
                 "class_id": "reach",
                 "attribute_id": "progression_geometry",
                 "field_datatype": "geometry",
-                "localized_name": "Verlauf",
+                "field_name_de": "Verlauf",
+                "field_name_fr": "Tracé",
+                "field_name_it": "Tracciato",
+                "field_name_en": "Progression geometry",
             },
         ],
         value_rows=[
@@ -310,26 +359,29 @@ def test_tww_canonical_model_adapter_builds_canonical_model(
                 "class_id": "reach",
                 "attribute_id": "status",
                 "value_id": "active",
-                "localized_name": "aktiv",
+                "value_name_de": "aktiv",
+                "value_name_fr": "actif",
+                "value_name_it": "attivo",
+                "value_name_en": "active",
             },
         ],
     )
 
     adapter = TwwCanonicalModelAdapter()
 
-    metadata = adapter.canonical_model(
-        language=Localization.de,
-    )
+    metadata = adapter.canonical_model()
 
     assert isinstance(
         metadata,
         CanonicalModelMetadata,
     )
+
     assert set(
         metadata.classes,
     ) == {
         "reach",
     }
+
     assert set(
         metadata.attributes,
     ) == {
@@ -338,6 +390,7 @@ def test_tww_canonical_model_adapter_builds_canonical_model(
             "progression_geometry",
         ),
     }
+
     assert set(
         metadata.values,
     ) == {
@@ -346,6 +399,13 @@ def test_tww_canonical_model_adapter_builds_canonical_model(
             "status",
             "active",
         ),
+    }
+
+    assert metadata.classes["reach"].localized.names == {
+        "de": "Haltung",
+        "fr": "Tronçon",
+        "it": "Tratta",
+        "en": "Reach",
     }
 
 
@@ -358,7 +418,10 @@ def test_tww_canonical_model_adapter_returns_single_class_metadata(
             {
                 "source_id": 1,
                 "class_id": "reach",
-                "localized_name": "Haltung",
+                "name_de": "Haltung",
+                "name_fr": "Tronçon",
+                "name_it": "Tratta",
+                "name_en": "Reach",
             },
         ],
     )
@@ -367,18 +430,20 @@ def test_tww_canonical_model_adapter_returns_single_class_metadata(
 
     metadata = adapter.class_metadata(
         "reach",
-        language=Localization.de,
     )
 
     assert metadata is not None
     assert metadata.identifier == "reach"
-    assert metadata.localized.name(
-        Localization.de,
-    ) == "Haltung"
+
+    assert metadata.localized.names == {
+        "de": "Haltung",
+        "fr": "Tronçon",
+        "it": "Tratta",
+        "en": "Reach",
+    }
 
     assert adapter.class_metadata(
         "unknown",
-        language=Localization.de,
     ) is None
 
 
@@ -393,7 +458,10 @@ def test_tww_canonical_model_adapter_returns_single_attribute_metadata(
                 "class_id": "reach",
                 "attribute_id": "progression_geometry",
                 "field_datatype": "geometry",
-                "localized_name": "Verlauf",
+                "field_name_de": "Verlauf",
+                "field_name_fr": "Tracé",
+                "field_name_it": "Tracciato",
+                "field_name_en": "Progression geometry",
             },
         ],
     )
@@ -403,17 +471,22 @@ def test_tww_canonical_model_adapter_returns_single_attribute_metadata(
     metadata = adapter.attribute_metadata(
         "reach",
         "progression_geometry",
-        language=Localization.de,
     )
 
     assert metadata is not None
     assert metadata.identifier == "progression_geometry"
     assert metadata.field_datatype == "geometry"
 
+    assert metadata.localized.names == {
+        "de": "Verlauf",
+        "fr": "Tracé",
+        "it": "Tracciato",
+        "en": "Progression geometry",
+    }
+
     assert adapter.attribute_metadata(
         "reach",
         "unknown",
-        language=Localization.de,
     ) is None
 
 
@@ -428,7 +501,10 @@ def test_tww_canonical_model_adapter_returns_single_value_metadata(
                 "class_id": "wastewater_structure",
                 "attribute_id": "status",
                 "value_id": "other.planned",
-                "localized_name": "geplant",
+                "value_name_de": "geplant",
+                "value_name_fr": "planifié",
+                "value_name_it": "pianificato",
+                "value_name_en": "planned",
             },
         ],
     )
@@ -439,20 +515,22 @@ def test_tww_canonical_model_adapter_returns_single_value_metadata(
         "wastewater_structure",
         "status",
         "other.planned",
-        language=Localization.de,
     )
 
     assert metadata is not None
     assert metadata.identifier == "other.planned"
-    assert metadata.localized.name(
-        Localization.de,
-    ) == "geplant"
+
+    assert metadata.localized.names == {
+        "de": "geplant",
+        "fr": "planifié",
+        "it": "pianificato",
+        "en": "planned",
+    }
 
     assert adapter.value_metadata(
         "wastewater_structure",
         "status",
         "unknown",
-        language=Localization.de,
     ) is None
 
 
@@ -467,14 +545,20 @@ def test_tww_canonical_model_adapter_detects_geometry_attributes(
                 "class_id": "reach",
                 "attribute_id": "progression_geometry",
                 "field_datatype": "geometry",
-                "localized_name": "Verlauf",
+                "field_name_de": "Verlauf",
+                "field_name_fr": "Tracé",
+                "field_name_it": "Tracciato",
+                "field_name_en": "Progression geometry",
             },
             {
                 "source_id": 11,
                 "class_id": "reach",
                 "attribute_id": "identifier",
                 "field_datatype": "text",
-                "localized_name": "Bezeichnung",
+                "field_name_de": "Bezeichnung",
+                "field_name_fr": "Désignation",
+                "field_name_it": "Identificatore",
+                "field_name_en": "Identifier",
             },
         ],
     )
@@ -484,19 +568,16 @@ def test_tww_canonical_model_adapter_detects_geometry_attributes(
     assert adapter.is_geometry_attribute(
         "reach",
         "progression_geometry",
-        language=Localization.de,
     )
 
     assert not adapter.is_geometry_attribute(
         "reach",
         "identifier",
-        language=Localization.de,
     )
 
     assert not adapter.is_geometry_attribute(
         "reach",
         "missing_attribute",
-        language=Localization.de,
     )
 
 
@@ -511,21 +592,30 @@ def test_tww_canonical_model_adapter_returns_geometry_attribute_names(
                 "class_id": "reach",
                 "attribute_id": "progression_geometry",
                 "field_datatype": "geometry",
-                "localized_name": "Verlauf",
+                "field_name_de": "Verlauf",
+                "field_name_fr": "Tracé",
+                "field_name_it": "Tracciato",
+                "field_name_en": "Progression geometry",
             },
             {
                 "source_id": 11,
                 "class_id": "reach",
                 "attribute_id": "identifier",
                 "field_datatype": "text",
-                "localized_name": "Bezeichnung",
+                "field_name_de": "Bezeichnung",
+                "field_name_fr": "Désignation",
+                "field_name_it": "Identificatore",
+                "field_name_en": "Identifier",
             },
             {
                 "source_id": 12,
                 "class_id": "wastewater_structure",
                 "attribute_id": "detail_geometry3d_geometry",
                 "field_datatype": " geometry ",
-                "localized_name": "Detailgeometrie",
+                "field_name_de": "Detailgeometrie",
+                "field_name_fr": "Géométrie détaillée",
+                "field_name_it": "Geometria dettagliata",
+                "field_name_en": "Detail geometry",
             },
         ],
     )
@@ -534,44 +624,37 @@ def test_tww_canonical_model_adapter_returns_geometry_attribute_names(
 
     assert adapter.geometry_attribute_names(
         "reach",
-        language=Localization.de,
     ) == (
         "progression_geometry",
     )
 
     assert adapter.geometry_attribute_names(
         "wastewater_structure",
-        language=Localization.de,
     ) == (
         "detail_geometry3d_geometry",
     )
 
 
-def test_tww_canonical_model_adapter_uses_schema_and_language_in_queries(
+def test_tww_canonical_model_adapter_uses_custom_schema_and_all_language_columns(
     monkeypatch,
 ) -> None:
     queries = _patch_database_utils(
         monkeypatch,
-        class_rows=[],
-        attribute_rows=[],
-        value_rows=[],
     )
 
     adapter = TwwCanonicalModelAdapter(
         schema="custom_sys",
     )
 
-    adapter.classes(
-        language=Localization.fr,
-    )
+    adapter.classes()
+
     adapter.attributes(
         class_id="reach",
-        language=Localization.fr,
     )
+
     adapter.values(
         class_id="reach",
         attribute_id="status",
-        language=Localization.fr,
     )
 
     combined = "\n".join(
@@ -579,19 +662,85 @@ def test_tww_canonical_model_adapter_uses_schema_and_language_in_queries(
     )
 
     assert '"custom_sys"' in combined
-    assert "name_fr" in combined
-    assert "field_name_fr" in combined
-    assert "value_name_fr" in combined
-    assert "reach" in combined
-    assert "status" in combined
+
+    for column_name in (
+        "name_de",
+        "name_fr",
+        "name_it",
+        "name_en",
+        "field_name_de",
+        "field_name_fr",
+        "field_name_it",
+        "field_name_en",
+        "value_name_de",
+        "value_name_fr",
+        "value_name_it",
+        "value_name_en",
+    ):
+        assert column_name in combined
+
+    assert "'reach'" in combined
+    assert "'status'" in combined
 
 
-def test_tww_canonical_model_adapter_empty_localized_metadata() -> None:
+def test_tww_canonical_model_adapter_omits_empty_localizations() -> None:
     adapter = TwwCanonicalModelAdapter()
 
     localized = adapter._localized_metadata(
-        language=Localization.de,
-        value=None,
+        row={
+            "name_de": "Haltung",
+            "name_fr": None,
+            "name_it": "",
+            "name_en": "Reach",
+        },
+        name_prefix="name",
+    )
+
+    assert localized == LocalizedMetadata(
+        names={
+            "de": "Haltung",
+            "en": "Reach",
+        },
+    )
+
+
+def test_tww_canonical_model_adapter_respects_configured_languages() -> None:
+    adapter = TwwCanonicalModelAdapter(
+        languages=(
+            TwwLanguage.DE,
+            TwwLanguage.FR,
+        ),
+    )
+
+    localized = adapter._localized_metadata(
+        row={
+            "name_de": "Haltung",
+            "name_fr": "Tronçon",
+            "name_it": "Tratta",
+            "name_en": "Reach",
+        },
+        name_prefix="name",
+    )
+
+    assert localized == LocalizedMetadata(
+        names={
+            "de": "Haltung",
+            "fr": "Tronçon",
+        },
+    )
+
+
+def test_tww_canonical_model_adapter_returns_empty_localized_metadata() -> None:
+    adapter = TwwCanonicalModelAdapter()
+
+    localized = adapter._localized_metadata(
+        row={
+            "name_de": None,
+            "name_fr": "",
+            "name_it": None,
+            "name_en": "",
+        },
+        name_prefix="name",
     )
 
     assert localized == LocalizedMetadata()

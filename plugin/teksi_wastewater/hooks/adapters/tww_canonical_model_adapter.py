@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-from ...utils.database_utils import (
-    DatabaseUtils,
-)
+from enum import StrEnum
 
 from teksi_hooks.models.canonical_object import (
     CanonicalAttributeMetadata,
@@ -12,70 +9,78 @@ from teksi_hooks.models.canonical_object import (
     CanonicalModelMetadata,
     CanonicalValueMetadata,
     LocalizedMetadata,
-    Localization,
 )
+
+from ...utils.database_utils import (
+    DatabaseUtils,
+)
+
+
+class TwwLanguage(StrEnum):
+    """
+    Languages available in TEKSI Wastewater dictionary metadata.
+    """
+
+    DE = "de"
+    FR = "fr"
+    IT = "it"
+    EN = "en"
 
 
 @dataclass(slots=True)
 class TwwCanonicalModelAdapter:
     """
-    Plugin-side adapter that loads canonical TEKSI Wastewater model metadata
-    from tww_sys dictionary tables.
+    Load canonical TEKSI Wastewater model metadata.
 
-    The adapter exposes database metadata through teksi_hooks canonical metadata
-    models. Database access and tww_sys table knowledge intentionally stay in
-    the plugin layer.
+    Stable canonical identifiers and generic localized metadata are exposed
+    through teksi_hooks models. Knowledge of the language columns available
+    in tww_sys remains in the wastewater adapter.
     """
 
     schema: str = "tww_sys"
 
+    languages: tuple[
+        TwwLanguage,
+        ...,
+    ] = (
+        TwwLanguage.DE,
+        TwwLanguage.FR,
+        TwwLanguage.IT,
+        TwwLanguage.EN,
+    )
+
     def canonical_model(
         self,
-        language: Localization = Localization.de,
     ) -> CanonicalModelMetadata:
         """
         Load complete canonical model metadata.
         """
 
         return CanonicalModelMetadata(
-            classes=self.classes(
-                language=language,
-            ),
-            attributes=self.attributes(
-                language=language,
-            ),
-            values=self.values(
-                language=language,
-            ),
+            classes=self.classes(),
+            attributes=self.attributes(),
+            values=self.values(),
         )
 
     def classes(
         self,
-        language: Localization = Localization.de,
     ) -> dict[
         str,
         CanonicalClassMetadata,
     ]:
         """
-        Load canonical class metadata keyed by class_id.
-
-        Canonical class_id corresponds to dictionary_od_table.tablename.
+        Load canonical class metadata keyed by class identifier.
         """
-
-        localized_table_column = self._qualified_identifier(
-            table_alias="t",
-            column_name=self._localized_column_name(
-                prefix="name",
-                language=language,
-            ),
-        )
 
         query = DatabaseUtils.compose_sql(
             """
             SELECT
                 t.id AS source_id,
                 t.tablename AS class_id,
-                {localized_table_column} AS localized_name
+                t.name_de,
+                t.name_fr,
+                t.name_it,
+                t.name_en
             FROM {schema}.dictionary_od_table t
             ORDER BY
                 t.tablename
@@ -83,20 +88,19 @@ class TwwCanonicalModelAdapter:
             schema=DatabaseUtils.wrap_identifier(
                 self.schema,
             ),
-            localized_table_column=localized_table_column,
         )
 
-        rows = DatabaseUtils.fetchall_dict(query)
+        rows = DatabaseUtils.fetchall_dict(
+            query,
+        )
 
         return {
             row["class_id"]: CanonicalClassMetadata(
                 source_id=row["source_id"],
                 identifier=row["class_id"],
                 localized=self._localized_metadata(
-                    language=language,
-                    value=row.get(
-                        "localized_name",
-                    ),
+                    row=row,
+                    name_prefix="name",
                 ),
             )
             for row in rows
@@ -105,7 +109,6 @@ class TwwCanonicalModelAdapter:
     def attributes(
         self,
         class_id: str | None = None,
-        language: Localization = Localization.de,
     ) -> dict[
         tuple[
             str,
@@ -114,26 +117,13 @@ class TwwCanonicalModelAdapter:
         CanonicalAttributeMetadata,
     ]:
         """
-        Load canonical attribute metadata keyed by (class_id, attribute_id).
+        Load canonical attribute metadata.
 
-        Canonical class_id is resolved from dictionary_od_table.tablename.
-        Canonical attribute_id corresponds to dictionary_od_field.field_name.
-
-        field_datatype is loaded from dictionary_od_field.field_datatype and
-        is used to detect geometry attributes, for example
-        field_datatype='geometry'.
+        Results are keyed by ``(class_id, attribute_id)``.
         """
 
         where_clause = self._class_where_clause(
             class_id,
-        )
-
-        localized_field_column = self._qualified_identifier(
-            table_alias="f",
-            column_name=self._localized_column_name(
-                prefix="field_name",
-                language=language,
-            ),
         )
 
         query = DatabaseUtils.compose_sql(
@@ -143,7 +133,10 @@ class TwwCanonicalModelAdapter:
                 t.tablename AS class_id,
                 f.field_name AS attribute_id,
                 f.field_datatype AS field_datatype,
-                {localized_field_column} AS localized_name
+                f.field_name_de,
+                f.field_name_fr,
+                f.field_name_it,
+                f.field_name_en
             FROM {schema}.dictionary_od_field f
             JOIN {schema}.dictionary_od_table t
                 ON t.id = f.class_id
@@ -155,11 +148,12 @@ class TwwCanonicalModelAdapter:
             schema=DatabaseUtils.wrap_identifier(
                 self.schema,
             ),
-            localized_field_column=localized_field_column,
             where_clause=where_clause,
         )
 
-        rows = DatabaseUtils.fetchall_dict(query)
+        rows = DatabaseUtils.fetchall_dict(
+            query,
+        )
 
         return {
             (
@@ -172,10 +166,8 @@ class TwwCanonicalModelAdapter:
                     "field_datatype",
                 ),
                 localized=self._localized_metadata(
-                    language=language,
-                    value=row.get(
-                        "localized_name",
-                    ),
+                    row=row,
+                    name_prefix="field_name",
                 ),
             )
             for row in rows
@@ -185,7 +177,6 @@ class TwwCanonicalModelAdapter:
         self,
         class_id: str | None = None,
         attribute_id: str | None = None,
-        language: Localization = Localization.de,
     ) -> dict[
         tuple[
             str,
@@ -195,12 +186,10 @@ class TwwCanonicalModelAdapter:
         CanonicalValueMetadata,
     ]:
         """
-        Load canonical value metadata keyed by
-        (class_id, attribute_id, value_id).
+        Load canonical value metadata.
 
-        Canonical class_id is resolved from dictionary_od_table.tablename.
-        Canonical attribute_id is resolved from dictionary_od_field.field_name.
-        Canonical value_id corresponds to dictionary_od_values.value_name.
+        Results are keyed by
+        ``(class_id, attribute_id, value_id)``.
         """
 
         where_parts = []
@@ -229,14 +218,6 @@ class TwwCanonicalModelAdapter:
             where_parts,
         )
 
-        localized_value_column = self._qualified_identifier(
-            table_alias="v",
-            column_name=self._localized_column_name(
-                prefix="value_name",
-                language=language,
-            ),
-        )
-
         query = DatabaseUtils.compose_sql(
             """
             SELECT
@@ -244,7 +225,10 @@ class TwwCanonicalModelAdapter:
                 t.tablename AS class_id,
                 f.field_name AS attribute_id,
                 v.value_name AS value_id,
-                {localized_value_column} AS localized_name
+                v.value_name_de,
+                v.value_name_fr,
+                v.value_name_it,
+                v.value_name_en
             FROM {schema}.dictionary_od_values v
             JOIN {schema}.dictionary_od_table t
                 ON t.id = v.class_id
@@ -260,11 +244,12 @@ class TwwCanonicalModelAdapter:
             schema=DatabaseUtils.wrap_identifier(
                 self.schema,
             ),
-            localized_value_column=localized_value_column,
             where_clause=where_clause,
         )
 
-        rows = DatabaseUtils.fetchall_dict(query)
+        rows = DatabaseUtils.fetchall_dict(
+            query,
+        )
 
         return {
             (
@@ -275,10 +260,8 @@ class TwwCanonicalModelAdapter:
                 source_id=row["source_id"],
                 identifier=row["value_id"],
                 localized=self._localized_metadata(
-                    language=language,
-                    value=row.get(
-                        "localized_name",
-                    ),
+                    row=row,
+                    name_prefix="value_name",
                 ),
             )
             for row in rows
@@ -287,15 +270,12 @@ class TwwCanonicalModelAdapter:
     def class_metadata(
         self,
         class_id: str,
-        language: Localization = Localization.de,
     ) -> CanonicalClassMetadata | None:
         """
         Return metadata for one canonical class.
         """
 
-        return self.classes(
-            language=language,
-        ).get(
+        return self.classes().get(
             class_id,
         )
 
@@ -303,7 +283,6 @@ class TwwCanonicalModelAdapter:
         self,
         class_id: str,
         attribute_id: str,
-        language: Localization = Localization.de,
     ) -> CanonicalAttributeMetadata | None:
         """
         Return metadata for one canonical attribute.
@@ -311,7 +290,6 @@ class TwwCanonicalModelAdapter:
 
         return self.attributes(
             class_id=class_id,
-            language=language,
         ).get(
             (
                 class_id,
@@ -324,7 +302,6 @@ class TwwCanonicalModelAdapter:
         class_id: str,
         attribute_id: str,
         value_id: str,
-        language: Localization = Localization.de,
     ) -> CanonicalValueMetadata | None:
         """
         Return metadata for one canonical value.
@@ -333,7 +310,6 @@ class TwwCanonicalModelAdapter:
         return self.values(
             class_id=class_id,
             attribute_id=attribute_id,
-            language=language,
         ).get(
             (
                 class_id,
@@ -345,22 +321,18 @@ class TwwCanonicalModelAdapter:
     def geometry_attribute_names(
         self,
         class_id: str,
-        language: Localization = Localization.de,
     ) -> tuple[
         str,
-        ...
+        ...,
     ]:
         """
-        Return canonical geometry attribute names for one class.
-
-        Geometry attributes are detected through field_datatype='geometry'.
+        Return canonical geometry attribute identifiers for one class.
         """
 
         return tuple(
             attribute.identifier
             for attribute in self.attributes(
                 class_id=class_id,
-                language=language,
             ).values()
             if self._is_geometry_datatype(
                 attribute.field_datatype,
@@ -371,16 +343,14 @@ class TwwCanonicalModelAdapter:
         self,
         class_id: str,
         attribute_id: str,
-        language: Localization = Localization.de,
     ) -> bool:
         """
-        Return whether a canonical attribute is a geometry attribute.
+        Return whether an attribute is a geometry attribute.
         """
 
         attribute = self.attribute_metadata(
             class_id=class_id,
             attribute_id=attribute_id,
-            language=language,
         )
 
         if attribute is None:
@@ -388,6 +358,30 @@ class TwwCanonicalModelAdapter:
 
         return self._is_geometry_datatype(
             attribute.field_datatype,
+        )
+
+    def _localized_metadata(
+        self,
+        *,
+        row: dict,
+        name_prefix: str,
+    ) -> LocalizedMetadata:
+        """
+        Build generic localized metadata from TWW dictionary columns.
+        """
+
+        names = {
+            language.value: value
+            for language in self.languages
+            if (
+                value := row.get(
+                    f"{name_prefix}_{language.value}",
+                )
+            )
+        }
+
+        return LocalizedMetadata(
+            names=names,
         )
 
     def _is_geometry_datatype(
@@ -435,43 +429,3 @@ class TwwCanonicalModelAdapter:
                 where_parts,
             ),
         )
-
-    def _localized_metadata(
-        self,
-        *,
-        language: Localization,
-        value: str | None,
-    ) -> LocalizedMetadata:
-        if not value:
-            return LocalizedMetadata()
-
-        return LocalizedMetadata(
-            names={
-                language: value,
-            },
-        )
-
-    def _localized_column_name(
-        self,
-        *,
-        prefix: str,
-        language: Localization,
-    ) -> str:
-        return f"{prefix}_{language.value}"
-
-    def _qualified_identifier(
-        self,
-        *,
-        table_alias: str,
-        column_name: str,
-    ):
-        return DatabaseUtils.compose_sql(
-            "{table_alias}.{column_name}",
-            table_alias=DatabaseUtils.wrap_identifier(
-                table_alias,
-            ),
-            column_name=DatabaseUtils.wrap_identifier(
-                column_name,
-            ),
-        )
-
