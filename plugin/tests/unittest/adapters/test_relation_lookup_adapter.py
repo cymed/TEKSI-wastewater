@@ -150,7 +150,7 @@ def test_tww_relation_lookup_adapter_current_object_excludes_identity_attributes
         lambda query: [
             {
                 "obj_id": "ch000000ws000001",
-                "secondary_id": "abc",
+                "identifier": "abc",
                 "status": "operational",
                 "last_modification": "2026-01-01T12:00:00",
             }
@@ -165,7 +165,7 @@ def test_tww_relation_lookup_adapter_current_object_excludes_identity_attributes
         class_id="wastewater_structure",
         attributes={
             "obj_id": "ch000000ws000001",
-            "secondary_id": "abc",
+            "identifier": "abc",
         },
     )
 

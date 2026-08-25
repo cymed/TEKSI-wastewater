@@ -710,7 +710,6 @@ def test_diff_schema_service_write_persists_metadata_and_features(
         },
         validation_success=True,
         job_status="pending",
-        reset_job=True,
     )
 
     assert result.job_db_id == 999
@@ -782,7 +781,6 @@ def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_fa
     service.write(
         job_id="job-1",
         features_by_class={},
-        reset_job=False,
     )
 
     executed_queries = [

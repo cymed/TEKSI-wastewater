@@ -104,26 +104,32 @@ class TwwRelationLookupAdapter(
         self,
         identity: CanonicalObjectIdentity,
     ) -> list[dict[str, Any]]:
-        where_parts = []
-
-        for attribute, value in identity.attributes.items():
-            where_parts.append(
-                DatabaseUtils.compose_sql(
-                    "{attribute} = {value}",
-                    attribute=DatabaseUtils.wrap_identifier(
-                        attribute,
-                    ),
-                    value=DatabaseUtils.wrap_literal(
-                        value,
-                    ),
-                )
+        if not identity.attributes:
+            raise ValueError(
+                "Canonical object identity must contain at least one attribute."
             )
 
-        where_clause = DatabaseUtils.compose_sql(
-            " AND ",
-        ).join(
-            where_parts,
-        )
+        where_parts = [
+            DatabaseUtils.compose_sql(
+                "{attribute} = {value}",
+                attribute=DatabaseUtils.wrap_identifier(
+                    attribute,
+                ),
+                value=DatabaseUtils.wrap_literal(
+                    value,
+                ),
+            )
+            for attribute, value in identity.attributes.items()
+        ]
+
+        where_clause = where_parts[0]
+
+        for where_part in where_parts[1:]:
+            where_clause = DatabaseUtils.compose_sql(
+                "{left} AND {right}",
+                left=where_clause,
+                right=where_part,
+            )
 
         query = DatabaseUtils.compose_sql(
             """
@@ -141,4 +147,6 @@ class TwwRelationLookupAdapter(
             where_clause=where_clause,
         )
 
-        return DatabaseUtils.fetchall_dict(query)
+        return DatabaseUtils.fetchall_dict(
+            query,
+        )
