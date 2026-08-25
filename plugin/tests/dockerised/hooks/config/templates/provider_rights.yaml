@@ -1,55 +1,25 @@
 providers:
 
-  - name: Muster Ingenieure AG
-    organisation_oid: ch000000geping01
+  - name: GEP Büro
+    organisation_oid: ch080qwzPR000020
 
     permissions:
-      - dataowner_oid: ch000000awverbnd
+      - dataowner_oid: ch080qwzPR000018
         privileges:
           - DBW_GEP
 
-      - dataowner_oid: ch000000awgde001
-        privileges:
-          - DBW_WI
-          - DBW_GEP
-
-      - dataowner_oid: ch000000awgde002
-        privileges:
-          - FI_BU
-
-  - name: Muster Ingenieure SA
-    organisation_oid: ch000000geping02
+  - name: VSA
+    organisation_oid: ch080qwzPR000017
 
     permissions:
-      - dataowner_oid: ch000000awgde002
-        privileges:
-          - DBW_WI
-          - DBW_GEP
-
-  - name: Muster Geometer GmbH
-    organisation_oid: ch000000dbwwi001
-
-    permissions:
-      - dataowner_oid: ch000000awverbnd
+      - dataowner_oid: ch080qwzPR000018
         privileges:
           - DBW_WI
 
-
-  - name: Verband Abwasser Region Beispiel
-    organisation_oid: ch000000awverbnd
-
-    permissions:
-      - dataowner_oid: ch000000awverbnd
-        privileges:
-          - FI_BU
-
-  - name: Gemeinde Musterfingen
-    organisation_oid: ch000000awgde001
+  - name: Gemeinde A
+    organisation_oid: ch080qwzGE000001
 
     permissions:
-      - dataowner_oid: ch000000awgde001
+      - dataowner_oid: ch080qwzPR000018
         privileges:
           - FI_BU
-
-  - name: Gemeinde Musterlingen
-    organisation_oid: ch000000awgde002

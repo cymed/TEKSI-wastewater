@@ -155,6 +155,8 @@ class InterlisImporterExporter:
         import_orgs=False,
         user_interaction=False,
     ):
+        if not self.schema:
+            self.schema=config.IMPORT_SCHEMA
         import_model=self.interlis_import_to_quarantine(
             xtf_file_input=xtf_file_input,
             logs_next_to_file=logs_next_to_file,
@@ -560,8 +562,8 @@ class InterlisImporterExporter:
         include_unplaced: bool = False,
         import_orgs: bool = False,
     ):
-
-        self.schema=config.EXPORT_SCHEMA
+        if not self.schema:
+            self.schema=config.EXPORT_SCHEMA
         if srid:
             self.srid = srid
 

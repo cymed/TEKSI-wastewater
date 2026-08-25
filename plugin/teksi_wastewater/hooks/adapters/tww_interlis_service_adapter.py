@@ -138,6 +138,9 @@ class TwwInterlisServiceAdapter(InterlisService):
                 filter_nulls=(
                     context.filter_nulls
                 ),
+                import_orgs=(
+                    context.import_orgs
+                ),
                 srid=context.srid,
             )
             return
@@ -163,26 +166,15 @@ class TwwInterlisServiceAdapter(InterlisService):
             TwwInterlisContext,
         ):
             self._importer_exporter.interlis_export(
-                xtf_file_output=(
-                    str(
-                        xtf_file,
-                    )
-                    if xtf_file is not None
-                    else None
-                ),
+                xtf_file_output=xtf_file,
                 export_models=list(
                     export_models,
                 ),
                 logs_next_to_file=(
                     context.logs_next_to_file
                 ),
-                labels_file=(
-                    str(
-                        context.labels_file,
-                    )
-                    if context.labels_file is not None
-                    else None
-                ),
+                limit_to_selection=context.limit_to_selection,
+                labels_file=context.labels_file,
                 selected_labels_scales_indices=list(
                     context.selected_label_scale_indices,
                 ),
@@ -190,6 +182,7 @@ class TwwInterlisServiceAdapter(InterlisService):
                     context.selected_ids,
                 ),
                 srid=context.srid,
+                import_orgs=context.import_orgs,
             )
             return
 

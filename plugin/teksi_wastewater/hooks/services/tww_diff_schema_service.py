@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import date, datetime
+from enum import StrEnum
 import json
 from typing import Any
 from collections.abc import Mapping, Sequence
@@ -62,6 +63,7 @@ class TwwDiffSchemaService:
         self,
         *,
         job_id: str,
+        job_mode: DiffJobMode = DiffJobMode.CREATE,
         features_by_class: Mapping[
             str,
             Sequence[
@@ -74,7 +76,6 @@ class TwwDiffSchemaService:
         ] | None = None,
         validation_success: bool = False,
         job_status: str = "pending",
-        reset_job: bool = True,
     ) -> DiffSchemaWriteResult:
         """
         Write review features into tww_diff.
@@ -96,9 +97,6 @@ class TwwDiffSchemaService:
         job_status:
             Job status stored in tww_diff.metadata.job_status.
 
-        reset_job:
-            If true, any existing job with the same job_id is deleted first.
-            Rows in class tables are removed through ON DELETE CASCADE.
         """
 
         metadata = metadata or {}
@@ -106,10 +104,19 @@ class TwwDiffSchemaService:
         with DatabaseUtils.PsycopgConnection() as connection:
             cursor = connection.cursor()
 
-            if reset_job:
+            if job_mode == DiffJobMode.REPLACE:
                 self._delete_existing_job(
                     cursor=cursor,
                     job_id=job_id,
+                )
+            elif job_mode == DiffJobMode.CREATE:
+                self._assert_job_does_not_exist(
+                    cursor=cursor,
+                    job_id=job_id,
+                )
+            else:
+                raise NotImplementedError(
+                    "Diff-job refresh is not implemented."
                 )
 
             job_db_id = self._insert_metadata(
@@ -167,6 +174,30 @@ class TwwDiffSchemaService:
                 job_id,
             ),
         )
+
+    def _assert_job_does_not_exist(
+        self,
+        *,
+        cursor,
+        job_id: str,
+    ) -> None:
+        cursor.execute(
+            f"""
+            SELECT EXISTS (
+                SELECT 1
+                FROM {self._table("metadata")}
+                WHERE job_id = %s
+            );
+            """,
+            (
+                job_id,
+            ),
+        )
+
+        if cursor.fetchone():
+            raise RuntimeError(
+                f"Diff job {job_id!r} already exists."
+            )
 
     def _insert_metadata(
         self,

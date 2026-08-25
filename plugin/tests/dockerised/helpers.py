@@ -71,10 +71,9 @@ def run_cli(command: str):
     xvfb-run python3 /usr/src/plugin/tww_cmd.py {command}
     '
     """
+    result = sp_run(cmd, shell=True, capture_output=True, text=True)
     duration = time.time() - start
     print(f"CLI duration: {duration:.1f}s")
-    result = sp_run(cmd, shell=True, capture_output=True, text=True)
-
     print("STDOUT")
     print(result.stdout)
     print("STDERR")

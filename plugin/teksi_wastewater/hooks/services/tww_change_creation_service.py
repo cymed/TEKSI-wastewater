@@ -505,13 +505,11 @@ class TwwChangeCreationService:
 
         diff_schema_result = self.diff_schema_service.write(
             job_id=job_id,
+            job_mode=job_mode,
             features_by_class=features_by_class,
             metadata=workflow_metadata,
             validation_success=True,
             job_status="pending",
-            reset_job=(
-                job_mode == DiffJobMode.REPLACE
-            ),
         )
 
         return ChangeCreationResult(
