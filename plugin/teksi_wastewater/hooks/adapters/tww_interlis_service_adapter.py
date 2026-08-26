@@ -126,9 +126,7 @@ class TwwInterlisServiceAdapter(InterlisService):
             TwwInterlisContext,
         ):
             self._importer_exporter.interlis_import(
-                xtf_file_input=str(
-                    xtf_file,
-                ),
+                xtf_file_input=xtf_file,
                 show_selection_dialog=(
                     context.show_selection_dialog
                 ),
