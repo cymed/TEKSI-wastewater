@@ -394,8 +394,13 @@ class TwwChangeCreationService:
         """
 
         self._ensure_ready_for_diff_job()
+
         self._assert_supported_job_mode(
             job_mode,
+        )
+        self._validate_incremental_quarantine(
+            source_model=incremental_source_model,
+            import_schema=incremental_import_schema,
         )
 
         workflow_metadata = {
@@ -848,3 +853,27 @@ class TwwChangeCreationService:
         return xtf_file.with_name(
             f"{xtf_file.stem}_{name}.log"
         )
+
+    def _validate_incremental_quarantine(
+        self,
+        *,
+        source_model: str | None,
+        import_schema: str | None,
+    ) -> None:
+        if (
+            source_model is not None
+            and import_schema is None
+        ):
+            raise ValueError(
+                "incremental_import_schema is required when "
+                "incremental_source_model is configured."
+            )
+
+        if (
+            source_model is None
+            and import_schema is not None
+        ):
+            raise ValueError(
+                "incremental_source_model is required when "
+                "incremental_import_schema is configured."
+            )

@@ -904,7 +904,6 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
         validation_success=True,
         job_status="pending",
     )
-
 def test_change_creation_service_imports_base_and_incremental_xtf(
     monkeypatch,
 ) -> None:
@@ -931,14 +930,22 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
 
     delegated_result = object()
 
-    create_from_quarantine = Mock(
-        return_value=delegated_result,
-    )
+    delegated_arguments = {}
+
+    def fake_create_diff_job_from_quarantine(
+        self,
+        **kwargs,
+    ):
+        delegated_arguments.update(
+            kwargs,
+        )
+
+        return delegated_result
 
     monkeypatch.setattr(
-        service,
+        TwwChangeCreationService,
         "create_diff_job_from_quarantine",
-        create_from_quarantine,
+        fake_create_diff_job_from_quarantine,
     )
 
     rights_context = SimpleNamespace(
@@ -975,20 +982,44 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
 
     assert result is delegated_result
 
-    assert quarantine_runner.import_xtf_to_quarantine.call_count == 2
-
-    base_import_call = (
-        quarantine_runner.import_xtf_to_quarantine.call_args_list[0]
+    assert (
+        quarantine_runner.import_xtf_to_quarantine.call_count
+        == 2
     )
 
-    assert base_import_call.kwargs["xtf_file"] == xtf_file
-    assert base_import_call.kwargs["schema"] == "xtf_import"
-    assert base_import_call.kwargs["context"].schema == "xtf_import"
-    assert base_import_call.kwargs["context"].import_orgs is True
-    assert base_import_call.kwargs["context"].orgs_path == orgs_path
+    base_import_call = (
+        quarantine_runner.import_xtf_to_quarantine.call_args_list[
+            0
+        ]
+    )
+
+    assert base_import_call.kwargs[
+        "xtf_file"
+    ] == xtf_file
+
+    assert base_import_call.kwargs[
+        "schema"
+    ] == "xtf_import"
+
+    assert (
+        base_import_call.kwargs["context"].schema
+        == "xtf_import"
+    )
+
+    assert (
+        base_import_call.kwargs["context"].import_orgs
+        is True
+    )
+
+    assert (
+        base_import_call.kwargs["context"].orgs_path
+        == orgs_path
+    )
 
     incremental_import_call = (
-        quarantine_runner.import_xtf_to_quarantine.call_args_list[1]
+        quarantine_runner.import_xtf_to_quarantine.call_args_list[
+            1
+        ]
     )
 
     assert (
@@ -996,9 +1027,10 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
         == incremental_xtf
     )
 
-    assert incremental_import_call.kwargs[
-        "schema"
-    ] == "xtf_import_incremental"
+    assert (
+        incremental_import_call.kwargs["schema"]
+        == "xtf_import_incremental"
+    )
 
     assert (
         incremental_import_call.kwargs["context"].schema
@@ -1006,11 +1038,16 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
     )
 
     assert (
-        incremental_import_call.kwargs["context"].import_orgs
+        incremental_import_call.kwargs[
+            "context"
+        ].import_orgs
         is False
     )
 
-    assert incremental_import_call.kwargs["context"].orgs_path is None
+    assert (
+        incremental_import_call.kwargs["context"].orgs_path
+        is None
+    )
 
     assert (
         quarantine_runner.validate_quarantine_or_raise.call_count
@@ -1018,24 +1055,36 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
     )
 
     base_validation_call = (
-        quarantine_runner.validate_quarantine_or_raise.call_args_list[0]
+        quarantine_runner.validate_quarantine_or_raise.call_args_list[
+            0
+        ]
     )
 
-    assert base_validation_call.kwargs["model_names"] == (
+    assert base_validation_call.kwargs[
+        "model_names"
+    ] == (
         "DSS_2020_1_LV95",
     )
 
-    assert base_validation_call.kwargs["schema"] == "xtf_import"
+    assert base_validation_call.kwargs[
+        "schema"
+    ] == "xtf_import"
 
-    assert base_validation_call.kwargs["log_path"] == Path(
+    assert base_validation_call.kwargs[
+        "log_path"
+    ] == Path(
         "/tmp/base_validate_import_quarantine.log",
     )
 
     incremental_validation_call = (
-        quarantine_runner.validate_quarantine_or_raise.call_args_list[1]
+        quarantine_runner.validate_quarantine_or_raise.call_args_list[
+            1
+        ]
     )
 
-    assert incremental_validation_call.kwargs["model_names"] == (
+    assert incremental_validation_call.kwargs[
+        "model_names"
+    ] == (
         "Genereller_Entwaesserungsplan_AG",
     )
 
@@ -1043,25 +1092,58 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
         "schema"
     ] == "xtf_import_incremental"
 
-    assert incremental_validation_call.kwargs["log_path"] == Path(
-        "/tmp/incremental_validate_incremental_quarantine.log",
+    assert incremental_validation_call.kwargs[
+        "log_path"
+    ] == Path(
+        "/tmp/"
+        "incremental_validate_incremental_quarantine.log",
     )
 
-    delegated_call = create_from_quarantine.call_args
+    assert delegated_arguments[
+        "job_id"
+    ] == "job-1"
 
-    assert delegated_call.kwargs[
+    assert delegated_arguments[
+        "job_mode"
+    ] == DiffJobMode.CREATE
+
+    assert delegated_arguments[
         "source_model"
     ] == "DSS_2020_1_LV95"
 
-    assert delegated_call.kwargs[
+    assert delegated_arguments[
+        "created_models"
+    ] == (
+        "DSS_2020_1_LV95",
+    )
+
+    assert delegated_arguments[
         "incremental_source_model"
     ] == "Genereller_Entwaesserungsplan_AG"
 
-    assert delegated_call.kwargs[
+    assert delegated_arguments[
+        "incremental_created_models"
+    ] == (
+        "Genereller_Entwaesserungsplan_AG",
+    )
+
+    assert delegated_arguments[
         "incremental_import_schema"
     ] == "xtf_import_incremental"
 
-    metadata = delegated_call.kwargs[
+    assert delegated_arguments[
+        "import_schema"
+    ] == "xtf_import"
+
+    assert delegated_arguments[
+        "live_schema"
+    ] == "tww_od"
+
+    assert delegated_arguments[
+        "rights_context"
+    ] is rights_context
+
+    metadata = delegated_arguments[
         "metadata"
     ]
 
@@ -1077,7 +1159,9 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
         "dataowner_oid": "ch080qwzPR000018",
         "orgs_path": "/tmp/organisations.xtf",
         "incremental_xtf": "/tmp/incremental.xtf",
-        "incremental_import_schema": "xtf_import_incremental",
+        "incremental_import_schema": (
+            "xtf_import_incremental"
+        ),
         "incremental_source_model": (
             "Genereller_Entwaesserungsplan_AG"
         ),
