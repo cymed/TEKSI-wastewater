@@ -728,23 +728,83 @@ def test_diff_schema_service_write_persists_metadata_and_features(
     ]
 
     assert any(
-        'DELETE FROM "tww_diff"."metadata"'
-        in query
+        "SELECT EXISTS" in query
+        for query in executed_queries
+    )
+
+    assert not any(
+        'DELETE FROM "tww_diff"."metadata"' in query
         for query in executed_queries
     )
 
     assert any(
-        'INSERT INTO "tww_diff"."metadata"'
-        in query
+        'INSERT INTO "tww_diff"."metadata"' in query
         for query in executed_queries
     )
 
     assert any(
-        'INSERT INTO "tww_diff"."reach"'
-        in query
+        'INSERT INTO "tww_diff"."reach"' in query
         for query in executed_queries
     )
 
+
+def test_diff_schema_service_replace_deletes_existing_job(
+    monkeypatch,
+) -> None:
+    table_columns = {
+        "job_id",
+        "obj_id",
+        "is_created",
+        "is_altered",
+        "is_deleted",
+        "import_values",
+        "canonical_values",
+        "changed_attributes",
+        "unpermitted_values",
+        "permission_findings",
+        "validation_findings",
+    }
+
+    cursor = FakeCursor(
+        table_columns=table_columns,
+        metadata_id=100,
+        job_exists=True,
+    )
+
+    connection = FakeConnection(
+        cursor=cursor,
+    )
+
+    monkeypatch.setattr(
+        DatabaseUtils,
+        "PsycopgConnection",
+        lambda: FakeConnectionContext(
+            connection,
+        ),
+    )
+
+    service = TwwDiffSchemaService()
+
+    service.write(
+        job_id="job-1",
+        features_by_class={},
+        job_mode=DiffJobMode.REPLACE,
+    )
+
+    executed_queries = [
+        query
+        for query, _ in cursor.executed
+    ]
+
+    assert any(
+        'DELETE FROM "tww_diff"."metadata"' in query
+        for query in executed_queries
+    )
+
+    assert any(
+        'INSERT INTO "tww_diff"."metadata"' in query
+        for query in executed_queries
+    )
 
 def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_false(
     monkeypatch,

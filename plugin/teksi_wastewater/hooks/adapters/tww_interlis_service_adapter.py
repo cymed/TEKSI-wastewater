@@ -204,5 +204,5 @@ class TwwInterlisServiceAdapter(InterlisService):
         xtf_file: Path,
     ):
         return self._importer_exporter.find_import_ilimodels(
-            xtf_file_input=str(xtf_file),
+            xtf_file_input=xtf_file,
         )
