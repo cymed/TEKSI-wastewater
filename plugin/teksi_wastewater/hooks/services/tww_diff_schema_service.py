@@ -199,7 +199,7 @@ class TwwDiffSchemaService:
             raise RuntimeError(
                 "Could not determine whether the diff job exists."
             )
-        if row:
+        if bool(row[0]):
             raise RuntimeError(
                 f"Diff job {job_id!r} already exists."
             )

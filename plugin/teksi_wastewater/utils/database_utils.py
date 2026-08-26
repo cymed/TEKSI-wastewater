@@ -3,6 +3,7 @@ import configparser
 import logging
 import os
 import re
+from collections.abc import Sequence
 from typing import Any
 
 from ..interlis import config
@@ -77,6 +78,23 @@ class DatabaseUtils:
         Works with both psycopg2 and psycopg3.
         """
         return sql.SQL(query).format(*args, **kwargs)
+
+    @staticmethod
+    def join_sql(
+        separator: str,
+        expressions: Sequence[
+            sql.Composable,
+        ],
+    ) -> sql.Composed:
+        """
+        Join composable SQL expressions using a static SQL separator.
+        """
+
+        return sql.SQL(
+            separator,
+        ).join(
+            expressions,
+        )
 
     @staticmethod
     def fetchone(query: str):

@@ -378,9 +378,8 @@ class TwwQuarantineEffectProjector:
             function_name=DatabaseUtils.wrap_identifier(
                 function_mapping.name,
             ),
-            arguments=DatabaseUtils.compose_sql(
+            arguments=DatabaseUtils..join_sql(
                 ", ",
-            ).join(
                 arguments,
             ),
         )

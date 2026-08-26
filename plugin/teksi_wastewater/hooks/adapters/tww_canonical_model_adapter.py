@@ -170,7 +170,10 @@ class TwwCanonicalModelAdapter:
                     name_prefix="field_name",
                 ),
             )
-            for row in rows
+            for row in rows if (
+                class_id is None or
+                row["class_id"] == class_id
+                )
         }
 
     def values(
@@ -264,7 +267,13 @@ class TwwCanonicalModelAdapter:
                     name_prefix="value_name",
                 ),
             )
-            for row in rows
+            for row in rows if (
+                attribute_id is None or
+                row["attribute_id"] == attribute_id
+                ) and  (
+                class_id is None or
+                row["class_id"] == class_id
+                )
         }
 
     def class_metadata(

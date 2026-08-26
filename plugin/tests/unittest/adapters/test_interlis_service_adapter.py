@@ -75,7 +75,7 @@ def test_interlis_service_adapter_delegates_import_with_generic_context() -> Non
 
     assert fake.import_calls == [
         {
-            "xtf_file_input": "/tmp/input.xtf",
+            "xtf_file_input": Path("/tmp/input.xtf"),
         }
     ]
 
@@ -106,7 +106,7 @@ def test_interlis_service_adapter_delegates_import_with_tww_context() -> None:
     assert "disable_validation" not in fake.import_calls[0] #deliberately skip
     assert fake.import_calls == [
         {
-            "xtf_file_input": "/tmp/input.xtf",
+            "xtf_file_input": Path("/tmp/input.xtf"),
             "show_selection_dialog": True,
             "logs_next_to_file": True,
             "filter_nulls": True,
@@ -139,7 +139,7 @@ def test_interlis_service_adapter_delegates_export_with_generic_context() -> Non
 
     assert fake.export_calls == [
         {
-            "xtf_file_output": "/tmp/output.xtf",
+            "xtf_file_output": Path("/tmp/output.xtf"),
             "export_models": [
                 "SIA405_ABWASSER_2020_1_LV95",
             ],
@@ -184,13 +184,13 @@ def test_interlis_service_adapter_delegates_export_with_tww_context() -> None:
 
     assert fake.export_calls == [
         {
-            "xtf_file_output": "/tmp/output.xtf",
+            "xtf_file_output": Path("/tmp/output.xtf"),
             "export_models": [
                 "SIA405_ABWASSER_2020_1_LV95",
                 "DSS_2020_1_LV95",
             ],
             "logs_next_to_file": True,
-            "labels_file": "/tmp/labels.xtf",
+            "labels_file": Path("/tmp/labels.xtf"),
             "limit_to_selection":False,
             "selected_labels_scales_indices": [
                 "1000",
@@ -255,7 +255,7 @@ def test_interlis_service_adapter_finds_models() -> None:
 
     assert fake.find_import_ilimodels_calls == [
         {
-            "xtf_file_input": "/tmp/input.xtf",
+            "xtf_file_input": Path("/tmp/input.xtf"),
         }
     ]
 
