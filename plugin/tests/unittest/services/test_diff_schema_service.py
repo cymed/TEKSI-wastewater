@@ -25,16 +25,25 @@ class FakeCursor:
         *,
         table_columns: set[str] | None = None,
         metadata_id: int = 101,
+        job_exists: bool = False,
     ) -> None:
         self.table_columns = table_columns or set()
         self.metadata_id = metadata_id
-        self.executed: list[
-            tuple[
-                str,
-                tuple[Any, ...] | None,
-            ]
-        ] = []
+        self.job_exists = job_exists
+        self.executed = []
         self._last_query = ""
+
+    def fetchone(
+        self,
+    ):
+        if "SELECT EXISTS" in self._last_query:
+            return (
+                self.job_exists,
+            )
+
+        return (
+            self.metadata_id,
+        )
 
     def execute(
         self,
@@ -54,12 +63,6 @@ class FakeCursor:
             )
         )
 
-    def fetchone(
-        self,
-    ):
-        return (
-            self.metadata_id,
-        )
 
     def fetchall(
         self,

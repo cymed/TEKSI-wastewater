@@ -287,7 +287,7 @@ def test_export_live_to_quarantine_delegates_to_importer() -> None:
             ),
             "logs_next_to_file": True,
             "limit_to_selection": False,
-            "export_orientation": None,
+            "export_orientation": 90,
             "labels_file": "/tmp/labels.xtf",
             "selected_labels_scales_indices": [
                 "1000",

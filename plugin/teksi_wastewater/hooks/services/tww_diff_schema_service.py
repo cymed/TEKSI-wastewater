@@ -194,7 +194,12 @@ class TwwDiffSchemaService:
             ),
         )
 
-        if cursor.fetchone():
+        row = cursor.fetchone()
+        if row is None:
+            raise RuntimeError(
+                "Could not determine whether the diff job exists."
+            )
+        if row:
             raise RuntimeError(
                 f"Diff job {job_id!r} already exists."
             )

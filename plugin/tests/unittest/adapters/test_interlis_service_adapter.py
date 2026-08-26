@@ -44,9 +44,9 @@ class FakeInterlisImporterExporter:
         )
 
         return (
-            "SIA405_ABWASSER_2020",
+            "SIA405_ABWASSER_2020_1_LV95",
             (
-                "SIA405_ABWASSER_2020",
+                "SIA405_ABWASSER_2020_1_LV95",
             ),
         )
 
@@ -97,6 +97,7 @@ def test_interlis_service_adapter_delegates_import_with_tww_context() -> None:
             logs_next_to_file=True,
             show_selection_dialog=True,
             filter_nulls=True,
+            import_orgs=False,
             disable_validation=True,
         ),
     )
@@ -109,6 +110,7 @@ def test_interlis_service_adapter_delegates_import_with_tww_context() -> None:
             "show_selection_dialog": True,
             "logs_next_to_file": True,
             "filter_nulls": True,
+            "import_orgs": False,
             "srid": 2056,
         }
     ]
@@ -126,7 +128,7 @@ def test_interlis_service_adapter_delegates_export_with_generic_context() -> Non
             "/tmp/output.xtf",
         ),
         export_models=(
-            "SIA405_ABWASSER_2020",
+            "SIA405_ABWASSER_2020_1_LV95",
         ),
         context=InterlisContext(
             schema="export_schema",
@@ -139,7 +141,7 @@ def test_interlis_service_adapter_delegates_export_with_generic_context() -> Non
         {
             "xtf_file_output": "/tmp/output.xtf",
             "export_models": [
-                "SIA405_ABWASSER_2020",
+                "SIA405_ABWASSER_2020_1_LV95",
             ],
         }
     ]
@@ -157,8 +159,8 @@ def test_interlis_service_adapter_delegates_export_with_tww_context() -> None:
             "/tmp/output.xtf",
         ),
         export_models=(
-            "SIA405_ABWASSER_2020",
-            "VSADSSMINI_2020",
+            "SIA405_ABWASSER_2020_1_LV95",
+            "DSS_2020_1_LV95",
         ),
         context=TwwInterlisContext(
             schema="export_schema",
@@ -184,11 +186,12 @@ def test_interlis_service_adapter_delegates_export_with_tww_context() -> None:
         {
             "xtf_file_output": "/tmp/output.xtf",
             "export_models": [
-                "SIA405_ABWASSER_2020",
-                "VSADSSMINI_2020",
+                "SIA405_ABWASSER_2020_1_LV95",
+                "DSS_2020_1_LV95",
             ],
             "logs_next_to_file": True,
             "labels_file": "/tmp/labels.xtf",
+            "limit_to_selection":False,
             "selected_labels_scales_indices": [
                 "1000",
                 "5000",
@@ -198,6 +201,7 @@ def test_interlis_service_adapter_delegates_export_with_tww_context() -> None:
                 "ch000000ws000002",
             ],
             "srid": 2056,
+            "import_orgs":False,
         }
     ]
 
@@ -212,7 +216,7 @@ def test_interlis_service_adapter_delegates_export_without_output_file() -> None
     adapter.export_xtf(
         xtf_file=None,
         export_models=(
-            "SIA405_ABWASSER_2020",
+            "SIA405_ABWASSER_2020_1_LV95",
         ),
         context=TwwInterlisContext(
             schema="export_schema",
@@ -223,13 +227,15 @@ def test_interlis_service_adapter_delegates_export_without_output_file() -> None
         {
             "xtf_file_output": None,
             "export_models": [
-                "SIA405_ABWASSER_2020",
+                "SIA405_ABWASSER_2020_1_LV95",
             ],
             "logs_next_to_file": False,
             "labels_file": None,
+            "limit_to_selection":False,
             "selected_labels_scales_indices": [],
             "selected_ids": [],
             "srid": 2056,
+            "import_orgs":False,
         }
     ]
 
@@ -254,8 +260,8 @@ def test_interlis_service_adapter_finds_models() -> None:
     ]
 
     assert result == (
-        "SIA405_ABWASSER_2020",
+        "SIA405_ABWASSER_2020_1_LV95",
         (
-            "SIA405_ABWASSER_2020",
+            "SIA405_ABWASSER_2020_1_LV95",
         ),
     )

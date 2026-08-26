@@ -1,6 +1,7 @@
 # dockerised/adapters/test_diff_exporter_cli.py
 
 from pathlib import Path
+import shlex
 
 from ..helpers import run_cli
 
@@ -44,7 +45,8 @@ def run_import_cli(
     dataowner_oid:str,
     incremental_xtf: Path,
 ) -> None:
-    run_cli(
+    command=shlex.join(
+        [
         "diff-exporter",
         "--job-id",
         job_id,
@@ -68,7 +70,10 @@ def run_import_cli(
         str(
             CONFIG_DIR,
         ),
+        ]
     )
+
+    run_cli(command)
 
 def assert_job_created(
     job_id: str,
@@ -150,22 +155,32 @@ def import_run(allowed_provider: str, xtf_phase_identifier: str):
 def import_baseline():
 
     run_cli(
-        "interlis_import "
-        f"--xtf_file {DATA_DIR}/test-dataset-organisations.xtf "
-        f"{DB_ARGS}"
+        shlex.join(
+            [
+                "interlis_import ",
+                f"--xtf_file {DATA_DIR}/test-dataset-organisations.xtf "
+                f"{DB_ARGS}"
+            ]
+        )
     )
-
     run_cli(
-        "interlis_import "
-        f"--xtf_file {DATA_DIR}/test_baseline_import_DSS_2020_1_LV95.xtf "
-        f"{DB_ARGS}"
+        shlex.join(
+            [
+                "interlis_import ",
+                f"--xtf_file {DATA_DIR}/test_baseline_import_DSS_2020_1_LV95.xtf " 
+                f"{DB_ARGS}"
+            ]
+        )
     )
-
     run_cli(
-        "interlis_import "
-        f"--xtf_file {DATA_DIR}/test_baseline_Genereller_Entwaesserungsplan_AG.xtf "
-        "--schema 'xtf_agxx' "
-        f"{DB_ARGS}"
+        shlex.join(
+            [
+                "interlis_import ",
+                f"--xtf_file {DATA_DIR}/test_baseline_Genereller_Entwaesserungsplan_AG.xtf "
+                "--schema 'xtf_agxx' "
+                f"{DB_ARGS}"
+            ]
+        )
     )
 
 def _diff_counts(

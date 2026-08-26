@@ -334,7 +334,7 @@ class InterlisImporterExporter:
                 self._import_update_main_cover_and_refresh_mat_views()
 
                 # Validate subclasses after import
-                integrityChecker = TWWIntegrityChecker()
+                integrityChecker = TWWIntegrityChecker(logger=logger)
                 _ = integrityChecker._check_subclass_counts(raise_err=True)
 
                 # Update organisations
@@ -568,7 +568,7 @@ class InterlisImporterExporter:
 
         if not self.from_quarantine_only:
             exportChecker = TWWIntegrityChecker(
-                models=export_models, limit_to_selection=limit_to_selection
+                models=export_models, limit_to_selection=limit_to_selection, logger=logger
             )
             if export_models[0] == "SIA405_Base_Abwasser_1_LV95":
                 failed, errormsg, _ = exportChecker._check_organisation_tww_local_extension_count()
@@ -592,7 +592,7 @@ class InterlisImporterExporter:
             # go thru all available checks and register if check failed or not.
 
             results = exportChecker.run_integrity_checks()
-            if not results["failed"]:
+            if not results.failed:
                 logger.info(f"All checks passed! ({results['stats']['ok']} OK)")
             else:
                 if user_interaction:
@@ -639,16 +639,17 @@ class InterlisImporterExporter:
                         )
 
                 else:
-                    logger.error(f"Failed checks:\n{results['failed_checks']}")
+                    msg='\n'.join(issue.message for issue in results.failed_checks)
+                    logger.error(f"Failed checks:{msg}")
                     logger.info(
-                        f" {results['stats']['failed']} failed, {results['stats']['ok']} passed"
+                        f" {results.stats['failed']} failed, {results.stats['ok']} passed"
                     )
                     logger.info(
                         "INTERLIS export has been stopped due to failing export checks - see logs for details."
                     )
                     raise InterlisImporterExporterError(
                         "INTERLIS Export aborted!",
-                        results["failed_checks"],
+                        "\n".join(issue.message for issue in results.failed_checks),
                         None,
                     )
         self.execute_export(
