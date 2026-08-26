@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 
-from ..utils.database_utils import DatabaseUtils
+from ..utils.database_utils import DatabaseUtils, TWWIntegrityChecker
 from . import config
 from .interlis_model_mapping.interlis_exporter_to_intermediate_schema import (
     InterlisExporterToIntermediateSchema,
@@ -31,7 +31,6 @@ from .interlis_model_mapping.model_tww import ModelTwwSys, ModelTwwVl
 from .interlis_model_mapping.model_tww_ag6496 import ModelTwwAG6496
 from .interlis_model_mapping.model_tww_od import ModelTwwOd
 from .utils.ili2db import InterlisTools
-from .utils.interlis_integrity_checker import TWWIntegrityChecker
 from .utils.various import (
     CmdException,
     InterlisImporterExporterError,
