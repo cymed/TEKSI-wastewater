@@ -13,6 +13,7 @@ from teksi_hooks.models.review import (
 
 from teksi_wastewater.hooks.services.tww_diff_schema_service import (
     TwwDiffSchemaService,
+    DiffJobMode
 )
 from teksi_wastewater.utils.database_utils import (
     DatabaseUtils,
@@ -806,7 +807,7 @@ def test_diff_schema_service_replace_deletes_existing_job(
         for query in executed_queries
     )
 
-def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_false(
+def test_diff_schema_service_write_persists_metadata_and_features(
     monkeypatch,
 ) -> None:
     table_columns = {
@@ -821,12 +822,112 @@ def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_fa
         "unpermitted_values",
         "permission_findings",
         "validation_findings",
+        "status",
+        "progression_geometry",
     }
 
     cursor = FakeCursor(
         table_columns=table_columns,
-        metadata_id=100,
+        metadata_id=999,
     )
+
+    connection = FakeConnection(
+        cursor=cursor,
+    )
+
+    monkeypatch.setattr(
+        DatabaseUtils,
+        "PsycopgConnection",
+        lambda: FakeConnectionContext(
+            connection,
+        ),
+    )
+
+    service = TwwDiffSchemaService(
+        schema="tww_diff",
+        srid=2056,
+    )
+
+    result = service.write(
+        job_id="job-1",
+        features_by_class={
+            "reach": (
+                ReviewFeature(
+                    class_id="reach",
+                    object_id="ch000000re000001",
+                    attributes={
+                        "is_altered": True,
+                        "status": "active",
+                        "import_values": {
+                            "status": "active",
+                        },
+                    },
+                    geometries={
+                        "progression_geometry": b"fake-wkb",
+                    },
+                ),
+            ),
+        },
+        metadata={
+            "source_model": "AG64",
+            "source_file": "/tmp/input.xtf",
+            "import_schema": "import_schema",
+            "live_schema": "tww_od",
+        },
+        validation_success=True,
+        job_status="pending",
+        job_mode=DiffJobMode.REPLACE,
+    )
+
+    assert result.job_db_id == 999
+    assert result.job_id == "job-1"
+    assert result.row_count == 1
+
+    assert connection.committed is True
+    assert connection.closed is True
+
+    executed_queries = [
+        query
+        for query, _ in cursor.executed
+    ]
+
+    assert any(
+        'DELETE FROM "tww_diff"."metadata"' in query
+        for query in executed_queries
+    )
+
+    assert any(
+        'INSERT INTO "tww_diff"."metadata"' in query
+        for query in executed_queries
+    )
+
+    assert any(
+        'INSERT INTO "tww_diff"."reach"' in query
+        for query in executed_queries
+    )
+
+
+def test_diff_schema_service_create_does_not_delete_existing_job(
+    monkeypatch,
+) -> None:
+    cursor = FakeCursor(
+        table_columns={
+            "job_id",
+            "obj_id",
+            "is_created",
+            "is_altered",
+            "is_deleted",
+            "import_values",
+            "canonical_values",
+            "changed_attributes",
+            "unpermitted_values",
+            "permission_findings",
+            "validation_findings",
+        },
+        metadata_id=100,
+        job_exists=False,
+    )
+
     connection = FakeConnection(
         cursor=cursor,
     )
@@ -844,6 +945,7 @@ def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_fa
     service.write(
         job_id="job-1",
         features_by_class={},
+        job_mode=DiffJobMode.CREATE,
     )
 
     executed_queries = [
@@ -851,8 +953,92 @@ def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_fa
         for query, _ in cursor.executed
     ]
 
+    assert any(
+        "SELECT EXISTS" in query
+        for query in executed_queries
+    )
+
     assert not any(
-        "DELETE FROM"
-        in query
+        "DELETE FROM" in query
+        for query in executed_queries
+    )
+
+    assert any(
+        'INSERT INTO "tww_diff"."metadata"' in query
+        for query in executed_queries
+    )
+
+def test_diff_schema_service_create_rejects_existing_job(
+    monkeypatch,
+) -> None:
+    cursor = FakeCursor(
+        metadata_id=100,
+        job_exists=True,
+    )
+
+    connection = FakeConnection(
+        cursor=cursor,
+    )
+
+    monkeypatch.setattr(
+        DatabaseUtils,
+        "PsycopgConnection",
+        lambda: FakeConnectionContext(
+            connection,
+        ),
+    )
+
+    service = TwwDiffSchemaService()
+
+    with pytest.raises(
+        RuntimeError,
+        match="Diff job 'job-1' already exists",
+    ):
+        service.write(
+            job_id="job-1",
+            features_by_class={},
+            job_mode=DiffJobMode.CREATE,
+        )
+
+def test_diff_schema_service_replace_deletes_existing_job(
+    monkeypatch,
+) -> None:
+    cursor = FakeCursor(
+        metadata_id=100,
+        job_exists=True,
+    )
+
+    connection = FakeConnection(
+        cursor=cursor,
+    )
+
+    monkeypatch.setattr(
+        DatabaseUtils,
+        "PsycopgConnection",
+        lambda: FakeConnectionContext(
+            connection,
+        ),
+    )
+
+    service = TwwDiffSchemaService()
+
+    service.write(
+        job_id="job-1",
+        features_by_class={},
+        job_mode=DiffJobMode.REPLACE,
+    )
+
+    executed_queries = [
+        query
+        for query, _ in cursor.executed
+    ]
+
+    assert any(
+        'DELETE FROM "tww_diff"."metadata"' in query
+        for query in executed_queries
+    )
+
+    assert any(
+        'INSERT INTO "tww_diff"."metadata"' in query
         for query in executed_queries
     )
