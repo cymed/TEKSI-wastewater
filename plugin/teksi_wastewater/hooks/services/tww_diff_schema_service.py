@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import date, datetime
-from enum import StrEnum
+from enum import Enum, StrEnum
 import json
 from typing import Any
 from collections.abc import Mapping, Sequence
@@ -566,12 +566,6 @@ class TwwDiffSchemaService:
         ):
             return value.isoformat()
 
-        if hasattr(
-            value,
-            "value",
-        ):
-            return value.value
-
         if is_dataclass(
             value,
         ):
@@ -580,6 +574,9 @@ class TwwDiffSchemaService:
                     value,
                 )
             )
+        
+        if isinstance(value,Enum):
+            return value.value
 
         return value
 
@@ -650,7 +647,7 @@ class TwwDiffSchemaService:
             value,
             default=self._json_default,
         )
-
+    
     def _json_default(
         self,
         value: Any,
@@ -664,18 +661,18 @@ class TwwDiffSchemaService:
         ):
             return value.isoformat()
 
-        if hasattr(
-            value,
-            "value",
-        ):
-            return value.value
-
         if is_dataclass(
             value,
         ):
             return asdict(
                 value,
             )
+
+        if isinstance(
+            value,
+            Enum,
+        ):
+            return value.value
 
         return str(
             value,

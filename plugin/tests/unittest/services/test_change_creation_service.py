@@ -12,6 +12,7 @@ from teksi_hooks.models.review import (
 )
 
 from teksi_wastewater.hooks.services.tww_diff_schema_service import (
+    DiffJobMode,
     TwwDiffSchemaService,
 )
 from teksi_wastewater.utils.database_utils import (
@@ -713,7 +714,7 @@ def test_diff_schema_service_write_persists_metadata_and_features(
         },
         validation_success=True,
         job_status="pending",
-        reset_job=True,
+        job_mode=DiffJobMode.REPLACE,
     )
 
     assert result.job_db_id == 999
@@ -781,7 +782,7 @@ def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_fa
     service.write(
         job_id="job-1",
         features_by_class={},
-        reset_job=False,
+        job_mode=DiffJobMode.CREATE,
     )
 
     executed_queries = [
