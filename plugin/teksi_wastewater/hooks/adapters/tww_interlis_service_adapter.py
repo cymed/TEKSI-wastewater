@@ -146,7 +146,9 @@ class TwwInterlisServiceAdapter(InterlisService):
             return
 
         self._importer_exporter.interlis_import(
-            xtf_file_input=xtf_file,
+            xtf_file_input=str(
+                xtf_file,
+            ),
         )
 
     def export_xtf(
@@ -185,7 +187,13 @@ class TwwInterlisServiceAdapter(InterlisService):
             return
 
         self._importer_exporter.interlis_export(
-            xtf_file_output=xtf_file,
+            xtf_file_output=(
+                str(
+                    xtf_file,
+                )
+                if xtf_file is not None
+                else None
+            ),
             export_models=list(
                 export_models,
             ),

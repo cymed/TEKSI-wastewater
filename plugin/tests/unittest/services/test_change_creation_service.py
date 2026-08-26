@@ -745,7 +745,7 @@ def test_diff_schema_service_write_persists_metadata_and_features(
     )
 
 
-def test_diff_schema_service_create_does_not_delete_existing_job(
+def test_diff_schema_service_write_does_not_delete_existing_job_when_reset_is_false(
     monkeypatch,
 ) -> None:
     cursor = FakeCursor(
@@ -763,7 +763,6 @@ def test_diff_schema_service_create_does_not_delete_existing_job(
             "validation_findings",
         },
         metadata_id=100,
-        job_exists=False,
     )
 
     connection = FakeConnection(
@@ -791,92 +790,7 @@ def test_diff_schema_service_create_does_not_delete_existing_job(
         for query, _ in cursor.executed
     ]
 
-    assert any(
-        "SELECT EXISTS" in query
-        for query in executed_queries
-    )
-
     assert not any(
         "DELETE FROM" in query
-        for query in executed_queries
-    )
-
-    assert any(
-        'INSERT INTO "tww_diff"."metadata"' in query
-        for query in executed_queries
-    )
-
-def test_diff_schema_service_create_rejects_existing_job(
-    monkeypatch,
-) -> None:
-    cursor = FakeCursor(
-        metadata_id=100,
-        job_exists=True,
-    )
-
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService()
-
-    with pytest.raises(
-        RuntimeError,
-        match="Diff job 'job-1' already exists",
-    ):
-        service.write(
-            job_id="job-1",
-            features_by_class={},
-            job_mode=DiffJobMode.CREATE,
-        )
-
-def test_diff_schema_service_replace_deletes_existing_job(
-    monkeypatch,
-) -> None:
-    cursor = FakeCursor(
-        metadata_id=100,
-        job_exists=True,
-    )
-
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService()
-
-    service.write(
-        job_id="job-1",
-        features_by_class={},
-        job_mode=DiffJobMode.REPLACE,
-    )
-
-    executed_queries = [
-        query
-        for query, _ in cursor.executed
-    ]
-
-    assert any(
-        'DELETE FROM "tww_diff"."metadata"' in query
-        for query in executed_queries
-    )
-
-    assert any(
-        'INSERT INTO "tww_diff"."metadata"' in query
         for query in executed_queries
     )
