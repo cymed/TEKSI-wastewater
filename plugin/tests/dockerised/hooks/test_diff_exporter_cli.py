@@ -2,12 +2,13 @@
 
 from pathlib import Path
 import shlex
-
+import pytest
 from ..helpers import run_cli
 
 from teksi_wastewater.interlis import config
 from teksi_wastewater.utils.database_utils import DatabaseUtils
 
+pytestmark = pytest.mark.no_qgis
 
 DATA_DIR = (
     Path(__file__).parent
