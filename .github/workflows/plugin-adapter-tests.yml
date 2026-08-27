@@ -4,9 +4,7 @@ on:
   push:
     paths:
       - "plugin/teksi_wastewater/**"
-      - "plugin/tests/unittest/**"
-      - "plugin/tests/dockerised/hooks/**"
-      - "plugin_hooks/**"
+      - "plugin/tests/**"
       - "pyproject.toml"
       - "plugin/scripts/download-interlis-libs.sh"
       - "docker-compose.yml"
@@ -18,9 +16,7 @@ on:
       - main
     paths:
       - "plugin/teksi_wastewater/**"
-      - "plugin/tests/unittest/**"
-      - "plugin/tests/dockerised/hooks/**"
-      - "plugin_hooks/**"
+      - "plugin/tests/**"
       - "pyproject.toml"
       - "plugin/scripts/download-interlis-libs.sh"
       - "docker-compose.yml"
