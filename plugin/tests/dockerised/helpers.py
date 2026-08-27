@@ -81,6 +81,7 @@ def run_cli(
         # Tests are already running inside the qgis container.
         cmd = [
             "xvfb-run",
+            "-a",
             "python3",
             "/usr/src/plugin/tww_cmd.py",
             *cli_arguments,
@@ -90,6 +91,7 @@ def run_cli(
         inner_command = shlex.join(
             [
                 "xvfb-run",
+                "-a",
                 "python3",
                 "/usr/src/plugin/tww_cmd.py",
                 *cli_arguments,
