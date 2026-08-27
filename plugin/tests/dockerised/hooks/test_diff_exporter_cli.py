@@ -1,36 +1,31 @@
-# dockerised/adapters/test_diff_exporter_cli.py
+# dockerised/hooks/test_diff_exporter_cli.py
+
+from __future__ import annotations
+
+import shlex
 
 from pathlib import Path
-import shlex
+
 import pytest
+
 from ..helpers import run_cli
 
-from teksi_wastewater.interlis import config
-from teksi_wastewater.utils.database_utils import DatabaseUtils
+from teksi_wastewater.utils.database_utils import (
+    DatabaseUtils,
+)
+
 
 pytestmark = pytest.mark.no_qgis
+
 
 DATA_DIR = (
     Path(__file__).parent
     / "data"
 )
+
 CONFIG_DIR = (
     Path(__file__).parent
     / "config"
-)
-
-DBW_WI="ch080qwzPR000017"
-DBW_GEP="ch080qwzPR000020"
-FI_BU="ch080qwzGE000001"
-PROVIDERS = (
-    FI_BU,
-    DBW_GEP,
-    DBW_WI,
-)
-DATAOWNER_OID="ch080qwzPR000018"
-
-DB_ARGS = (
-    "--pghost db " "--pgdatabase tww " "--pguser postgres " "--pgpass postgres " "--pgport 5432"
 )
 
 ORGS_XTF = (
@@ -38,47 +33,183 @@ ORGS_XTF = (
     / "test-dataset-organisations.xtf"
 )
 
+
+DBW_WI = "ch080qwzPR000017"
+DBW_GEP = "ch080qwzPR000020"
+FI_BU = "ch080qwzGE000001"
+
+PROVIDERS = (
+    FI_BU,
+    DBW_GEP,
+    DBW_WI,
+)
+
+DATAOWNER_OID = "ch080qwzPR000018"
+
+
+DB_ARGS = (
+    "--pghost",
+    "db",
+    "--pgdatabase",
+    "tww",
+    "--pguser",
+    "postgres",
+    "--pgpass",
+    "postgres",
+    "--pgport",
+    "5432",
+)
+
+
 def run_import_cli(
+    *,
     job_id: str,
     job_mode: str,
     xtf_file: Path,
-    provider_oid:str,
-    dataowner_oid:str,
+    provider_oid: str,
+    dataowner_oid: str,
     incremental_xtf: Path,
 ) -> None:
-    command=shlex.join(
+    """
+    Run the diff-exporter CLI for a base and incremental XTF pair.
+    """
+
+    command = shlex.join(
         [
-        "diff-exporter",
-        "--job-id",
-        job_id,
-        "--job-mode",
-        job_mode,
-        "--xtf-input",
-        str(xtf_file),
-        "--provider-oid",
-        provider_oid,
-        "--dataowner-oid",
-        dataowner_oid,
-        "--orgs-path",
-        str(ORGS_XTF),
-        "--incremental-xtf",
-        str(incremental_xtf),
-        "--incremental-import-schema",
-        "xtf_agxx",
-        "--rights-profile",
-        "CI",
-        "--hook-config-dir",
-        str(
-            CONFIG_DIR,
-        ),
+            "diff-exporter",
+            "--job-id",
+            job_id,
+            "--job-mode",
+            job_mode,
+            "--xtf-input",
+            str(
+                xtf_file,
+            ),
+            "--provider-oid",
+            provider_oid,
+            "--dataowner-oid",
+            dataowner_oid,
+            "--orgs-path",
+            str(
+                ORGS_XTF,
+            ),
+            "--incremental-xtf",
+            str(
+                incremental_xtf,
+            ),
+            "--incremental-import-schema",
+            "xtf_agxx",
+            "--rights-profile",
+            "CI",
+            "--hook-config-dir",
+            str(
+                CONFIG_DIR,
+            ),
         ]
     )
 
-    run_cli(command)
+    run_cli(
+        command,
+    )
+
+
+def run_interlis_import(
+    xtf_file: Path,
+) -> None:
+    """
+    Import one baseline XTF through the legacy INTERLIS CLI.
+    """
+
+    assert xtf_file.is_file(), (
+        f"Missing INTERLIS fixture: {xtf_file}"
+    )
+
+    command = shlex.join(
+        [
+            "interlis_import",
+            "--xtf_file",
+            str(
+                xtf_file,
+            ),
+            *DB_ARGS,
+        ]
+    )
+
+    run_cli(
+        command,
+    )
+
+
+def import_baseline() -> None:
+    """
+    Import the trusted live baseline.
+
+    Organizations must be imported before data containing references to them.
+    """
+
+    baseline_files = (
+        ORGS_XTF,
+        DATA_DIR
+        / "test_baseline_import_DSS_2020_1_LV95.xtf",
+        DATA_DIR
+        / (
+            "test_baseline_"
+            "Genereller_Entwaesserungsplan_AG.xtf"
+        ),
+    )
+
+    for xtf_file in baseline_files:
+        run_interlis_import(
+            xtf_file,
+        )
+
+
+def assert_baseline_imported() -> None:
+    """
+    Assert that the legacy imports populated canonical and AG-XX live data.
+    """
+
+    rows = DatabaseUtils.execute_fetchall(
+        """
+        SELECT count(*) AS count
+        FROM tww_od.wastewater_structure
+        """
+    )
+
+    assert rows[0]["count"] > 0, (
+        "The DSS baseline did not create wastewater structures."
+    )
+
+    rows = DatabaseUtils.execute_fetchall(
+        """
+        SELECT count(*) AS count
+        FROM tww_od.reach
+        """
+    )
+
+    assert rows[0]["count"] > 0, (
+        "The DSS baseline did not create reaches."
+    )
+
+    rows = DatabaseUtils.execute_fetchall(
+        """
+        SELECT count(*) AS count
+        FROM tww_od.agxx_building_group
+        """
+    )
+
+    assert rows[0]["count"] > 0, (
+        "The AG-XX baseline did not populate agxx_building_group."
+    )
+
 
 def assert_job_created(
     job_id: str,
 ) -> None:
+    """
+    Assert that a pending diff job and at least one review row exist.
+    """
+
     rows = DatabaseUtils.execute_fetchall(
         """
         SELECT
@@ -94,7 +225,10 @@ def assert_job_created(
         ),
     )
 
-    assert len(rows) == 1
+    assert len(rows) == 1, (
+        f"Expected one metadata row for {job_id!r}, "
+        f"found {len(rows)}."
+    )
 
     job = rows[0]
 
@@ -106,9 +240,54 @@ def assert_job_created(
         job_id,
     )
 
-    assert total_count > 0
+    assert total_count > 0, (
+        f"Job {job_id!r} did not produce any diff rows."
+    )
 
-def import_run(allowed_provider: str, xtf_phase_identifier: str):
+
+def assert_job_status(
+    job_id: str,
+    expected_status: str,
+) -> None:
+    """
+    Assert the status stored in the authoritative diff metadata table.
+    """
+
+    rows = DatabaseUtils.execute_fetchall(
+        """
+        SELECT job_status
+        FROM tww_diff.metadata
+        WHERE job_id = %s
+        """,
+        (
+            job_id,
+        ),
+    )
+
+    assert len(rows) == 1, (
+        f"Expected one metadata row for {job_id!r}, "
+        f"found {len(rows)}."
+    )
+
+    actual_status = rows[0][
+        "job_status"
+    ]
+
+    assert actual_status == expected_status, (
+        f"Expected job {job_id!r} to have status "
+        f"{expected_status!r}, got {actual_status!r}."
+    )
+
+
+def import_run(
+    *,
+    allowed_provider: str,
+    xtf_phase_identifier: str,
+) -> None:
+    """
+    Try a phase with forbidden providers first, then persist the allowed run.
+    """
+
     ordered_providers = [
         provider
         for provider in PROVIDERS
@@ -116,26 +295,37 @@ def import_run(allowed_provider: str, xtf_phase_identifier: str):
     ]
 
     ordered_providers.append(
-        allowed_provider
+        allowed_provider,
     )
+
+    xtf_file = (
+        DATA_DIR
+        / (
+            f"test_{xtf_phase_identifier}_"
+            "DSS_2020_1_LV95.xtf"
+        )
+    )
+
+    incremental_xtf = (
+        DATA_DIR
+        / (
+            f"test_{xtf_phase_identifier}_"
+            "Genereller_Entwaesserungsplan_AG.xtf"
+        )
+    )
+
+    assert xtf_file.is_file(), (
+        f"Missing test fixture: {xtf_file}"
+    )
+
+    assert incremental_xtf.is_file(), (
+        f"Missing test fixture: {incremental_xtf}"
+    )
+
     for provider in ordered_providers:
-        job_id = f"c{xtf_phase_identifier}-job_{provider}"
-        xtf_file = (
-            DATA_DIR
-            / f"test_{xtf_phase_identifier}_DSS_2020_1_LV95.xtf"
-        )
-
-        incremental_xtf = (
-            DATA_DIR
-            / f"test_{xtf_phase_identifier}_Genereller_Entwaesserungsplan_AG.xtf"
-        )
-
-        assert xtf_file.is_file(), (
-            f"Missing test fixture: {xtf_file}"
-        )
-
-        assert incremental_xtf.is_file(), (
-            f"Missing test fixture: {incremental_xtf}"
+        job_id = (
+            f"{xtf_phase_identifier}-"
+            f"job-{provider}"
         )
 
         run_import_cli(
@@ -144,45 +334,32 @@ def import_run(allowed_provider: str, xtf_phase_identifier: str):
             xtf_file=xtf_file,
             provider_oid=provider,
             dataowner_oid=DATAOWNER_OID,
-            incremental_xtf=incremental_xtf
+            incremental_xtf=incremental_xtf,
         )
+
+        assert_job_created(
+            job_id,
+        )
+
         if provider != allowed_provider:
-            assert_update_forbidden(job_id)
-            reject_update(job_id)
-        else:
-            assert_update_allowed(job_id)
-            persist_update(job_id)
+            assert_update_forbidden(
+                job_id,
+            )
 
-def import_baseline():
+            reject_update(
+                job_id,
+            )
 
-    run_cli(
-        shlex.join(
-            [
-                "interlis_import ",
-                f"--xtf_file {DATA_DIR}/test-dataset-organisations.xtf "
-                f"{DB_ARGS}"
-            ]
+            continue
+
+        assert_update_allowed(
+            job_id,
         )
-    )
-    run_cli(
-        shlex.join(
-            [
-                "interlis_import ",
-                f"--xtf_file {DATA_DIR}/test_baseline_import_DSS_2020_1_LV95.xtf " 
-                f"{DB_ARGS}"
-            ]
+
+        persist_update(
+            job_id,
         )
-    )
-    run_cli(
-        shlex.join(
-            [
-                "interlis_import ",
-                f"--xtf_file {DATA_DIR}/test_baseline_Genereller_Entwaesserungsplan_AG.xtf "
-                "--schema 'xtf_agxx' "
-                f"{DB_ARGS}"
-            ]
-        )
-    )
+
 
 def _diff_counts(
     job_id: str,
@@ -272,6 +449,7 @@ def _diff_counts(
         rejected_count,
     )
 
+
 def assert_update_forbidden(
     job_id: str,
 ) -> None:
@@ -292,6 +470,7 @@ def assert_update_forbidden(
         f"Expected job {job_id!r} to contain rejected changes, "
         f"but all {total_count} rows were permitted."
     )
+
 
 def assert_update_allowed(
     job_id: str,
@@ -314,14 +493,14 @@ def assert_update_allowed(
         f"but {rejected_count} of {total_count} rows were rejected."
     )
 
+
 def reject_update(
     job_id: str,
 ) -> None:
     """
-    Reject a pending review job without changing live data.
+    Reject a pending review job without modifying live data.
 
-    Assumes that fct_reject_diff_job will become the public entry point for
-    rejecting a review job.
+    This currently assumes a database-side job rejection function.
     """
 
     DatabaseUtils.execute_fetchall(
@@ -335,26 +514,11 @@ def reject_update(
         ),
     )
 
-    rows = DatabaseUtils.execute_fetchall(
-        f"""
-        SELECT status
-        FROM {config.EXPORT_SCHEMA}.review_job
-        WHERE job_id = %s
-        """,
-        (
-            job_id,
-        ),
+    assert_job_status(
+        job_id,
+        "rejected",
     )
 
-    assert len(rows) == 1, (
-        f"Expected one review job for {job_id!r}, "
-        f"found {len(rows)}."
-    )
-
-    assert rows[0]["status"] == "rejected", (
-        f"Expected job {job_id!r} to be rejected, "
-        f"got status {rows[0]['status']!r}."
-    )
 
 def persist_update(
     job_id: str,
@@ -362,8 +526,7 @@ def persist_update(
     """
     Apply a fully permitted review job to live data.
 
-    Assumes that fct_apply_diff_job validates and applies the complete job in
-    one transaction, then sets its status to applied.
+    This currently assumes a database-side transactional apply function.
     """
 
     total_count, rejected_count = _diff_counts(
@@ -373,6 +536,7 @@ def persist_update(
     assert total_count > 0, (
         f"Cannot apply empty job {job_id!r}."
     )
+
     assert rejected_count == 0, (
         f"Cannot apply job {job_id!r}: "
         f"{rejected_count} diff rows are rejected."
@@ -389,25 +553,18 @@ def persist_update(
         ),
     )
 
-    rows = DatabaseUtils.execute_fetchall(
-        f"""
-        SELECT status
-        FROM {config.EXPORT_SCHEMA}.review_job
-        WHERE job_id = %s
-        """,
-        (
-            job_id,
-        ),
+    assert_job_status(
+        job_id,
+        "applied",
     )
 
-    assert len(rows) == 1
 
-    assert rows[0]["status"] == "applied"
- 
 def test_diff_import_workflow(
     clean_db_once,
 ) -> None:
     import_baseline()
+
+    assert_baseline_imported()
 
     import_run(
         allowed_provider=DBW_WI,
