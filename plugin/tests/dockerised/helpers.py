@@ -1,5 +1,9 @@
 import re
+import os
+import shlex
+import sys
 import time
+
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from subprocess import run as sp_run
@@ -63,19 +67,78 @@ def get_xtf_object_node_text(
         f"/{namespace}{attributename}"
     )
 
-
-def run_cli(command: str):
+def run_cli(
+    command: str,
+) -> None:
     start = time.time()
-    cmd = f"""
-    docker compose exec qgis sh -c '
-    xvfb-run python3 /usr/src/plugin/tww_cmd.py {command}
-    '
-    """
-    result = sp_run(cmd, shell=True, capture_output=True, text=True)
+
+    cli_arguments = shlex.split(
+        command,
+    )
+
+    if os.path.isfile(
+        "/usr/src/plugin/tww_cmd.py",
+    ):
+        # Tests are already running inside the qgis container.
+        cmd = [
+            "xvfb-run",
+            "python3",
+            "/usr/src/plugin/tww_cmd.py",
+            *cli_arguments,
+        ]
+    else:
+        # Tests are running on the Docker host.
+        inner_command = shlex.join(
+            [
+                "xvfb-run",
+                "python3",
+                "/usr/src/plugin/tww_cmd.py",
+                *cli_arguments,
+            ]
+        )
+
+        cmd = [
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "qgis",
+            "sh",
+            "-c",
+            inner_command,
+        ]
+
+    result = sp_run(
+        cmd,
+        capture_output=True,
+        text=True,
+    )
+
     duration = time.time() - start
-    print(f"CLI duration: {duration:.1f}s")
+    rendered_command = shlex.join(
+        cmd,
+    )
+
+    print(
+        f"CLI duration: {duration:.1f}s"
+    )
+    print("COMMAND")
+    print(
+        rendered_command
+    )
     print("STDOUT")
-    print(result.stdout)
+    print(
+        result.stdout
+    )
     print("STDERR")
-    print(result.stderr)
-    assert result.returncode == 0
+    print(
+        result.stderr
+    )
+
+    assert result.returncode == 0, (
+        f"CLI command failed with exit code "
+        f"{result.returncode}.\n"
+        f"Command: {rendered_command}\n\n"
+        f"STDOUT:\n{result.stdout}\n\n"
+        f"STDERR:\n{result.stderr}"
+    )
