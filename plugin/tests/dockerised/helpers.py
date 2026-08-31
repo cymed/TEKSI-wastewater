@@ -9,7 +9,7 @@ from subprocess import run as sp_run
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
-
+DEFAULT_CLI_PATH = Path("/usr/src/plugin/tww_cmd.py")
 
 def get_output_filename(name: str) -> str:
     return str(OUTPUT_DIR / name)
@@ -66,35 +66,52 @@ def get_xtf_object_node_text(
         f"/{namespace}{attributename}"
     )
 
+
 def run_cli(
     command: str,
+    cli_path: str | Path | None = None,
 ) -> None:
+    """
+    Run a TEKSI CLI command inside the QGIS test environment.
+
+    If already running inside the QGIS container, invoke the CLI directly.
+    Otherwise, invoke it through docker compose.
+    """
+
     start = time.time()
+
+    effective_cli_path = Path(
+        cli_path
+        if cli_path is not None
+        else DEFAULT_CLI_PATH
+    )
 
     cli_arguments = shlex.split(
         command,
     )
 
-    if os.path.isfile(
-        "/usr/src/plugin/tww_cmd.py",
-    ):
-        # Tests are already running inside the qgis container.
+    python_command = [
+        "python3",
+        str(
+            effective_cli_path,
+        ),
+        *cli_arguments,
+    ]
+
+    running_inside_container = DEFAULT_CLI_PATH.is_file()
+
+    if running_inside_container:
         cmd = [
             "xvfb-run",
             "-a",
-            "python3",
-            "/usr/src/plugin/tww_cmd.py",
-            *cli_arguments,
+            *python_command,
         ]
     else:
-        # Tests are running on the Docker host.
         inner_command = shlex.join(
             [
                 "xvfb-run",
                 "-a",
-                "python3",
-                "/usr/src/plugin/tww_cmd.py",
-                *cli_arguments,
+                *python_command,
             ]
         )
 
@@ -116,6 +133,7 @@ def run_cli(
     )
 
     duration = time.time() - start
+
     rendered_command = shlex.join(
         cmd,
     )

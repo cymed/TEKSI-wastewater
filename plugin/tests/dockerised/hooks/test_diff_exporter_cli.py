@@ -110,6 +110,7 @@ def run_import_cli(
 
     run_cli(
         command,
+        "/usr/src/plugin/hooks/cli/importer_exporter.py"
     )
 
 
@@ -137,6 +138,7 @@ def run_interlis_import(
 
     run_cli(
         command,
+        "/usr/src/plugin/hooks/cli/importer_exporter.py"
     )
 
 
