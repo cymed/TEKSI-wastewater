@@ -19,46 +19,27 @@ class InterlisExportSettingsDialog(QDialog):
         locale = settings.value('locale/userLocale','de_CH')
         self.lang = locale[:2]
         loadUi(os.path.join(os.path.dirname(__file__), "interlis_export_settings_dialog.ui"), self)
+        model_names = config.model_names_for_language(lang=self.lang)
+        if not (
+            ag6496extension
+            and ag6496extension != "false"
+        ):
+            model_names.difference_update(
+                config.ALL_MODELS_BY_GROUP.get("ag64",())
+            )
 
+            model_names.difference_update(
+                config.ALL_MODELS_BY_GROUP.get("ag96",())
+            )
         self.finished.connect(self.on_finish)
 
         # Fill models selection combobox
-        self._add_model(
-            config.MODEL_NAME_DSS,
-            [config.MODEL_NAME_DSS],
-        )
-
-        self._add_model(
-            config.MODEL_NAME_SIA405_ABWASSER,
-            [config.MODEL_NAME_SIA405_ABWASSER],
-        )
-
-        self._add_model(
-            config.MODEL_NAME_VSA_KEK,
-            [
-                config.MODEL_NAME_VSA_KEK,
-                config.MODEL_NAME_SIA405_ABWASSER,
-            ],
-        )
-
-        self._add_model(
-            config.MODEL_NAME_SIA405_BASE_ABWASSER,
-            [config.MODEL_NAME_SIA405_BASE_ABWASSER],
-        )
-
-        ag6496extension = settings.value("/TWW/AGxxExtensions", False)
-
-        if ag6496extension and ag6496extension != "false":
-            self._add_model(
-                config.MODEL_NAME_AG96,
-                [config.MODEL_NAME_AG96],
+        for model_name in sorted(
+            model_names,
+        ):
+            model_combobox.addItem(
+                model_name,
             )
-
-            self._add_model(
-                config.MODEL_NAME_AG64,
-                [config.MODEL_NAME_AG64],
-            )
-
         # Fill orientation selection combobox
         self.export_orientation_selection_comboBox.clear()
         self.export_orientation_selection_comboBox.addItem("90°", 90.0)

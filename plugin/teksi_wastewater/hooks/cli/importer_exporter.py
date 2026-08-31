@@ -81,15 +81,8 @@ class TeksiWastewaterCmd:
         subparser.add_argument("--xtf_file", help="XTF output file", required=True)
         subparser.add_argument(
             "--export_model",
-            default=config.MODEL_NAME_DSS,
-            choices=[
-                config.MODEL_NAME_SIA405_ABWASSER,
-                config.MODEL_NAME_SIA405_BASE_ABWASSER,
-                config.MODEL_NAME_DSS,
-                config.MODEL_NAME_VSA_KEK,
-                config.MODEL_NAME_AG96,
-                config.MODEL_NAME_AG64,
-            ],
+            default=config.interlis_models["dss"].lang_name("de"),
+            choices=config.ALL_SUPPORTED_MODELS,
             help="Model to export (default:  %(default)s)",
         )
         subparser.add_argument(
