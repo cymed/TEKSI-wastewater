@@ -767,16 +767,16 @@ class TWWIntegrityChecker:
                     ("zone"),
                 ]
             )
-        if config.interlis_models["ag64"].names.intersection(self.models)
-        and not config.interlis_models["sia405_abwasser"].names.intersection(self.models):
+        if config.interlis_models["ag64"].names.intersection(self.models) and
+        not config.interlis_models["sia405_abwasser"].names.intersection(self.models):
             check_classes.extend(
                 [
                     ("wastewater_networkelement"),
                     ("overflow"),
                 ]
             )
-        if config.interlis_models["ag96"].names.intersection(self.models)
-        and not config.interlis_models["dss"].names.intersection(self.models):
+        if config.interlis_models["ag96"].names.intersection(self.models) and
+        not config.interlis_models["dss"].names.intersection(self.models):
             check_classes.extend(
                 [
                     ("wastewater_networkelement"),
