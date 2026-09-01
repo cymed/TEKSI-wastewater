@@ -448,7 +448,7 @@ class TWWIntegrityChecker:
                 ],
             ),
         ]
-        if config.interlis_models["kek"].names.intersection(self.models):
+        if config.interlis_models["vsa_kek"].names.intersection(self.models):
             checks.extend(
                 [
                     (
@@ -705,7 +705,7 @@ class TWWIntegrityChecker:
         check_classes = [
             ("organisation"),
         ]
-        if  config.interlis_models["kek"].names.intersection(self.models):
+        if  config.interlis_models["vsa_kek"].names.intersection(self.models):
             check_classes.extend(
                 [
                     # VSA-KEK
@@ -829,7 +829,7 @@ class TWWIntegrityChecker:
         Check if MANDATORY fk_dataowner is Null
         """
         check_classes = []
-        check_models = config.interlis_models["kek"].names
+        check_models = config.interlis_models["vsa_kek"].names
         if any(m in check_models for m in self.models):
             check_classes.extend(
                 [
@@ -938,7 +938,7 @@ class TWWIntegrityChecker:
         Check if MANDATORY fk_provider is Null
         """
         check_classes = []
-        check_models = config.interlis_models["kek"].names
+        check_models = config.interlis_models["vsa_kek"].names
         if any(m in check_models for m in self.models):
             check_classes.extend(
                 [
