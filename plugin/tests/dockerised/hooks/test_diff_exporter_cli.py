@@ -13,6 +13,7 @@ from ..helpers import run_cli
 from teksi_wastewater.utils.database_utils import (
     DatabaseUtils,
 )
+from teksi_wastewater.interlis import config
 
 
 pytestmark = pytest.mark.no_qgis
@@ -33,6 +34,10 @@ ORGS_XTF = (
     / "test-dataset-organisations.xtf"
 )
 
+INTERLIS_CLI_PATH = Path(
+    "/usr/src/plugin/teksi_wastewater/"
+    "hooks/cli/importer_exporter.py"
+)
 
 DBW_WI = "ch080qwzPR000017"
 DBW_GEP = "ch080qwzPR000020"
@@ -60,6 +65,9 @@ DB_ARGS = (
     "5432",
 )
 
+
+DSS_IMPORT_SCHEMA = config.IMPORT_SCHEMA
+AGXX_IMPORT_SCHEMA = "xtf_agxx"
 
 def run_import_cli(
     *,
@@ -98,7 +106,7 @@ def run_import_cli(
                 incremental_xtf,
             ),
             "--incremental-import-schema",
-            "xtf_agxx",
+            AGXX_IMPORT_SCHEMA,
             "--rights-profile",
             "CI",
             "--hook-config-dir",
@@ -110,12 +118,13 @@ def run_import_cli(
 
     run_cli(
         command,
-        "/usr/src/plugin/teksi_wastewater/hooks/cli/importer_exporter.py"
+        INTERLIS_CLI_PATH,
     )
 
 
 def run_interlis_import(
     xtf_file: Path,
+    schema: str = DSS_IMPORT_SCHEMA,
 ) -> None:
     """
     Import one baseline XTF through the legacy INTERLIS CLI.
@@ -132,39 +141,45 @@ def run_interlis_import(
             str(
                 xtf_file,
             ),
+            "--schema",
+            schema,
             *DB_ARGS,
         ]
     )
 
     run_cli(
         command,
-        "/usr/src/plugin/teksi_wastewater/hooks/cli/importer_exporter.py"
+        INTERLIS_CLI_PATH
     )
 
 
 def import_baseline() -> None:
     """
-    Import the trusted live baseline.
+    Import the trusted DSS and AG-XX baselines.
 
-    Organizations must be imported before data containing references to them.
+    DSS and organizations share the standard import schema. AG-XX uses its
+    own staging schema because both models contain overlapping base classes.
     """
 
-    baseline_files = (
+    run_interlis_import(
         ORGS_XTF,
+        schema=DSS_IMPORT_SCHEMA,
+    )
+
+    run_interlis_import(
         DATA_DIR
         / "test_baseline_import_DSS_2020_1_LV95.xtf",
+        schema=DSS_IMPORT_SCHEMA,
+    )
+
+    run_interlis_import(
         DATA_DIR
         / (
             "test_baseline_"
             "Genereller_Entwaesserungsplan_AG.xtf"
         ),
+        schema=AGXX_IMPORT_SCHEMA,
     )
-
-    for xtf_file in baseline_files:
-        run_interlis_import(
-            xtf_file,
-        )
-
 
 def assert_baseline_imported() -> None:
     """

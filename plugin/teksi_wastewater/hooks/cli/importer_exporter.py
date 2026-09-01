@@ -86,6 +86,15 @@ class TeksiWastewaterCmd:
             action="store_true",
         )
 
+        subparser.add_argument(
+            "--schema",
+            default=config.IMPORT_SCHEMA,
+            help=(
+                "ili2pg schema used for the INTERLIS import "
+                f"(default: {config.IMPORT_SCHEMA})."
+            ),
+        )
+
         self._add_postgres_connection_args(
             subparser,
         )
@@ -195,6 +204,15 @@ class TeksiWastewaterCmd:
             ),
         )
 
+        subparser.add_argument(
+            "--schema",
+            default=config.EXPORT_SCHEMA,
+            help=(
+                "ili2pg schema used for the INTERLIS import "
+                f"(default: {config.EXPORT_SCHEMA})."
+            ),
+        )
+
         self._add_postgres_connection_args(
             subparser,
         )
@@ -276,7 +294,7 @@ class TeksiWastewaterCmd:
         service = TwwInterlisServiceAdapter()
 
         context = TwwInterlisContext(
-            schema=config.IMPORT_SCHEMA,
+            schema=self.args.schema,
             srid=self.args.srid,
             show_selection_dialog=(
                 self.args.show_selection_dialog
@@ -347,7 +365,7 @@ class TeksiWastewaterCmd:
         )
 
         context = TwwInterlisContext(
-            schema=config.EXPORT_SCHEMA,
+            schema=self.args.schema,
             srid=self.args.srid,
             logs_next_to_file=(
                 self.args.logs_next_to_file
