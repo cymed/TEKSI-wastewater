@@ -15,10 +15,7 @@ from ...utils.database_utils import (
     DatabaseUtils,
 )
 
-class DiffJobMode(StrEnum):
-    CREATE = "create"
-    REPLACE = "replace"
-    REFRESH = "refresh"
+from .tww_change_creation_service import DiffJobMode
 
 @dataclass(slots=True)
 class DiffSchemaWriteResult:

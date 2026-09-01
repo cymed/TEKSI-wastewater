@@ -112,9 +112,15 @@ class Hook(
             )
 
         hook_config_dir = (
-            self._optional_path(parameters.hook_config_dir)
+            self._optional_path(
+                parameters.get(
+                    "hook_config_dir",
+                )
+            )
             or (
-                Path(os.environ["TWW_DIFF_CONF_DIR"])
+                Path(
+                    os.environ["TWW_DIFF_CONF_DIR"],
+                )
                 if "TWW_DIFF_CONF_DIR" in os.environ
                 else None
             )
@@ -219,25 +225,48 @@ class Hook(
         self,
         config_dir: Path | None,
         rights_profile: str,
-    ) -> tuple[Path | None, Path | None]:
+    ) -> tuple[Path, Path]:
         if config_dir is None:
-            raise RightsEvaluationError.from_message("Config Directory not set.")
-        
-        profile_dir = config_dir / rights_profile
+            raise RightsEvaluationError.from_message(
+                "Config directory is not set."
+            )
+
+        profile_dir = (
+            config_dir
+            / rights_profile
+        )
 
         provider_rights_path = (
-            profile_dir / "provider-rights.yaml"
+            profile_dir
+            / "provider-rights.yaml"
         )
 
         provider_privileges_path = (
-            profile_dir / "provider-privileges.yaml"
+            profile_dir
+            / "provider-privileges.yaml"
         )
 
+        missing_paths = [
+            path
+            for path in (
+                provider_rights_path,
+                provider_privileges_path,
+            )
+            if not path.is_file()
+        ]
+
+        if missing_paths:
+            raise RightsEvaluationError.from_message(
+                "Rights profile is incomplete. Missing: "
+                + ", ".join(
+                    str(
+                        path,
+                    )
+                    for path in missing_paths
+                )
+            )
+
         return (
-            provider_rights_path
-            if provider_rights_path.exists()
-            else None,
-            provider_privileges_path
-            if provider_privileges_path.exists()
-            else None,
+            provider_rights_path,
+            provider_privileges_path,
         )

@@ -445,12 +445,6 @@ class TwwChangeCreationService:
         if incremental_source_model is None:
             effect_document = base_document
         else:
-            if incremental_import_schema is None:
-                raise ValueError(
-                    "incremental_import_schema is required when "
-                    "incremental_source_model is configured."
-                )
-
             incremental_document = (
                 self.effect_projector.effect_document_from_quarantine(
                     schema=incremental_import_schema,
@@ -534,6 +528,13 @@ class TwwChangeCreationService:
             classified_changes=classified_changes,
             features_by_class=features_by_class,
             diff_schema_result=diff_schema_result,
+            validation_findings=[
+                finding
+                for classified_change
+                in classified_changes.changes
+                for finding
+                in classified_change.validation_findings
+            ]
         )
 
     def _merge_effect_documents(
