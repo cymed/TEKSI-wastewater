@@ -138,7 +138,7 @@ def run_interlis_import(
 
     run_cli(
         command,
-        "/usr/src/plugin/hooks/cli/teksi_wastewater/importer_exporter.py"
+        "/usr/src/plugin/teksi_wastewater/hooks/cli/importer_exporter.py"
     )
 
 
