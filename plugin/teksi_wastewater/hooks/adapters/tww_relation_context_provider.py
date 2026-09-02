@@ -28,9 +28,6 @@ from ...interlis.interlis_model_mapping.model_interlis_vsa_kek import (
 from teksi_hooks.capabilities.mapping import (
     EffectiveModelMappingCapability,
 )
-from teksi_hooks.models.canonical_object import (
-    CanonicalIdentityMapping,
-)
 from teksi_hooks.models.mapping import (
     AttributeMapping,
     ClassMapping,

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass, field
 from datetime import date, datetime
-from enum import Enum, StrEnum
+from enum import Enum
 import json
 from typing import Any
 from collections.abc import Mapping, Sequence
@@ -16,6 +16,39 @@ from ...utils.database_utils import (
 )
 
 from .tww_change_creation_service import DiffJobMode
+
+@dataclass(
+    frozen=True,
+    slots=True,
+)
+class DiffReviewJob:
+    """
+    Stored state required to resolve a diff review job.
+    """
+
+    job_db_id: int
+
+    job_id: str
+
+    job_status: str
+
+    validation_success: bool
+
+    metadata: Mapping[
+        str,
+        Any,
+    ] = field(
+        default_factory=dict,
+    )
+
+    features_by_class: Mapping[
+        str,
+        Sequence[
+            ReviewFeature,
+        ],
+    ] = field(
+        default_factory=dict,
+    )
 
 @dataclass(slots=True)
 class DiffSchemaWriteResult:
