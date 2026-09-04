@@ -27,9 +27,15 @@ from teksi_hooks.models.mapping import (
     RelationContext,
 )
 
-from ...utils.database_utils import (
-    DatabaseUtils,
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
 )
+
+try:
+    from psycopg import sql
+except ImportError:
+    from psycopg2 import sql
+    
 from .tww_relation_context_provider import (
     TwwRelationContextProvider,
 )
@@ -54,6 +60,8 @@ class TwwQuarantineEffectProjector:
 
     model_mapping: EffectiveModelMappingCapability
 
+    connection_factory: DatabaseConnectionFactory
+
     def effect_document_from_quarantine(
         self,
         *,
@@ -63,6 +71,9 @@ class TwwQuarantineEffectProjector:
     ) -> EffectDocument:
         """
         Project the current quarantine schema into a canonical effect document.
+
+        All quarantine rows are read through one PostgreSQL transaction so the
+        resulting effect document represents one consistent database snapshot.
         """
 
         relation_context_provider = TwwRelationContextProvider(
@@ -73,14 +84,21 @@ class TwwQuarantineEffectProjector:
 
         effects: list[Effect] = []
 
-        for relation_context in relation_context_provider.relation_contexts():
-            effects.extend(
-                self._effects_for_relation_context(
-                    relation_context=relation_context,
-                    schema=schema,
-                    canonical_metadata=canonical_metadata,
-                )
-            )
+        with self.connection_factory.connection(
+            autocommit=False,
+        ) as connection:
+            with connection.cursor() as cursor:
+                for relation_context in (
+                    relation_context_provider.relation_contexts()
+                ):
+                    effects.extend(
+                        self._effects_for_relation_context(
+                            cursor=cursor,
+                            relation_context=relation_context,
+                            schema=schema,
+                            canonical_metadata=canonical_metadata,
+                        )
+                    )
 
         return EffectDocument(
             source=EffectSource(
@@ -93,9 +111,11 @@ class TwwQuarantineEffectProjector:
             ),
         )
 
+
     def _effects_for_relation_context(
         self,
         *,
+        cursor,
         relation_context: RelationContext,
         schema: str,
         canonical_metadata: CanonicalModelMetadata,
@@ -104,6 +124,7 @@ class TwwQuarantineEffectProjector:
 
         if class_mapping.function is not None:
             return self._function_effects_for_relation_context(
+                cursor=cursor,
                 relation_context=relation_context,
                 schema=schema,
             )
@@ -119,6 +140,7 @@ class TwwQuarantineEffectProjector:
         effects: list[Effect] = []
 
         for row in self._rows(
+            cursor=cursor,
             schema=schema,
             relation=relation_context.relation,
         ):
@@ -130,7 +152,9 @@ class TwwQuarantineEffectProjector:
             effects.extend(
                 self._attribute_effects(
                     row=row,
-                    source_class_id=relation_context.relation.__name__,
+                    source_class_id=(
+                        relation_context.relation.__name__
+                    ),
                     class_mapping=class_mapping,
                     identity=identity,
                     canonical_metadata=canonical_metadata,
@@ -144,10 +168,13 @@ class TwwQuarantineEffectProjector:
     def _function_effects_for_relation_context(
         self,
         *,
+        cursor,
         relation_context: RelationContext,
         schema: str,
     ) -> tuple[Effect, ...]:
-        function_mapping = relation_context.class_mapping.function
+        function_mapping = (
+            relation_context.class_mapping.function
+        )
 
         if function_mapping is None:
             return ()
@@ -155,10 +182,12 @@ class TwwQuarantineEffectProjector:
         effects: list[Effect] = []
 
         for row in self._rows(
+            cursor=cursor,
             schema=schema,
             relation=relation_context.relation,
         ):
             payload = self._call_function_mapping(
+                cursor=cursor,
                 function_mapping=function_mapping,
                 row=row,
             )
@@ -176,32 +205,53 @@ class TwwQuarantineEffectProjector:
     def _rows(
         self,
         *,
+        cursor,
         schema: str,
         relation,
     ) -> tuple[dict[str, Any], ...]:
+        """
+        Return all quarantine rows for one imported relation.
+        """
+
         table_name = self._table_name(
             relation,
         )
 
-        query = DatabaseUtils.compose_sql(
-            """
-            SELECT *
-            FROM {schema}.{table_name}
-            """,
-            schema=DatabaseUtils.wrap_identifier(
-                schema,
-            ),
-            table_name=DatabaseUtils.wrap_identifier(
-                table_name,
-            ),
-        )
-
-        return tuple(
-            DatabaseUtils.fetchall_dict(
-                query,
+        cursor.execute(
+            sql.SQL(
+                """
+                SELECT *
+                FROM {}.{}
+                """
+            ).format(
+                sql.Identifier(
+                    schema,
+                ),
+                sql.Identifier(
+                    table_name,
+                ),
             )
         )
 
+        rows = cursor.fetchall()
+
+        if cursor.description is None:
+            return ()
+
+        column_names = tuple(
+            column[0]
+            for column in cursor.description
+        )
+
+        return tuple(
+            dict(
+                zip(
+                    column_names,
+                    row,
+                )
+            )
+            for row in rows
+        )
     def _table_name(
         self,
         relation,
@@ -332,61 +382,77 @@ class TwwQuarantineEffectProjector:
     def _call_function_mapping(
         self,
         *,
+        cursor,
         function_mapping: FunctionMapping,
         row: dict[str, Any],
     ) -> dict[str, Any]:
+        """
+        Call one configured SQL projection function.
+
+        Function and parameter names are treated as PostgreSQL identifiers.
+        Parameter values remain safely adapted SQL values.
+        """
+
         arguments = []
 
-        for parameter_name, source_name in function_mapping.parameters.items():
+        for parameter_name, source_name in (
+            function_mapping.parameters.items()
+        ):
             self._assert_safe_identifier(
                 parameter_name,
             )
 
             if source_name == "$row":
-                value_expression = DatabaseUtils.compose_sql(
-                    "{value}::jsonb",
-                    value=DatabaseUtils.wrap_literal(
+                value_expression = sql.SQL(
+                    "{}::jsonb"
+                ).format(
+                    sql.Literal(
                         self._json_dumps(
                             row,
                         )
-                    ),
+                    )
                 )
             else:
-                value_expression = DatabaseUtils.wrap_literal(
+                value_expression = sql.Literal(
                     row.get(
                         source_name,
                     )
                 )
 
             arguments.append(
-                DatabaseUtils.compose_sql(
-                    "{parameter_name} => {value}",
-                    parameter_name=DatabaseUtils.wrap_identifier(
+                sql.SQL(
+                    "{} => {}"
+                ).format(
+                    sql.Identifier(
                         parameter_name,
                     ),
-                    value=value_expression,
+                    value_expression,
                 )
             )
 
-        query = DatabaseUtils.compose_sql(
+        query = sql.SQL(
             """
-            SELECT {schema}.{function_name}({arguments}) AS effect_document
-            """,
-            schema=DatabaseUtils.wrap_identifier(
+            SELECT {}.{}({}) AS effect_document
+            """
+        ).format(
+            sql.Identifier(
                 function_mapping.schema,
             ),
-            function_name=DatabaseUtils.wrap_identifier(
+            sql.Identifier(
                 function_mapping.name,
             ),
-            arguments=DatabaseUtils.join_sql(
+            sql.SQL(
                 ", ",
+            ).join(
                 arguments,
             ),
         )
 
-        row_result = DatabaseUtils.fetchone(
+        cursor.execute(
             query,
         )
+
+        row_result = cursor.fetchone()
 
         if row_result is None:
             return {}
@@ -406,13 +472,33 @@ class TwwQuarantineEffectProjector:
             payload,
             str,
         ):
-            return json.loads(
+            parsed_payload = json.loads(
                 payload,
             )
 
-        return dict(
-            payload,
-        )
+            if not isinstance(
+                parsed_payload,
+                dict,
+            ):
+                raise ValueError(
+                    "Function mapping returned JSON that is "
+                    "not an object."
+                )
+
+            return parsed_payload
+
+        try:
+            return dict(
+                payload,
+            )
+        except (
+            TypeError,
+            ValueError,
+        ) as exception:
+            raise TypeError(
+                "Function mapping returned an unsupported "
+                f"payload type: {type(payload)!r}."
+            ) from exception
 
     def _effects_from_payload(
         self,
@@ -525,4 +611,6 @@ class TwwQuarantineEffectProjector:
         return json.dumps(
             value,
             default=str,
+            ensure_ascii=False,
+            sort_keys=True,
         )

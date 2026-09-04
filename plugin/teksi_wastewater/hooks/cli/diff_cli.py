@@ -8,6 +8,9 @@ from teksi_hooks.hook import (
     HookContext,
     HookHandler,
 )
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
+)
 
 from teksi_wastewater.interlis import (
     config,
@@ -28,9 +31,12 @@ from teksi_wastewater.hooks.services.tww_change_creation_service import (
 )
 
 
+from . import helpers
+
 logger = logging.getLogger(
     __name__,
 )
+
 
 
 def main() -> int:
@@ -103,15 +109,15 @@ def main() -> int:
     )
 
     parser.add_argument(
-        "--incremental-xtf",
+        "--incremental_xtf",
         type=Path,
         default=None,
         help="Optional XTF for incremental adaptation, i.e. for AG-XX mappings.",
     )
     parser.add_argument(
-        "--incremental-import-schema",
-        default=config.IMPORT_SCHEMA,
-        help="Quarantine schema used for the incremental import.",
+        "--incremental_import-schema",
+        default=None,
+        help="Optional Quarantine schema used for the incremental import.",
     )
 
     parser.add_argument(
@@ -133,6 +139,11 @@ def main() -> int:
         ),
     )
 
+    helpers.add_postgres_connection_args(
+            parser,
+        )
+
+
     args = parser.parse_args()
 
     parameters = {
@@ -143,14 +154,22 @@ def main() -> int:
         "import_schema": args.import_schema,
         "live_schema": args.live_schema,
         "orgs_path": args.orgs_path,
-        "incremental-xtf": args.incremental_xtf,
-        "incremental-import-schema": args.incremental_import_schema,
+        "incremental_xtf": args.incremental_xtf,
+        "incremental_import-schema": args.incremental_import_schema,
         "rights_profile": args.rights_profile,
         "hook_config_dir": args.hook_config_dir,
     }
 
     if args.job_id is not None:
         parameters["job_id"] = args.job_id
+
+    connection_factory = (
+        helpers.database_connection_factory(
+            args,
+        )
+    )
+
+    connection_factory.apply_to_database_config()
 
     context = HookContext(
         parameters=parameters,
@@ -159,6 +178,7 @@ def main() -> int:
             QuarantineEffectProjector: TwwQuarantineEffectProjector(),
             RightsEvaluatorFactory: TwwRightsEvaluatorFactory(),
             ChangeObjectProviderFactory: TwwChangeObjectProviderFactory(),
+            DatabaseConnectionFactory: connection_factory,
         },
     )
 
@@ -177,6 +197,7 @@ def main() -> int:
     )
 
     return 0
+
 
 
 if __name__ == "__main__":

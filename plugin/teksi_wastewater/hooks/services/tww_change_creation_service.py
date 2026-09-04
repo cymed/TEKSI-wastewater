@@ -40,6 +40,9 @@ from teksi_hooks.models.validation import (
     ClassifiedChanges,
     ValidationFinding,
 )
+from teksi_hooks.models.review import (
+    DiffSchemaWriteResult,
+)
 from teksi_hooks.services.change_builder import (
     ChangeBuilder,
 )
@@ -64,7 +67,6 @@ from ..adapters.tww_relation_lookup_adapter import (
     TwwRelationLookupAdapter,
 )
 from .tww_diff_schema_service import (
-    DiffSchemaWriteResult,
     TwwDiffSchemaService,
 )
 

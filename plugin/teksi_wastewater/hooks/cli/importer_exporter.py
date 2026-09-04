@@ -15,9 +15,8 @@ from teksi_wastewater.interlis import config
 from teksi_wastewater.interlis.interlis_importer_exporter import (
     InterlisImporterExporterError,
 )
-from teksi_wastewater.utils.database_utils import (
-    DatabaseUtils,
-)
+
+from . import helpers
 
 
 class TeksiWastewaterCmd:
@@ -82,8 +81,12 @@ class TeksiWastewaterCmd:
 
         subparser.add_argument(
             "--filter_nulls",
-            help="Filter out NULL values from import",
-            action="store_true",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help=(
+                "Filter NULL values during import. "
+                "Enabled by default."
+            ),
         )
 
         subparser.add_argument(
@@ -95,7 +98,7 @@ class TeksiWastewaterCmd:
             ),
         )
 
-        self._add_postgres_connection_args(
+        helpers.add_postgres_connection_args(
             subparser,
         )
 
@@ -213,42 +216,8 @@ class TeksiWastewaterCmd:
             ),
         )
 
-        self._add_postgres_connection_args(
+        helpers.add_postgres_connection_args(
             subparser,
-        )
-
-    def _add_postgres_connection_args(
-        self,
-        subparser,
-    ) -> None:
-        subparser.add_argument(
-            "--pgservice",
-            help="PostgreSQL service name",
-        )
-
-        subparser.add_argument(
-            "--pghost",
-            help="PostgreSQL host",
-        )
-
-        subparser.add_argument(
-            "--pgport",
-            help="PostgreSQL port",
-        )
-
-        subparser.add_argument(
-            "--pgdatabase",
-            help="PostgreSQL database",
-        )
-
-        subparser.add_argument(
-            "--pguser",
-            help="PostgreSQL user",
-        )
-
-        subparser.add_argument(
-            "--pgpass",
-            help="PostgreSQL password",
         )
 
     def parse_arguments(
@@ -289,9 +258,13 @@ class TeksiWastewaterCmd:
     def execute_interlis_import(
         self,
     ) -> None:
-        self._configure_database()
+        connection_factory = (
+            helpers.database_connection_factory(
+                self.args,
+            )
+        )
 
-        service = TwwInterlisServiceAdapter()
+        service = TwwInterlisServiceAdapter(connection_factory=connection_factory)
 
         context = TwwInterlisContext(
             schema=self.args.schema,
@@ -329,9 +302,13 @@ class TeksiWastewaterCmd:
     def execute_interlis_export(
         self,
     ) -> None:
-        self._configure_database()
+        connection_factory = (
+            helpers.database_connection_factory(
+                self.args,
+            )
+        )
 
-        service = TwwInterlisServiceAdapter()
+        service = TwwInterlisServiceAdapter(connection_factory=connection_factory)
 
         selected_ids = (
             tuple(
@@ -363,6 +340,8 @@ class TeksiWastewaterCmd:
             if self.args.labels_file
             else None
         )
+
+
 
         context = TwwInterlisContext(
             schema=self.args.schema,
@@ -404,32 +383,6 @@ class TeksiWastewaterCmd:
             f"\nData successfully exported to {xtf_file}"
         )
 
-    def _configure_database(
-        self,
-    ) -> None:
-        DatabaseUtils.databaseConfig.PGSERVICE = (
-            self.args.pgservice
-        )
-
-        DatabaseUtils.databaseConfig.PGHOST = (
-            self.args.pghost
-        )
-
-        DatabaseUtils.databaseConfig.PGPORT = (
-            self.args.pgport
-        )
-
-        DatabaseUtils.databaseConfig.PGDATABASE = (
-            self.args.pgdatabase
-        )
-
-        DatabaseUtils.databaseConfig.PGUSER = (
-            self.args.pguser
-        )
-
-        DatabaseUtils.databaseConfig.PGPASS = (
-            self.args.pgpass
-        )
 
     def _print_interlis_error(
         self,

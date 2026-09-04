@@ -19,8 +19,8 @@ from teksi_hooks.models.validation import (
     ChangeOperation,
 )
 
-from ...utils.database_utils import (
-    DatabaseUtils,
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
 )
 
 
@@ -43,7 +43,7 @@ class TwwChangePersistenceAdapter(
     The downstream TEKSI Wastewater update implementation must ignore incoming
     None values, preserving the corresponding existing live values.
     """
-
+    connection_factory: DatabaseConnectionFactory
     def persist_snapshot(
         self,
         snapshot: DiffSnapshot,
@@ -58,15 +58,15 @@ class TwwChangePersistenceAdapter(
             decisions=decisions,
         )
 
-        with DatabaseUtils.PsycopgConnection() as connection:
+        with self.connection_factory.connection(
+            autocommit=False,
+        ) as connection:
             cursor = connection.cursor()
 
             change_results = self._persist_decisions(
                 cursor=cursor,
                 decisions=decisions,
             )
-
-            connection.commit()
 
         return PersistenceResult(
             snapshot_id=snapshot.snapshot_id,

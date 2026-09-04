@@ -9,57 +9,17 @@ from collections.abc import Mapping, Sequence
 
 from teksi_hooks.models.review import (
     ReviewFeature,
+    DiffReviewJob,
+    DiffSchemaWriteResult,
 )
-
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
+)
 from ...utils.database_utils import (
     DatabaseUtils,
 )
 
 from .tww_change_creation_service import DiffJobMode
-
-@dataclass(
-    frozen=True,
-    slots=True,
-)
-class DiffReviewJob:
-    """
-    Stored state required to resolve a diff review job.
-    """
-
-    job_db_id: int
-
-    job_id: str
-
-    job_status: str
-
-    validation_success: bool
-
-    metadata: Mapping[
-        str,
-        Any,
-    ] = field(
-        default_factory=dict,
-    )
-
-    features_by_class: Mapping[
-        str,
-        Sequence[
-            ReviewFeature,
-        ],
-    ] = field(
-        default_factory=dict,
-    )
-
-@dataclass(slots=True)
-class DiffSchemaWriteResult:
-    """
-    Result of writing review features into tww_diff.
-    """
-
-    job_db_id: int
-    job_id: str
-    row_count: int
-
 
 @dataclass(slots=True)
 class TwwDiffSchemaService:
@@ -85,7 +45,7 @@ class TwwDiffSchemaService:
     - class rows reference metadata.id through job_id;
     - is_rejected is generated from permission_findings and validation_findings.
     """
-
+    connection_factory: DatabaseConnectionFactory
     schema: str = "tww_diff"
     srid: int = 2056
 
@@ -131,7 +91,9 @@ class TwwDiffSchemaService:
 
         metadata = metadata or {}
 
-        with DatabaseUtils.PsycopgConnection() as connection:
+        with self.connection_factory.connection(
+            autocommit=False,
+        ) as connection:
             cursor = connection.cursor()
 
             if job_mode == DiffJobMode.REPLACE:

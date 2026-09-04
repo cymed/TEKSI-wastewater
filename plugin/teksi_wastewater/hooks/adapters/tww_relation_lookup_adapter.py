@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
-from collections.abc import Sequence
 
+from psycopg import sql
+
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
+)
 from teksi_hooks.capabilities.relation_lookup import (
     RelationLookupCapability,
 )
@@ -12,19 +17,22 @@ from teksi_hooks.models.canonical_object import (
     CanonicalObjectIdentity,
 )
 
-from ...utils.database_utils import DatabaseUtils
-
 
 @dataclass(slots=True)
 class TwwRelationLookupAdapter(
     RelationLookupCapability,
 ):
     """
-    Plugin-side relation lookup implementation backed by the database.
+    Database-backed TEKSI Wastewater relation lookup implementation.
 
-    This adapter bridges teksi_hooks RelationLookupCapability to the
-    TEKSI Wastewater database / ili2pg import schema.
+    The adapter resolves canonical relationships and current canonical objects
+    from a configured PostgreSQL schema.
+
+    Dynamic schema, table and attribute names are represented as SQL
+    identifiers. Runtime values are passed separately as query parameters.
     """
+
+    connection_factory: DatabaseConnectionFactory
 
     schema: str
 
@@ -35,32 +43,46 @@ class TwwRelationLookupAdapter(
         local_attribute: str,
         related_attribute: str,
         value: Any,
-    ) -> Sequence[CanonicalObjectIdentity]:
-        query = DatabaseUtils.compose_sql(
+    ) -> Sequence[
+        CanonicalObjectIdentity,
+    ]:
+        """
+        Return related canonical object identities.
+
+        The relation is resolved by comparing the supplied value with the
+        related attribute on the related canonical class.
+
+        ``local_class_id`` and ``local_attribute`` describe the originating
+        side of the relation. They are part of the generic capability contract
+        but are not needed by this direct database lookup.
+        """
+
+        query = sql.SQL(
             """
             SELECT {identity_attribute}
             FROM {schema}.{table_name}
-            WHERE {related_attribute} = {value}
-            """,
-            identity_attribute=DatabaseUtils.wrap_identifier(
+            WHERE {related_attribute} = %s
+            """
+        ).format(
+            identity_attribute=sql.Identifier(
                 "obj_id",
             ),
-            schema=DatabaseUtils.wrap_identifier(
+            schema=sql.Identifier(
                 self.schema,
             ),
-            table_name=DatabaseUtils.wrap_identifier(
+            table_name=sql.Identifier(
                 related_class_id,
             ),
-            related_attribute=DatabaseUtils.wrap_identifier(
+            related_attribute=sql.Identifier(
                 related_attribute,
-            ),
-            value=DatabaseUtils.wrap_literal(
-                value,
             ),
         )
 
-        rows = DatabaseUtils.fetchall(
-            query,
+        rows = self._fetchall(
+            query=query,
+            parameters=(
+                value,
+            ),
         )
 
         return tuple(
@@ -77,19 +99,26 @@ class TwwRelationLookupAdapter(
         self,
         identity: CanonicalObjectIdentity,
     ) -> CanonicalObject | None:
-        rows = self._fetch_current_rows(
+        """
+        Return the current canonical object matching an identity.
+
+        Identity attributes are excluded from the returned object values
+        because they are already represented by
+        ``CanonicalObject.identity``.
+        """
+
+        row = self._fetch_current_row(
             identity,
         )
 
-        if not rows:
+        if row is None:
             return None
-
-        row = rows[0]
 
         values = {
             key: value
             for key, value in row.items()
             if key not in identity.attributes
+            and key != "last_modification"
         }
 
         return CanonicalObject(
@@ -100,53 +129,138 @@ class TwwRelationLookupAdapter(
             ),
         )
 
-    def _fetch_current_rows(
+    def _fetch_current_row(
         self,
         identity: CanonicalObjectIdentity,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[
+        str,
+        Any,
+    ] | None:
+        """
+        Return the current database row matching a canonical identity.
+        """
+
         if not identity.attributes:
             raise ValueError(
-                "Canonical object identity must contain at least one attribute."
+                "Canonical object identity must contain at least "
+                "one attribute."
             )
 
         where_parts = [
-            DatabaseUtils.compose_sql(
-                "{attribute} = {value}",
-                attribute=DatabaseUtils.wrap_identifier(
-                    attribute,
-                ),
-                value=DatabaseUtils.wrap_literal(
-                    value,
-                ),
+            sql.SQL(
+                "{} = %s"
+            ).format(
+                sql.Identifier(
+                    attribute_name,
+                )
             )
-            for attribute, value in identity.attributes.items()
+            for attribute_name
+            in identity.attributes
         ]
 
-        where_clause = where_parts[0]
-
-        for where_part in where_parts[1:]:
-            where_clause = DatabaseUtils.compose_sql(
-                "{left} AND {right}",
-                left=where_clause,
-                right=where_part,
-            )
-
-        query = DatabaseUtils.compose_sql(
+        query = sql.SQL(
             """
             SELECT *
             FROM {schema}.{table_name}
             WHERE {where_clause}
             LIMIT 1
-            """,
-            schema=DatabaseUtils.wrap_identifier(
+            """
+        ).format(
+            schema=sql.Identifier(
                 self.schema,
             ),
-            table_name=DatabaseUtils.wrap_identifier(
+            table_name=sql.Identifier(
                 identity.class_id,
             ),
-            where_clause=where_clause,
+            where_clause=sql.SQL(
+                " AND "
+            ).join(
+                where_parts,
+            ),
         )
 
-        return DatabaseUtils.fetchall_dict(
-            query,
+        parameters = tuple(
+            identity.attributes.values(),
+        )
+
+        return self._fetchone_dict(
+            query=query,
+            parameters=parameters,
+        )
+
+    def _fetchall(
+        self,
+        *,
+        query,
+        parameters: Sequence[
+            Any,
+        ] = (),
+    ) -> list[
+        tuple,
+    ]:
+        """
+        Execute a read-only query and return all result rows.
+        """
+
+        with self.connection_factory.connection(
+            autocommit=True,
+        ) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    query,
+                    tuple(
+                        parameters,
+                    ),
+                )
+
+                return cursor.fetchall()
+
+    def _fetchone_dict(
+        self,
+        *,
+        query,
+        parameters: Sequence[
+            Any,
+        ] = (),
+    ) -> dict[
+        str,
+        Any,
+    ] | None:
+        """
+        Execute a read-only query and return its first row as a dictionary.
+        """
+
+        with self.connection_factory.connection(
+            autocommit=True,
+        ) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    query,
+                    tuple(
+                        parameters,
+                    ),
+                )
+
+                row = cursor.fetchone()
+
+                if row is None:
+                    return None
+
+                if cursor.description is None:
+                    raise RuntimeError(
+                        "Canonical object query returned a row "
+                        "without column metadata."
+                    )
+
+                column_names = tuple(
+                    column.name
+                    for column in cursor.description
+                )
+
+        return dict(
+            zip(
+                column_names,
+                row,
+                strict=True,
+            )
         )

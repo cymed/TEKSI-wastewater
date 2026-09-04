@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from teksi_hooks.models.canonical_object import (
@@ -11,118 +12,440 @@ from teksi_hooks.models.canonical_object import (
     LocalizedMetadata,
 )
 
-from teksi_wastewater.hooks.adapters import (
-    tww_canonical_model_adapter as adapter_module,
-)
 from teksi_wastewater.hooks.adapters.tww_canonical_model_adapter import (
     TwwCanonicalModelAdapter,
     TwwLanguage,
 )
 
+from ..helpers import (
+    FakeConnection,
+    FakeConnectionFactory,
+    FakeColumn,
+)
 
-def _patch_database_utils(
-    monkeypatch,
-    *,
-    class_rows: Sequence[dict[str, Any]] = (),
-    attribute_rows: Sequence[dict[str, Any]] = (),
-    value_rows: Sequence[dict[str, Any]] = (),
-) -> list:
-    queries: list[str] = []
 
-    def wrap_identifier(
-        value: str,
-    ) -> str:
-        return f'"{value}"'
+class CanonicalModelCursor:
+    """
+    Fake cursor routing dictionary queries to configured rows.
+    """
 
-    def wrap_literal(
-        value: Any,
-    ) -> str:
-        return repr(
-            value,
+    def __init__(
+        self,
+        *,
+        class_rows: Sequence[
+            Mapping[
+                str,
+                Any,
+            ]
+        ] = (),
+        attribute_rows: Sequence[
+            Mapping[
+                str,
+                Any,
+            ]
+        ] = (),
+        value_rows: Sequence[
+            Mapping[
+                str,
+                Any,
+            ]
+        ] = (),
+    ) -> None:
+        self.class_rows = tuple(
+            dict(
+                row,
+            )
+            for row in class_rows
         )
 
-    def compose_sql(
-        query: str,
-        *args,
-        **kwargs,
-    ) -> str:
-        if kwargs:
-            return query.format(
-                **kwargs,
+        self.attribute_rows = tuple(
+            dict(
+                row,
             )
+            for row in attribute_rows
+        )
 
-        return query
+        self.value_rows = tuple(
+            dict(
+                row,
+            )
+            for row in value_rows
+        )
 
-    def fetchall_dict(
+        self.executed_queries: list[
+            tuple[
+                Any,
+                tuple[
+                    Any,
+                    ...,
+                ],
+            ]
+        ] = []
+
+        self.description: tuple[
+            FakeColumn,
+            ...,
+        ] | None = None
+
+        self._rows: tuple[
+            tuple[
+                Any,
+                ...,
+            ],
+            ...,
+        ] = ()
+
+    def execute(
+        self,
         query,
-    ) -> list[dict[str, Any]]:
+        parameters=(),
+    ) -> None:
+        parameter_values = tuple(
+            parameters or (),
+        )
+
+        self.executed_queries.append(
+            (
+                query,
+                parameter_values,
+            )
+        )
+
         query_text = str(
             query,
         )
 
-        queries.append(
+        source_rows = self._source_rows(
             query_text,
         )
 
+        selected_rows = self._filtered_rows(
+            query_text=query_text,
+            parameters=parameter_values,
+            rows=source_rows,
+        )
+
+        self._set_rows(
+            selected_rows,
+        )
+
+    def fetchall(
+        self,
+    ) -> list[
+        tuple[
+            Any,
+            ...,
+        ]
+    ]:
+        return list(
+            self._rows,
+        )
+
+    def fetchone(
+        self,
+    ) -> tuple[
+        Any,
+        ...,
+    ] | None:
+        if not self._rows:
+            return None
+
+        return self._rows[
+            0
+        ]
+
+    def _source_rows(
+        self,
+        query_text: str,
+    ) -> tuple[
+        dict[
+            str,
+            Any,
+        ],
+        ...,
+    ]:
         if "dictionary_od_values" in query_text:
-            return list(
-                value_rows,
-            )
+            return self.value_rows
 
         if "dictionary_od_field" in query_text:
-            return list(
-                attribute_rows,
-            )
+            return self.attribute_rows
 
         if "dictionary_od_table" in query_text:
-            return list(
-                class_rows,
-            )
+            return self.class_rows
 
         raise AssertionError(
             f"Unexpected query: {query_text}"
         )
 
-    monkeypatch.setattr(
-        adapter_module.DatabaseUtils,
-        "wrap_identifier",
-        staticmethod(
-            wrap_identifier,
-        ),
+    def _filtered_rows(
+        self,
+        *,
+        query_text: str,
+        parameters: tuple[
+            Any,
+            ...,
+        ],
+        rows: Sequence[
+            dict[
+                str,
+                Any,
+            ]
+        ],
+    ) -> tuple[
+        dict[
+            str,
+            Any,
+        ],
+        ...,
+    ]:
+        if not parameters:
+            return tuple(
+                rows,
+            )
+
+        if "dictionary_od_values" in query_text:
+            return self._filtered_value_rows(
+                parameters=parameters,
+                rows=rows,
+            )
+
+        if "dictionary_od_field" in query_text:
+            return self._filtered_attribute_rows(
+                parameters=parameters,
+                rows=rows,
+            )
+
+        if "dictionary_od_table" in query_text:
+            return tuple(
+                row
+                for row in rows
+                if row.get(
+                    "class_id",
+                )
+                == parameters[0]
+            )
+
+        return tuple(
+            rows,
+        )
+
+    def _filtered_attribute_rows(
+        self,
+        *,
+        parameters: tuple[
+            Any,
+            ...,
+        ],
+        rows: Sequence[
+            dict[
+                str,
+                Any,
+            ]
+        ],
+    ) -> tuple[
+        dict[
+            str,
+            Any,
+        ],
+        ...,
+    ]:
+        class_id = parameters[
+            0
+        ]
+
+        attribute_id = (
+            parameters[
+                1
+            ]
+            if len(
+                parameters,
+            ) > 1
+            else None
+        )
+
+        return tuple(
+            row
+            for row in rows
+            if row.get(
+                "class_id",
+            )
+            == class_id
+            and (
+                attribute_id is None
+                or row.get(
+                    "attribute_id",
+                )
+                == attribute_id
+            )
+        )
+
+    def _filtered_value_rows(
+        self,
+        *,
+        parameters: tuple[
+            Any,
+            ...,
+        ],
+        rows: Sequence[
+            dict[
+                str,
+                Any,
+            ]
+        ],
+    ) -> tuple[
+        dict[
+            str,
+            Any,
+        ],
+        ...,
+    ]:
+        class_id = parameters[
+            0
+        ]
+
+        attribute_id = (
+            parameters[
+                1
+            ]
+            if len(
+                parameters,
+            ) > 1
+            else None
+        )
+
+        value_id = (
+            parameters[
+                2
+            ]
+            if len(
+                parameters,
+            ) > 2
+            else None
+        )
+
+        return tuple(
+            row
+            for row in rows
+            if row.get(
+                "class_id",
+            )
+            == class_id
+            and (
+                attribute_id is None
+                or row.get(
+                    "attribute_id",
+                )
+                == attribute_id
+            )
+            and (
+                value_id is None
+                or row.get(
+                    "value_id",
+                )
+                == value_id
+            )
+        )
+
+    def _set_rows(
+        self,
+        rows: Sequence[
+            dict[
+                str,
+                Any,
+            ]
+        ],
+    ) -> None:
+        if not rows:
+            self.description = ()
+            self._rows = ()
+            return
+
+        column_names = tuple(
+            rows[
+                0
+            ]
+        )
+
+        self.description = tuple(
+            FakeColumn(
+                name=column_name,
+            )
+            for column_name in column_names
+        )
+
+        self._rows = tuple(
+            tuple(
+                row.get(
+                    column_name,
+                )
+                for column_name in column_names
+            )
+            for row in rows
+        )
+
+
+def _adapter(
+    *,
+    class_rows: Sequence[
+        Mapping[
+            str,
+            Any,
+        ]
+    ] = (),
+    attribute_rows: Sequence[
+        Mapping[
+            str,
+            Any,
+        ]
+    ] = (),
+    value_rows: Sequence[
+        Mapping[
+            str,
+            Any,
+        ]
+    ] = (),
+    schema: str = "tww_sys",
+    languages: tuple[
+        TwwLanguage,
+        ...,
+    ] = (
+        TwwLanguage.DE,
+        TwwLanguage.FR,
+        TwwLanguage.IT,
+        TwwLanguage.EN,
+    ),
+) -> tuple[
+    TwwCanonicalModelAdapter,
+    CanonicalModelCursor,
+    FakeConnectionFactory,
+]:
+    cursor = CanonicalModelCursor(
+        class_rows=class_rows,
+        attribute_rows=attribute_rows,
+        value_rows=value_rows,
     )
 
-    monkeypatch.setattr(
-        adapter_module.DatabaseUtils,
-        "wrap_literal",
-        staticmethod(
-            wrap_literal,
-        ),
+    connection_factory = FakeConnectionFactory(
+        FakeConnection(
+            cursor,
+        )
     )
 
-    monkeypatch.setattr(
-        adapter_module.DatabaseUtils,
-        "compose_sql",
-        staticmethod(
-            compose_sql,
-        ),
+    adapter = TwwCanonicalModelAdapter(
+        connection_factory=connection_factory,
+        schema=schema,
+        languages=languages,
     )
 
-    monkeypatch.setattr(
-        adapter_module.DatabaseUtils,
-        "fetchall_dict",
-        staticmethod(
-            fetchall_dict,
-        ),
+    return (
+        adapter,
+        cursor,
+        connection_factory,
     )
 
-    return queries
 
-
-def test_tww_canonical_model_adapter_loads_classes(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+def test_tww_canonical_model_adapter_loads_classes() -> None:
+    adapter, _, connection_factory = _adapter(
         class_rows=[
             {
                 "source_id": 1,
@@ -142,8 +465,6 @@ def test_tww_canonical_model_adapter_loads_classes(
             },
         ],
     )
-
-    adapter = TwwCanonicalModelAdapter()
 
     classes = adapter.classes()
 
@@ -174,12 +495,13 @@ def test_tww_canonical_model_adapter_loads_classes(
         ),
     }
 
+    assert connection_factory.autocommit_values == [
+        True,
+    ]
 
-def test_tww_canonical_model_adapter_loads_attributes(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+
+def test_tww_canonical_model_adapter_loads_attributes() -> None:
+    adapter, cursor, _ = _adapter(
         attribute_rows=[
             {
                 "source_id": 10,
@@ -204,8 +526,6 @@ def test_tww_canonical_model_adapter_loads_attributes(
         ],
     )
 
-    adapter = TwwCanonicalModelAdapter()
-
     attributes = adapter.attributes(
         class_id="wastewater_structure",
     )
@@ -229,14 +549,12 @@ def test_tww_canonical_model_adapter_loads_attributes(
         ),
     )
 
-    geometry_attribute = attributes[
+    assert attributes[
         (
             "wastewater_structure",
             "detail_geometry3d_geometry",
         )
-    ]
-
-    assert geometry_attribute == CanonicalAttributeMetadata(
+    ] == CanonicalAttributeMetadata(
         source_id=11,
         identifier="detail_geometry3d_geometry",
         field_datatype="geometry",
@@ -250,12 +568,15 @@ def test_tww_canonical_model_adapter_loads_attributes(
         ),
     )
 
+    assert cursor.executed_queries[
+        0
+    ][1] == (
+        "wastewater_structure",
+    )
 
-def test_tww_canonical_model_adapter_loads_values(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+
+def test_tww_canonical_model_adapter_loads_values() -> None:
+    adapter, cursor, _ = _adapter(
         value_rows=[
             {
                 "source_id": 100,
@@ -279,8 +600,6 @@ def test_tww_canonical_model_adapter_loads_values(
             },
         ],
     )
-
-    adapter = TwwCanonicalModelAdapter()
 
     values = adapter.values(
         class_id="wastewater_structure",
@@ -325,12 +644,16 @@ def test_tww_canonical_model_adapter_loads_values(
         ),
     )
 
+    assert cursor.executed_queries[
+        0
+    ][1] == (
+        "wastewater_structure",
+        "status",
+    )
 
-def test_tww_canonical_model_adapter_builds_canonical_model(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+
+def test_tww_canonical_model_adapter_builds_canonical_model() -> None:
+    adapter, _, connection_factory = _adapter(
         class_rows=[
             {
                 "source_id": 1,
@@ -367,8 +690,6 @@ def test_tww_canonical_model_adapter_builds_canonical_model(
         ],
     )
 
-    adapter = TwwCanonicalModelAdapter()
-
     metadata = adapter.canonical_model()
 
     assert isinstance(
@@ -401,19 +722,24 @@ def test_tww_canonical_model_adapter_builds_canonical_model(
         ),
     }
 
-    assert metadata.classes["reach"].localized.names == {
+    assert metadata.classes[
+        "reach"
+    ].localized.names == {
         "de": "Haltung",
         "fr": "Tronçon",
         "it": "Tratta",
         "en": "Reach",
     }
 
+    assert connection_factory.autocommit_values == [
+        True,
+        True,
+        True,
+    ]
 
-def test_tww_canonical_model_adapter_returns_single_class_metadata(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+
+def test_tww_canonical_model_adapter_returns_single_class_metadata() -> None:
+    adapter, cursor, _ = _adapter(
         class_rows=[
             {
                 "source_id": 1,
@@ -425,8 +751,6 @@ def test_tww_canonical_model_adapter_returns_single_class_metadata(
             },
         ],
     )
-
-    adapter = TwwCanonicalModelAdapter()
 
     metadata = adapter.class_metadata(
         "reach",
@@ -446,12 +770,21 @@ def test_tww_canonical_model_adapter_returns_single_class_metadata(
         "unknown",
     ) is None
 
+    assert cursor.executed_queries[
+        0
+    ][1] == (
+        "reach",
+    )
 
-def test_tww_canonical_model_adapter_returns_single_attribute_metadata(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+    assert cursor.executed_queries[
+        1
+    ][1] == (
+        "unknown",
+    )
+
+
+def test_tww_canonical_model_adapter_returns_single_attribute_metadata() -> None:
+    adapter, _, _ = _adapter(
         attribute_rows=[
             {
                 "source_id": 10,
@@ -465,8 +798,6 @@ def test_tww_canonical_model_adapter_returns_single_attribute_metadata(
             },
         ],
     )
-
-    adapter = TwwCanonicalModelAdapter()
 
     metadata = adapter.attribute_metadata(
         "reach",
@@ -490,11 +821,8 @@ def test_tww_canonical_model_adapter_returns_single_attribute_metadata(
     ) is None
 
 
-def test_tww_canonical_model_adapter_returns_single_value_metadata(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+def test_tww_canonical_model_adapter_returns_single_value_metadata() -> None:
+    adapter, _, _ = _adapter(
         value_rows=[
             {
                 "source_id": 100,
@@ -508,8 +836,6 @@ def test_tww_canonical_model_adapter_returns_single_value_metadata(
             },
         ],
     )
-
-    adapter = TwwCanonicalModelAdapter()
 
     metadata = adapter.value_metadata(
         "wastewater_structure",
@@ -534,11 +860,8 @@ def test_tww_canonical_model_adapter_returns_single_value_metadata(
     ) is None
 
 
-def test_tww_canonical_model_adapter_detects_geometry_attributes(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+def test_tww_canonical_model_adapter_detects_geometry_attributes() -> None:
+    adapter, _, _ = _adapter(
         attribute_rows=[
             {
                 "source_id": 10,
@@ -563,8 +886,6 @@ def test_tww_canonical_model_adapter_detects_geometry_attributes(
         ],
     )
 
-    adapter = TwwCanonicalModelAdapter()
-
     assert adapter.is_geometry_attribute(
         "reach",
         "progression_geometry",
@@ -581,11 +902,8 @@ def test_tww_canonical_model_adapter_detects_geometry_attributes(
     )
 
 
-def test_tww_canonical_model_adapter_returns_geometry_attribute_names(
-    monkeypatch,
-) -> None:
-    _patch_database_utils(
-        monkeypatch,
+def test_tww_canonical_model_adapter_returns_geometry_attribute_names() -> None:
+    adapter, _, _ = _adapter(
         attribute_rows=[
             {
                 "source_id": 10,
@@ -620,8 +938,6 @@ def test_tww_canonical_model_adapter_returns_geometry_attribute_names(
         ],
     )
 
-    adapter = TwwCanonicalModelAdapter()
-
     assert adapter.geometry_attribute_names(
         "reach",
     ) == (
@@ -635,14 +951,8 @@ def test_tww_canonical_model_adapter_returns_geometry_attribute_names(
     )
 
 
-def test_tww_canonical_model_adapter_uses_custom_schema_and_all_language_columns(
-    monkeypatch,
-) -> None:
-    queries = _patch_database_utils(
-        monkeypatch,
-    )
-
-    adapter = TwwCanonicalModelAdapter(
+def test_tww_canonical_model_adapter_uses_custom_schema_and_parameters() -> None:
+    adapter, cursor, _ = _adapter(
         schema="custom_sys",
     )
 
@@ -658,10 +968,14 @@ def test_tww_canonical_model_adapter_uses_custom_schema_and_all_language_columns
     )
 
     combined = "\n".join(
-        queries,
+        str(
+            query,
+        )
+        for query, _
+        in cursor.executed_queries
     )
 
-    assert '"custom_sys"' in combined
+    assert "custom_sys" in combined
 
     for column_name in (
         "name_de",
@@ -679,12 +993,22 @@ def test_tww_canonical_model_adapter_uses_custom_schema_and_all_language_columns
     ):
         assert column_name in combined
 
-    assert "'reach'" in combined
-    assert "'status'" in combined
+    assert cursor.executed_queries[
+        1
+    ][1] == (
+        "reach",
+    )
+
+    assert cursor.executed_queries[
+        2
+    ][1] == (
+        "reach",
+        "status",
+    )
 
 
 def test_tww_canonical_model_adapter_omits_empty_localizations() -> None:
-    adapter = TwwCanonicalModelAdapter()
+    adapter, _, _ = _adapter()
 
     localized = adapter._localized_metadata(
         row={
@@ -705,7 +1029,7 @@ def test_tww_canonical_model_adapter_omits_empty_localizations() -> None:
 
 
 def test_tww_canonical_model_adapter_respects_configured_languages() -> None:
-    adapter = TwwCanonicalModelAdapter(
+    adapter, _, _ = _adapter(
         languages=(
             TwwLanguage.DE,
             TwwLanguage.FR,
@@ -731,7 +1055,7 @@ def test_tww_canonical_model_adapter_respects_configured_languages() -> None:
 
 
 def test_tww_canonical_model_adapter_returns_empty_localized_metadata() -> None:
-    adapter = TwwCanonicalModelAdapter()
+    adapter, _, _ = _adapter()
 
     localized = adapter._localized_metadata(
         row={

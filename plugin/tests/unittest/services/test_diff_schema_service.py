@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 import pytest
 
@@ -12,11 +13,13 @@ from teksi_hooks.models.review import (
 )
 
 from teksi_wastewater.hooks.services.tww_diff_schema_service import (
+    DiffJobMode,
     TwwDiffSchemaService,
-    DiffJobMode
 )
-from teksi_wastewater.utils.database_utils import (
-    DatabaseUtils,
+
+from ..helpers import (
+    FakeConnection,
+    FakeConnectionFactory,
 )
 
 
@@ -28,23 +31,23 @@ class FakeCursor:
         metadata_id: int = 101,
         job_exists: bool = False,
     ) -> None:
-        self.table_columns = table_columns or set()
+        self.table_columns = (
+            table_columns
+            if table_columns is not None
+            else set()
+        )
+
         self.metadata_id = metadata_id
         self.job_exists = job_exists
-        self.executed = []
+
+        self.executed: list[
+            tuple[
+                str,
+                Any,
+            ]
+        ] = []
+
         self._last_query = ""
-
-    def fetchone(
-        self,
-    ):
-        if "SELECT EXISTS" in self._last_query:
-            return (
-                self.job_exists,
-            )
-
-        return (
-            self.metadata_id,
-        )
 
     def execute(
         self,
@@ -64,67 +67,36 @@ class FakeCursor:
             )
         )
 
+    def fetchone(
+        self,
+    ):
+        if "SELECT EXISTS" in self._last_query:
+            return (
+                self.job_exists,
+            )
+
+        return (
+            self.metadata_id,
+        )
 
     def fetchall(
         self,
     ):
-        if "information_schema.columns" in self._last_query:
+        if (
+            "information_schema.columns"
+            in self._last_query
+        ):
             return [
                 (
                     column_name,
                 )
-                for column_name in sorted(
+                for column_name
+                in sorted(
                     self.table_columns,
                 )
             ]
 
         return []
-
-
-class FakeConnection:
-    def __init__(
-        self,
-        cursor: FakeCursor,
-    ) -> None:
-        self._cursor = cursor
-        self.committed = False
-        self.closed = False
-
-    def cursor(
-        self,
-    ) -> FakeCursor:
-        return self._cursor
-
-    def commit(
-        self,
-    ) -> None:
-        self.committed = True
-
-    def close(
-        self,
-    ) -> None:
-        self.closed = True
-
-
-class FakeConnectionContext:
-    def __init__(
-        self,
-        connection: FakeConnection,
-    ) -> None:
-        self.connection = connection
-
-    def __enter__(
-        self,
-    ) -> FakeConnection:
-        return self.connection
-
-    def __exit__(
-        self,
-        exc_type,
-        exc_val,
-        exc_tb,
-    ) -> None:
-        self.connection.close()
 
 
 class ExampleStatus(
@@ -156,8 +128,45 @@ class GeometryWithWkt:
     wkt = "POINT(5 6)"
 
 
+def _service(
+    *,
+    table_columns: set[str] | None = None,
+    metadata_id: int = 101,
+    job_exists: bool = False,
+    schema: str = "tww_diff",
+    srid: int = 2056,
+) -> tuple[
+    TwwDiffSchemaService,
+    FakeCursor,
+    FakeConnectionFactory,
+]:
+    cursor = FakeCursor(
+        table_columns=table_columns,
+        metadata_id=metadata_id,
+        job_exists=job_exists,
+    )
+
+    connection_factory = FakeConnectionFactory(
+        FakeConnection(
+            cursor,
+        )
+    )
+
+    service = TwwDiffSchemaService(
+        connection_factory=connection_factory,
+        schema=schema,
+        srid=srid,
+    )
+
+    return (
+        service,
+        cursor,
+        connection_factory,
+    )
+
+
 def test_diff_schema_service_base_column_values() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     feature = ReviewFeature(
         class_id="reach",
@@ -212,7 +221,7 @@ def test_diff_schema_service_base_column_values() -> None:
 
 
 def test_diff_schema_service_base_column_values_defaults() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     feature = ReviewFeature(
         class_id="reach",
@@ -237,7 +246,7 @@ def test_diff_schema_service_base_column_values_defaults() -> None:
 
 
 def test_diff_schema_service_extra_column_values_filters_reserved_columns() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     feature = ReviewFeature(
         class_id="reach",
@@ -268,13 +277,15 @@ def test_diff_schema_service_extra_column_values_filters_reserved_columns() -> N
 
 
 def test_diff_schema_service_value_expression_uses_jsonb_for_json_columns() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
-    expression, parameters = service._value_expression(
-        column_name="import_values",
-        value={
-            "status": "active",
-        },
+    expression, parameters = (
+        service._value_expression(
+            column_name="import_values",
+            value={
+                "status": "active",
+            },
+        )
     )
 
     assert expression == "%s::jsonb"
@@ -284,11 +295,13 @@ def test_diff_schema_service_value_expression_uses_jsonb_for_json_columns() -> N
 
 
 def test_diff_schema_service_value_expression_uses_plain_parameter_for_normal_columns() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
-    expression, parameters = service._value_expression(
-        column_name="status",
-        value="active",
+    expression, parameters = (
+        service._value_expression(
+            column_name="status",
+            value="active",
+        )
     )
 
     assert expression == "%s"
@@ -298,10 +311,12 @@ def test_diff_schema_service_value_expression_uses_plain_parameter_for_normal_co
 
 
 def test_diff_schema_service_geometry_expression_for_none() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
-    expression, parameters = service._geometry_expression(
-        None,
+    expression, parameters = (
+        service._geometry_expression(
+            None,
+        )
     )
 
     assert expression == "%s"
@@ -311,15 +326,18 @@ def test_diff_schema_service_geometry_expression_for_none() -> None:
 
 
 def test_diff_schema_service_geometry_expression_for_wkb() -> None:
-    service = TwwDiffSchemaService(
+    service, _, _ = _service(
         srid=2056,
     )
 
-    expression, parameters = service._geometry_expression(
-        b"fake-wkb",
+    expression, parameters = (
+        service._geometry_expression(
+            b"fake-wkb",
+        )
     )
 
     assert expression == "ST_GeomFromWKB(%s, %s)"
+
     assert parameters == [
         b"fake-wkb",
         2056,
@@ -327,15 +345,18 @@ def test_diff_schema_service_geometry_expression_for_wkb() -> None:
 
 
 def test_diff_schema_service_geometry_expression_for_wkt() -> None:
-    service = TwwDiffSchemaService(
+    service, _, _ = _service(
         srid=2056,
     )
 
-    expression, parameters = service._geometry_expression(
-        "POINT(1 2)",
+    expression, parameters = (
+        service._geometry_expression(
+            "POINT(1 2)",
+        )
     )
 
     assert expression == "ST_GeomFromText(%s, %s)"
+
     assert parameters == [
         "POINT(1 2)",
         2056,
@@ -343,7 +364,7 @@ def test_diff_schema_service_geometry_expression_for_wkt() -> None:
 
 
 def test_diff_schema_service_geometry_to_wkt() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     assert service._geometry_to_wkt(
         None,
@@ -371,7 +392,7 @@ def test_diff_schema_service_geometry_to_wkt() -> None:
 
 
 def test_diff_schema_service_database_value_conversions() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     assert service._database_value(
         date(
@@ -408,7 +429,7 @@ def test_diff_schema_service_database_value_conversions() -> None:
 
 
 def test_diff_schema_service_json_dumps_handles_common_values() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     payload = {
         "date": date(
@@ -441,15 +462,12 @@ def test_diff_schema_service_json_dumps_handles_common_values() -> None:
 
 
 def test_diff_schema_service_table_columns_reads_information_schema() -> None:
-    cursor = FakeCursor(
+    service, cursor, _ = _service(
         table_columns={
             "job_id",
             "obj_id",
             "status",
         },
-    )
-
-    service = TwwDiffSchemaService(
         schema="tww_diff",
     )
 
@@ -471,7 +489,7 @@ def test_diff_schema_service_table_columns_reads_information_schema() -> None:
 
 
 def test_diff_schema_service_assert_required_columns_accepts_complete_table() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     service._assert_required_columns(
         table_name="reach",
@@ -492,9 +510,7 @@ def test_diff_schema_service_assert_required_columns_accepts_complete_table() ->
 
 
 def test_diff_schema_service_assert_required_columns_raises_for_missing_columns() -> None:
-    service = TwwDiffSchemaService(
-        schema="tww_diff",
-    )
+    service, _, _ = _service()
 
     with pytest.raises(
         RuntimeError,
@@ -510,7 +526,7 @@ def test_diff_schema_service_assert_required_columns_raises_for_missing_columns(
 
 
 def test_diff_schema_service_quote_identifier_escapes_quotes() -> None:
-    service = TwwDiffSchemaService()
+    service, _, _ = _service()
 
     assert service._quote_identifier(
         'weird"name',
@@ -518,7 +534,7 @@ def test_diff_schema_service_quote_identifier_escapes_quotes() -> None:
 
 
 def test_diff_schema_service_table_qualifies_schema_and_table() -> None:
-    service = TwwDiffSchemaService(
+    service, _, _ = _service(
         schema="tww_diff",
     )
 
@@ -528,17 +544,19 @@ def test_diff_schema_service_table_qualifies_schema_and_table() -> None:
 
 
 def test_diff_schema_service_insert_metadata_executes_insert_and_returns_id() -> None:
-    cursor = FakeCursor(
+    service, cursor, _ = _service(
         metadata_id=77,
+        schema="tww_diff",
     )
 
-    service = TwwDiffSchemaService(
-        schema="tww_diff",
+    snapshot_id = UUID(
+        "12345678-1234-5678-1234-567812345678"
     )
 
     job_db_id = service._insert_metadata(
         cursor=cursor,
         job_id="job-1",
+        snapshot_id=snapshot_id,
         metadata={
             "source_model": "AG64",
             "source_file": "/tmp/input.xtf",
@@ -553,10 +571,14 @@ def test_diff_schema_service_insert_metadata_executes_insert_and_returns_id() ->
 
     query, parameters = cursor.executed[0]
 
-    assert 'INSERT INTO "tww_diff"."metadata"' in query
+    assert (
+        'INSERT INTO "tww_diff"."metadata"'
+        in query
+    )
 
-    assert parameters[:7] == (
+    assert parameters[:8] == (
         "job-1",
+        snapshot_id,
         "pending",
         True,
         "AG64",
@@ -567,9 +589,7 @@ def test_diff_schema_service_insert_metadata_executes_insert_and_returns_id() ->
 
 
 def test_diff_schema_service_delete_existing_job_executes_delete() -> None:
-    cursor = FakeCursor()
-
-    service = TwwDiffSchemaService(
+    service, cursor, _ = _service(
         schema="tww_diff",
     )
 
@@ -580,16 +600,18 @@ def test_diff_schema_service_delete_existing_job_executes_delete() -> None:
 
     query, parameters = cursor.executed[0]
 
-    assert 'DELETE FROM "tww_diff"."metadata"' in query
+    assert (
+        'DELETE FROM "tww_diff"."metadata"'
+        in query
+    )
+
     assert parameters == (
         "job-1",
     )
 
 
 def test_diff_schema_service_insert_feature_writes_known_columns_and_geometry() -> None:
-    cursor = FakeCursor()
-
-    service = TwwDiffSchemaService(
+    service, cursor, _ = _service(
         schema="tww_diff",
         srid=2056,
     )
@@ -635,20 +657,21 @@ def test_diff_schema_service_insert_feature_writes_known_columns_and_geometry() 
 
     query, parameters = cursor.executed[0]
 
-    assert 'INSERT INTO "tww_diff"."reach"' in query
+    assert (
+        'INSERT INTO "tww_diff"."reach"'
+        in query
+    )
+
     assert '"status"' in query
     assert '"progression_geometry"' in query
     assert "ST_GeomFromWKB" in query
     assert "ignored" not in query
     assert "ignored_geometry" not in query
-
     assert b"fake-wkb" in parameters
     assert 2056 in parameters
 
 
-def test_diff_schema_service_write_persists_metadata_and_features(
-    monkeypatch,
-) -> None:
+def test_diff_schema_service_write_persists_metadata_and_features() -> None:
     table_columns = {
         "job_id",
         "obj_id",
@@ -665,29 +688,20 @@ def test_diff_schema_service_write_persists_metadata_and_features(
         "progression_geometry",
     }
 
-    cursor = FakeCursor(
+    service, cursor, connection_factory = _service(
         table_columns=table_columns,
         metadata_id=999,
-    )
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService(
         schema="tww_diff",
         srid=2056,
     )
 
+    snapshot_id = UUID(
+        "12345678-1234-5678-1234-567812345678"
+    )
+
     result = service.write(
         job_id="job-1",
+        snapshot_id=snapshot_id,
         features_by_class={
             "reach": (
                 ReviewFeature(
@@ -701,7 +715,9 @@ def test_diff_schema_service_write_persists_metadata_and_features(
                         },
                     },
                     geometries={
-                        "progression_geometry": b"fake-wkb",
+                        "progression_geometry": (
+                            b"fake-wkb"
+                        ),
                     },
                 ),
             ),
@@ -720,12 +736,14 @@ def test_diff_schema_service_write_persists_metadata_and_features(
     assert result.job_id == "job-1"
     assert result.row_count == 1
 
-    assert connection.committed is True
-    assert connection.closed is True
+    assert connection_factory.autocommit_values == [
+        False,
+    ]
 
     executed_queries = [
         query
-        for query, _ in cursor.executed
+        for query, _
+        in cursor.executed
     ]
 
     assert any(
@@ -734,183 +752,26 @@ def test_diff_schema_service_write_persists_metadata_and_features(
     )
 
     assert not any(
-        'DELETE FROM "tww_diff"."metadata"' in query
+        'DELETE FROM "tww_diff"."metadata"'
+        in query
         for query in executed_queries
     )
 
     assert any(
-        'INSERT INTO "tww_diff"."metadata"' in query
+        'INSERT INTO "tww_diff"."metadata"'
+        in query
         for query in executed_queries
     )
 
     assert any(
-        'INSERT INTO "tww_diff"."reach"' in query
+        'INSERT INTO "tww_diff"."reach"'
+        in query
         for query in executed_queries
     )
 
 
-def test_diff_schema_service_replace_deletes_existing_job(
-    monkeypatch,
-) -> None:
-    table_columns = {
-        "job_id",
-        "obj_id",
-        "is_created",
-        "is_altered",
-        "is_deleted",
-        "import_values",
-        "canonical_values",
-        "changed_attributes",
-        "unpermitted_values",
-        "permission_findings",
-        "validation_findings",
-    }
-
-    cursor = FakeCursor(
-        table_columns=table_columns,
-        metadata_id=100,
-        job_exists=True,
-    )
-
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService()
-
-    service.write(
-        job_id="job-1",
-        features_by_class={},
-        job_mode=DiffJobMode.REPLACE,
-    )
-
-    executed_queries = [
-        query
-        for query, _ in cursor.executed
-    ]
-
-    assert any(
-        'DELETE FROM "tww_diff"."metadata"' in query
-        for query in executed_queries
-    )
-
-    assert any(
-        'INSERT INTO "tww_diff"."metadata"' in query
-        for query in executed_queries
-    )
-
-def test_diff_schema_service_write_persists_metadata_and_features(
-    monkeypatch,
-) -> None:
-    table_columns = {
-        "job_id",
-        "obj_id",
-        "is_created",
-        "is_altered",
-        "is_deleted",
-        "import_values",
-        "canonical_values",
-        "changed_attributes",
-        "unpermitted_values",
-        "permission_findings",
-        "validation_findings",
-        "status",
-        "progression_geometry",
-    }
-
-    cursor = FakeCursor(
-        table_columns=table_columns,
-        metadata_id=999,
-    )
-
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService(
-        schema="tww_diff",
-        srid=2056,
-    )
-
-    result = service.write(
-        job_id="job-1",
-        features_by_class={
-            "reach": (
-                ReviewFeature(
-                    class_id="reach",
-                    object_id="ch000000re000001",
-                    attributes={
-                        "is_altered": True,
-                        "status": "active",
-                        "import_values": {
-                            "status": "active",
-                        },
-                    },
-                    geometries={
-                        "progression_geometry": b"fake-wkb",
-                    },
-                ),
-            ),
-        },
-        metadata={
-            "source_model": "AG64",
-            "source_file": "/tmp/input.xtf",
-            "import_schema": "import_schema",
-            "live_schema": "tww_od",
-        },
-        validation_success=True,
-        job_status="pending",
-        job_mode=DiffJobMode.REPLACE,
-    )
-
-    assert result.job_db_id == 999
-    assert result.job_id == "job-1"
-    assert result.row_count == 1
-
-    assert connection.committed is True
-    assert connection.closed is True
-
-    executed_queries = [
-        query
-        for query, _ in cursor.executed
-    ]
-
-    assert any(
-        'DELETE FROM "tww_diff"."metadata"' in query
-        for query in executed_queries
-    )
-
-    assert any(
-        'INSERT INTO "tww_diff"."metadata"' in query
-        for query in executed_queries
-    )
-
-    assert any(
-        'INSERT INTO "tww_diff"."reach"' in query
-        for query in executed_queries
-    )
-
-
-def test_diff_schema_service_create_does_not_delete_existing_job(
-    monkeypatch,
-) -> None:
-    cursor = FakeCursor(
+def test_diff_schema_service_create_does_not_delete_existing_job() -> None:
+    service, cursor, connection_factory = _service(
         table_columns={
             "job_id",
             "obj_id",
@@ -928,29 +789,19 @@ def test_diff_schema_service_create_does_not_delete_existing_job(
         job_exists=False,
     )
 
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService()
-
     service.write(
         job_id="job-1",
+        snapshot_id=UUID(
+            "12345678-1234-5678-1234-567812345678"
+        ),
         features_by_class={},
         job_mode=DiffJobMode.CREATE,
     )
 
     executed_queries = [
         query
-        for query, _ in cursor.executed
+        for query, _
+        in cursor.executed
     ]
 
     assert any(
@@ -964,31 +815,21 @@ def test_diff_schema_service_create_does_not_delete_existing_job(
     )
 
     assert any(
-        'INSERT INTO "tww_diff"."metadata"' in query
+        'INSERT INTO "tww_diff"."metadata"'
+        in query
         for query in executed_queries
     )
 
-def test_diff_schema_service_create_rejects_existing_job(
-    monkeypatch,
-) -> None:
-    cursor = FakeCursor(
+    assert connection_factory.autocommit_values == [
+        False,
+    ]
+
+
+def test_diff_schema_service_create_rejects_existing_job() -> None:
+    service, _, connection_factory = _service(
         metadata_id=100,
         job_exists=True,
     )
-
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService()
 
     with pytest.raises(
         RuntimeError,
@@ -996,49 +837,64 @@ def test_diff_schema_service_create_rejects_existing_job(
     ):
         service.write(
             job_id="job-1",
+            snapshot_id=UUID(
+                "12345678-1234-5678-1234-567812345678"
+            ),
             features_by_class={},
             job_mode=DiffJobMode.CREATE,
         )
 
-def test_diff_schema_service_replace_deletes_existing_job(
-    monkeypatch,
-) -> None:
-    cursor = FakeCursor(
+    assert connection_factory.autocommit_values == [
+        False,
+    ]
+
+
+def test_diff_schema_service_replace_deletes_existing_job() -> None:
+    service, cursor, connection_factory = _service(
+        table_columns={
+            "job_id",
+            "obj_id",
+            "is_created",
+            "is_altered",
+            "is_deleted",
+            "import_values",
+            "canonical_values",
+            "changed_attributes",
+            "unpermitted_values",
+            "permission_findings",
+            "validation_findings",
+        },
         metadata_id=100,
         job_exists=True,
     )
 
-    connection = FakeConnection(
-        cursor=cursor,
-    )
-
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "PsycopgConnection",
-        lambda: FakeConnectionContext(
-            connection,
-        ),
-    )
-
-    service = TwwDiffSchemaService()
-
     service.write(
         job_id="job-1",
+        snapshot_id=UUID(
+            "12345678-1234-5678-1234-567812345678"
+        ),
         features_by_class={},
         job_mode=DiffJobMode.REPLACE,
     )
 
     executed_queries = [
         query
-        for query, _ in cursor.executed
+        for query, _
+        in cursor.executed
     ]
 
     assert any(
-        'DELETE FROM "tww_diff"."metadata"' in query
+        'DELETE FROM "tww_diff"."metadata"'
+        in query
         for query in executed_queries
     )
 
     assert any(
-        'INSERT INTO "tww_diff"."metadata"' in query
+        'INSERT INTO "tww_diff"."metadata"'
+        in query
         for query in executed_queries
     )
+
+    assert connection_factory.autocommit_values == [
+        False,
+    ]

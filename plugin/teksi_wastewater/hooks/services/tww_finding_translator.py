@@ -5,12 +5,14 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, ClassVar
 import logging
 
-from .tww_diff_schema_service import (
-    DiffReviewJob,
-)
+
 
 from .tww_diff_review_service import (
     DiffReviewDecision,
+)
+
+from teksi_hooks.models.review import (
+    DiffReviewJob,
 )
 from teksi_hooks.exceptions import Finding
 from teksi_hooks.services.finding_translator import FINDING_MESSAGE_TEMPLATES

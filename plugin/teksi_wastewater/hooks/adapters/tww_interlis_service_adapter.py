@@ -8,6 +8,10 @@ from teksi_hooks.services.interlis import (
     InterlisContext,
     InterlisService,
 )
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
+)
+from .tww_database_connection_factory import TwwDatabaseConnectionFactory
 
 
 @dataclass(slots=True, frozen=True)
@@ -19,7 +23,7 @@ class TwwInterlisContext(InterlisContext):
     specific to the current TEKSI Wastewater importer/exporter.
 
     Database connection options remain outside this context and are handled by
-    DatabaseUtils or by the CLI/runtime configuration layer.
+    TwwDatabaseConnectionFactory.
     """
 
     srid: int = 2056
@@ -28,7 +32,7 @@ class TwwInterlisContext(InterlisContext):
 
     show_selection_dialog: bool = False
 
-    filter_nulls: bool = False
+    filter_nulls: bool = True
 
     labels_file: Path | None = None
 
@@ -90,11 +94,27 @@ class TwwInterlisServiceAdapter(InterlisService):
     def __init__(
         self,
         importer_exporter: InterlisImporterExporter | None = None,
+        connection_factory: DatabaseConnectionFactory | None = None,
     ) -> None:
+        self._connection_factory = (
+            connection_factory
+            if connection_factory is not None
+            else TwwDatabaseConnectionFactory.from_database_config()
+        )
+
         self._importer_exporter = (
             importer_exporter
             if importer_exporter is not None
             else InterlisImporterExporter()
+        )
+
+    def _prepare_operation(
+        self,
+        context: InterlisContext,
+    ) -> None:
+        self._connection_factory.apply_to_database_config()
+        self._apply_context(
+            context,
         )
 
     def _apply_context(
@@ -117,7 +137,7 @@ class TwwInterlisServiceAdapter(InterlisService):
         xtf_file: Path,
         context: InterlisContext,
     ) -> None:
-        self._apply_context(
+        self._prepare_operation(
             context,
         )
 
@@ -153,7 +173,7 @@ class TwwInterlisServiceAdapter(InterlisService):
         export_models: Sequence[str],
         context: InterlisContext,
     ) -> None:
-        self._apply_context(
+        self._prepare_operation(
             context,
         )
 

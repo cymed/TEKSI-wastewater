@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 
+from psycopg import sql
+
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
+)
 from teksi_hooks.capabilities.mapping import (
     ImplicitModelMappingCapability,
 )
@@ -12,9 +18,17 @@ from teksi_hooks.models.mapping import (
     ValueMapping,
 )
 
-from ...utils.database_utils import (
-    DatabaseUtils,
-)
+
+class TwwLanguage(
+    StrEnum,
+):
+    """
+    Languages supported by implicit TEKSI Wastewater model mappings.
+    """
+
+    DE = "de"
+    FR = "fr"
+    EN = "en"
 
 
 @dataclass(slots=True)
@@ -25,16 +39,18 @@ class TwwImplicitModelMappingAdapter(
     Database-backed provider for implicit canonical mappings.
 
     The adapter derives ModelMapping definitions from TWW dictionary metadata
-    stored in tww_sys.
+    stored in ``tww_sys``.
 
     The resulting mappings are intended as fallback mappings when no explicit
     ModelMapping definition exists.
 
     Language-specific INTERLIS identifiers are resolved from dictionary
-    columns such as ili_name_de, ili_name_fr and ili_name_en.
+    columns such as ``ili_name_de``, ``ili_name_fr`` and ``ili_name_en``.
     """
 
-    language: str = "de"
+    connection_factory: DatabaseConnectionFactory
+
+    language: TwwLanguage = TwwLanguage.DE
 
     schema: str = "tww_sys"
 
@@ -53,18 +69,22 @@ class TwwImplicitModelMappingAdapter(
     def __post_init__(
         self,
     ) -> None:
-        allowed_languages = {
-            "de",
-            "fr",
-            "en",
-        }
+        """
+        Validate the configured language and load the implicit mapping.
+        """
 
-        if self.language not in allowed_languages:
+        try:
+            self.language = TwwLanguage(
+                self.language,
+            )
+        except ValueError as exception:
             raise ValueError(
                 f"Unsupported language: {self.language!r}"
-            )
+            ) from exception
 
-        self._model_mapping = self._load_model_mapping()
+        self._model_mapping = (
+            self._load_model_mapping()
+        )
 
     def model_mapping(
         self,
@@ -129,12 +149,14 @@ class TwwImplicitModelMappingAdapter(
         attribute_name: str,
     ) -> AttributeMapping:
         """
-        Return the attribute mapping for a source-model attribute.
+        Return the mapping for one source-model attribute.
         """
 
-        attribute_mapping = self.try_attribute_definition(
-            class_id,
-            attribute_name,
+        attribute_mapping = (
+            self.try_attribute_definition(
+                class_id,
+                attribute_name,
+            )
         )
 
         if attribute_mapping is None:
@@ -172,7 +194,7 @@ class TwwImplicitModelMappingAdapter(
         value: str,
     ) -> ValueMapping:
         """
-        Return the value mapping for a source-model value.
+        Return the mapping for one source-model value.
         """
 
         value_mapping = self.try_value_mapping(
@@ -199,9 +221,11 @@ class TwwImplicitModelMappingAdapter(
         Return a value mapping if it exists.
         """
 
-        attribute_mapping = self.try_attribute_definition(
-            class_id,
-            attribute_name,
+        attribute_mapping = (
+            self.try_attribute_definition(
+                class_id,
+                attribute_name,
+            )
         )
 
         if attribute_mapping is None:
@@ -214,31 +238,45 @@ class TwwImplicitModelMappingAdapter(
     def _load_model_mapping(
         self,
     ) -> ModelMapping:
-        attributes_by_class = self._load_attribute_mappings()
-        values_by_attribute = self._load_value_mappings()
+        """
+        Load and assemble the complete implicit mapping.
+        """
+
+        attributes_by_class = (
+            self._load_attribute_mappings()
+        )
+
+        values_by_attribute = (
+            self._load_value_mappings()
+        )
 
         classes: dict[
             str,
             ClassMapping,
         ] = {}
 
-        ili_name_column = self._ili_name_column()
+        ili_name_column = (
+            self._ili_name_column()
+        )
 
-        query = DatabaseUtils.compose_sql(
+        query = sql.SQL(
             """
             SELECT
                 tablename,
                 {ili_name_column} AS ili_class_name
             FROM
                 {schema}.{table_dictionary}
-            """,
-            ili_name_column=DatabaseUtils.wrap_identifier(
+            ORDER BY
+                tablename;
+            """
+        ).format(
+            ili_name_column=sql.Identifier(
                 ili_name_column,
             ),
-            schema=DatabaseUtils.wrap_identifier(
+            schema=sql.Identifier(
                 self.schema,
             ),
-            table_dictionary=DatabaseUtils.wrap_identifier(
+            table_dictionary=sql.Identifier(
                 self.table_dictionary,
             ),
         )
@@ -246,13 +284,16 @@ class TwwImplicitModelMappingAdapter(
         for (
             canonical_class_id,
             ili_class_name,
-        ) in DatabaseUtils.fetchall(
+        ) in self._fetchall(
             query,
         ):
             if not ili_class_name:
                 continue
 
-            attributes = {}
+            attributes: dict[
+                str,
+                AttributeMapping,
+            ] = {}
 
             for (
                 ili_attribute_name,
@@ -272,9 +313,18 @@ class TwwImplicitModelMappingAdapter(
                 attributes[
                     ili_attribute_name
                 ] = AttributeMapping(
-                    canonical_class_id=attribute_mapping.canonical_class_id,
-                    canonical_attr_id=attribute_mapping.canonical_attr_id,
-                    foreign_key=attribute_mapping.foreign_key,
+                    canonical_class_id=(
+                        attribute_mapping
+                        .canonical_class_id
+                    ),
+                    canonical_attr_id=(
+                        attribute_mapping
+                        .canonical_attr_id
+                    ),
+                    foreign_key=(
+                        attribute_mapping
+                        .foreign_key
+                    ),
                     values=dict(
                         values,
                     ),
@@ -283,7 +333,9 @@ class TwwImplicitModelMappingAdapter(
             classes[
                 ili_class_name
             ] = ClassMapping(
-                canonical_class_id=canonical_class_id,
+                canonical_class_id=(
+                    canonical_class_id
+                ),
                 attributes=attributes,
             )
 
@@ -301,9 +353,15 @@ class TwwImplicitModelMappingAdapter(
             AttributeMapping,
         ],
     ]:
-        ili_name_column = self._ili_name_column()
+        """
+        Load implicit mappings for canonical attributes.
+        """
 
-        query = DatabaseUtils.compose_sql(
+        ili_name_column = (
+            self._ili_name_column()
+        )
+
+        query = sql.SQL(
             """
             SELECT
                 t.tablename AS canonical_class_id,
@@ -311,21 +369,25 @@ class TwwImplicitModelMappingAdapter(
                 t.{ili_name_column} AS ili_class_name,
                 a.{ili_name_column} AS ili_attribute_name
             FROM
-                {schema}.{attribute_dictionary} a
+                {schema}.{attribute_dictionary} AS a
             JOIN
-                {schema}.{table_dictionary} t
+                {schema}.{table_dictionary} AS t
                     ON t.id = a.class_id
-            """,
-            ili_name_column=DatabaseUtils.wrap_identifier(
+            ORDER BY
+                t.tablename,
+                a.field_name;
+            """
+        ).format(
+            ili_name_column=sql.Identifier(
                 ili_name_column,
             ),
-            schema=DatabaseUtils.wrap_identifier(
+            schema=sql.Identifier(
                 self.schema,
             ),
-            attribute_dictionary=DatabaseUtils.wrap_identifier(
+            attribute_dictionary=sql.Identifier(
                 self.attribute_dictionary,
             ),
-            table_dictionary=DatabaseUtils.wrap_identifier(
+            table_dictionary=sql.Identifier(
                 self.table_dictionary,
             ),
         )
@@ -343,7 +405,7 @@ class TwwImplicitModelMappingAdapter(
             canonical_attr_id,
             ili_class_name,
             ili_attribute_name,
-        ) in DatabaseUtils.fetchall(
+        ) in self._fetchall(
             query,
         ):
             if (
@@ -358,8 +420,12 @@ class TwwImplicitModelMappingAdapter(
             )[
                 ili_attribute_name
             ] = AttributeMapping(
-                canonical_class_id=canonical_class_id,
-                canonical_attr_id=canonical_attr_id,
+                canonical_class_id=(
+                    canonical_class_id
+                ),
+                canonical_attr_id=(
+                    canonical_attr_id
+                ),
             )
 
         return classes
@@ -376,9 +442,15 @@ class TwwImplicitModelMappingAdapter(
             ValueMapping,
         ],
     ]:
-        ili_name_column = self._ili_name_column()
+        """
+        Load implicit mappings for canonical value-list values.
+        """
 
-        query = DatabaseUtils.compose_sql(
+        ili_name_column = (
+            self._ili_name_column()
+        )
+
+        query = sql.SQL(
             """
             SELECT
                 t.{ili_name_column} AS ili_class_name,
@@ -387,28 +459,33 @@ class TwwImplicitModelMappingAdapter(
                 v.value_id AS canonical_value_id,
                 v.value_name AS canonical_value_name
             FROM
-                {schema}.{value_dictionary} v
+                {schema}.{value_dictionary} AS v
             JOIN
-                {schema}.{table_dictionary} t
+                {schema}.{table_dictionary} AS t
                     ON t.id = v.class_id
             JOIN
-                {schema}.{attribute_dictionary} f
+                {schema}.{attribute_dictionary} AS f
                     ON f.class_id = v.class_id
                    AND f.attribute_id = v.attribute_id
-            """,
-            ili_name_column=DatabaseUtils.wrap_identifier(
+            ORDER BY
+                ili_class_name,
+                ili_attribute_name,
+                ili_value_name;
+            """
+        ).format(
+            ili_name_column=sql.Identifier(
                 ili_name_column,
             ),
-            schema=DatabaseUtils.wrap_identifier(
+            schema=sql.Identifier(
                 self.schema,
             ),
-            value_dictionary=DatabaseUtils.wrap_identifier(
+            value_dictionary=sql.Identifier(
                 self.value_dictionary,
             ),
-            table_dictionary=DatabaseUtils.wrap_identifier(
+            table_dictionary=sql.Identifier(
                 self.table_dictionary,
             ),
-            attribute_dictionary=DatabaseUtils.wrap_identifier(
+            attribute_dictionary=sql.Identifier(
                 self.attribute_dictionary,
             ),
         )
@@ -430,7 +507,7 @@ class TwwImplicitModelMappingAdapter(
             ili_value_name,
             canonical_value_id,
             canonical_value_name,
-        ) in DatabaseUtils.fetchall(
+        ) in self._fetchall(
             query,
         ):
             if (
@@ -449,11 +526,36 @@ class TwwImplicitModelMappingAdapter(
             )[
                 ili_value_name
             ] = ValueMapping(
-                canonical_value_id=canonical_value_id,
+                canonical_value_id=(
+                    canonical_value_id
+                ),
                 value=canonical_value_name,
             )
 
         return mappings
+
+    def _fetchall(
+        self,
+        query,
+    ) -> list[
+        tuple,
+    ]:
+        """
+        Execute a read-only query and return all rows.
+
+        Implicit model metadata is loaded using an autocommit connection
+        because the adapter performs only independent read operations.
+        """
+
+        with self.connection_factory.connection(
+            autocommit=True,
+        ) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    query,
+                )
+
+                return cursor.fetchall()
 
     def _ili_name_column(
         self,
@@ -462,4 +564,6 @@ class TwwImplicitModelMappingAdapter(
         Return the dictionary column containing localized INTERLIS names.
         """
 
-        return f"ili_name_{self.language}"
+        return (
+            f"ili_name_{self.language.value}"
+        )

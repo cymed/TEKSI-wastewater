@@ -5,13 +5,15 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
+from psycopg import sql
+
 from teksi_hooks.capabilities.cleanup import (
     IntermediateDataCleanupCapability,
 )
 
 from ...interlis import config
-from ...utils.database_utils import (
-    DatabaseUtils,
+from .tww_database_connection_factory import (
+    TwwDatabaseConnectionFactory,
 )
 
 
@@ -27,6 +29,8 @@ class TwwIntermediateDataCleanupAdapter(
 
     Cleanup is idempotent. Missing schemas do not cause an error.
     """
+
+    connection_factory: TwwDatabaseConnectionFactory
 
     protected_schemas: frozenset[
         str
@@ -80,7 +84,7 @@ class TwwIntermediateDataCleanupAdapter(
         Return unique intermediate schema names from workflow metadata.
         """
 
-        schemas = []
+        schemas: list[str] = []
 
         for metadata_key in (
             "import_schema",
@@ -130,15 +134,19 @@ class TwwIntermediateDataCleanupAdapter(
         Drop one intermediate schema if it exists.
         """
 
-        query = DatabaseUtils.compose_sql(
+        query = sql.SQL(
             """
-            DROP SCHEMA IF EXISTS {schema} CASCADE;
-            """,
-            schema=DatabaseUtils.wrap_identifier(
+            DROP SCHEMA IF EXISTS {} CASCADE;
+            """
+        ).format(
+            sql.Identifier(
                 schema,
-            ),
+            )
         )
 
-        DatabaseUtils.execute(
-            query,
-        )
+        with self.connection_factory.connection(
+            autocommit=True,
+        ) as connection:
+            connection.execute(
+                query,
+            )
