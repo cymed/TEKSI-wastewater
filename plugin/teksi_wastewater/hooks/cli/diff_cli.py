@@ -89,17 +89,17 @@ def main() -> int:
         help="Data owner organisation OID used for rights evaluation.",
     )
 
-    parser.add_argument(
-        "--import-schema",
-        default=config.IMPORT_SCHEMA,
-        help="Quarantine schema used for the import.",
-    )
+    # parser.add_argument(
+    #     "--import-schema",
+    #     default=config.IMPORT_SCHEMA,
+    #     help="Quarantine schema used for the import.",
+    # )
 
-    parser.add_argument(
-        "--live-schema",
-        default=config.TWW_OD_SCHEMA,
-        help="Canonical live schema used for comparison and rights evaluation.",
-    )
+    # parser.add_argument(
+    #     "--live-schema",
+    #     default=config.TWW_OD_SCHEMA,
+    #     help="Canonical live schema used for comparison and rights evaluation.",
+    # )
 
     parser.add_argument(
         "--orgs-path",
@@ -114,11 +114,11 @@ def main() -> int:
         default=None,
         help="Optional XTF for incremental adaptation, i.e. for AG-XX mappings.",
     )
-    parser.add_argument(
-        "--incremental_import-schema",
-        default=None,
-        help="Optional Quarantine schema used for the incremental import.",
-    )
+    # parser.add_argument(
+    #     "--incremental_import-schema",
+    #     default=config.IMPORT_SCHEMA_INCREMENTAL,
+    #     help="Optional Quarantine schema used for the incremental import.",
+    # )
 
     parser.add_argument(
         "--rights-profile",
@@ -151,11 +151,11 @@ def main() -> int:
         "xtf_input": args.xtf_input,
         "provider_oid": args.provider_oid,
         "dataowner_oid": args.dataowner_oid,
-        "import_schema": args.import_schema,
-        "live_schema": args.live_schema,
+        "import_schema": config.IMPORT_SCHEMA,
+        "live_schema": config.TWW_OD_SCHEMA,
         "orgs_path": args.orgs_path,
         "incremental_xtf": args.incremental_xtf,
-        "incremental_import-schema": args.incremental_import_schema,
+        "incremental_import-schema": config.IMPORT_SCHEMA_INCREMENTAL,
         "rights_profile": args.rights_profile,
         "hook_config_dir": args.hook_config_dir,
     }

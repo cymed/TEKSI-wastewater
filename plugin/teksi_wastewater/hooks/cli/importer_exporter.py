@@ -89,14 +89,14 @@ class TeksiWastewaterCmd:
             ),
         )
 
-        subparser.add_argument(
-            "--schema",
-            default=config.IMPORT_SCHEMA,
-            help=(
-                "ili2pg schema used for the INTERLIS import "
-                f"(default: {config.IMPORT_SCHEMA})."
-            ),
-        )
+        # subparser.add_argument(
+        #     "--schema",
+        #     default=config.IMPORT_SCHEMA,
+        #     help=(
+        #         "ili2pg schema used for the INTERLIS import "
+        #         f"(default: {config.IMPORT_SCHEMA})."
+        #     ),
+        # )
 
         helpers.add_postgres_connection_args(
             subparser,
@@ -207,14 +207,14 @@ class TeksiWastewaterCmd:
             ),
         )
 
-        subparser.add_argument(
-            "--schema",
-            default=config.EXPORT_SCHEMA,
-            help=(
-                "ili2pg schema used for the INTERLIS import "
-                f"(default: {config.EXPORT_SCHEMA})."
-            ),
-        )
+        # subparser.add_argument(
+        #     "--schema",
+        #     default=config.EXPORT_SCHEMA,
+        #     help=(
+        #         "ili2pg schema used for the INTERLIS import "
+        #         f"(default: {config.EXPORT_SCHEMA})."
+        #     ),
+        # )
 
         helpers.add_postgres_connection_args(
             subparser,
@@ -237,6 +237,7 @@ class TeksiWastewaterCmd:
             self.args.subparser_name
             == self.SUBPARSER_NAME_INTERLIS_IMPORT
         ):
+            self.schema = config.IMPORT_SCHEMA
             self.execute_interlis_import()
             return
 
@@ -244,6 +245,7 @@ class TeksiWastewaterCmd:
             self.args.subparser_name
             == self.SUBPARSER_NAME_INTERLIS_EXPORT
         ):
+            self.schema = config.EXPORT_SCHEMA
             self.execute_interlis_export()
             return
 
@@ -267,7 +269,7 @@ class TeksiWastewaterCmd:
         service = TwwInterlisServiceAdapter(connection_factory=connection_factory)
 
         context = TwwInterlisContext(
-            schema=self.args.schema,
+            schema=self.schema,
             srid=self.args.srid,
             show_selection_dialog=(
                 self.args.show_selection_dialog
@@ -344,7 +346,7 @@ class TeksiWastewaterCmd:
 
 
         context = TwwInterlisContext(
-            schema=self.args.schema,
+            schema=self.schema,
             srid=self.args.srid,
             logs_next_to_file=(
                 self.args.logs_next_to_file

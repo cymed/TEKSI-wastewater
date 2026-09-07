@@ -6,7 +6,7 @@
 default:
   description: Default TEKSI Wastewater provider rights profile.
   provider_rights: templates/provider_rights.yaml
-  provider_privileges: templates/provider_privilege.yaml
+  privilege_tree: templates/privilege_tree.yaml
 
 # Example profile for one hosted entity/provider.
 #

@@ -17,6 +17,9 @@ from teksi_hooks.capabilities.relation_lookup import (
 from teksi_hooks.capabilities.review import (
     ChangeObjectProvider,
 )
+from teksi_hooks.capabilities.connection import (
+    DatabaseConnectionFactory,
+)
 from teksi_hooks.evaluators.rights import (
     RightsEvaluationContext,
     RightsEvaluator,
@@ -98,21 +101,6 @@ class QuarantineEffectProjector(Protocol):
     ) -> EffectDocument:
         """
         Project one populated quarantine schema into canonical effects.
-        """
-
-
-class RightsEvaluatorFactory(Protocol):
-    """
-    Factory protocol for creating a rights evaluator for a workflow run.
-    """
-
-    def rights_evaluator(
-        self,
-        *,
-        relation_lookup: RelationLookupCapability,
-    ) -> RightsEvaluator:
-        """
-        Return a rights evaluator using the supplied live relation lookup.
         """
 
 
@@ -206,13 +194,12 @@ class TwwChangeCreationService:
     The service does not apply accepted changes to live data.
     """
 
+    connection_factory: DatabaseConnectionFactory
     quarantine_runner: TwwQuarantineRunner = field(
         default_factory=TwwQuarantineRunner,
     )
 
-    canonical_model: CanonicalModelCapability = field(
-        default_factory=TwwCanonicalModelAdapter,
-    )
+    canonical_metadata: CanonicalModelMetadata
 
     effect_projector: QuarantineEffectProjector | None = None
 
@@ -224,11 +211,12 @@ class TwwChangeCreationService:
         default_factory=TwwDiffSchemaService,
     )
 
-    rights_evaluator_factory: RightsEvaluatorFactory | None = None
+    rights_evaluator: RightsEvaluator | None = None
 
     object_provider_factory: ChangeObjectProviderFactory | None = None
 
     live_relation_lookup: RelationLookupCapability | None = None
+
 
     def create_diff_job_from_xtf(
         self,
@@ -239,7 +227,7 @@ class TwwChangeCreationService:
         rights_context: RightsEvaluationContext,
         orgs_path: Path | None = None,
         incremental_xtf: Path | None = None,
-        incremental_import_schema: str | None = None,
+        incremental_import_schema: str = config.IMPORT_SCHEMA_INCR,
         context: TwwInterlisContext | None = None,
         validation_log_path: Path | None = None,
         import_schema: str = config.IMPORT_SCHEMA,
@@ -469,14 +457,9 @@ class TwwChangeCreationService:
             relation_lookup=relation_lookup,
         )
 
-        rights_evaluator = (
-            self.rights_evaluator_factory.rights_evaluator(
-                relation_lookup=relation_lookup,
-            )
-        )
 
         classified_changes = ChangeClassifier(
-            rights_evaluator=rights_evaluator,
+            rights_evaluator=self.rights_evaluator,
         ).classify(
             changes=changes,
             context=rights_context,
@@ -745,6 +728,7 @@ class TwwChangeCreationService:
 
         return TwwRelationLookupAdapter(
             schema=live_schema,
+            connection_factory=self.connection_factory
         )
 
     def _geometry_attribute_map(
@@ -823,9 +807,9 @@ class TwwChangeCreationService:
                 "effect_projector",
             )
 
-        if self.rights_evaluator_factory is None:
+        if self.rights_evaluator is None:
             missing.append(
-                "rights_evaluator_factory",
+                "rights_evaluator",
             )
 
         if self.object_provider_factory is None:
