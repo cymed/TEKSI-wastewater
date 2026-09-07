@@ -16,7 +16,7 @@ from teksi_wastewater.interlis.interlis_importer_exporter import (
     InterlisImporterExporterError,
 )
 
-from . import helpers
+from teksi_wastewater.hooks.cli import helpers
 
 
 class TeksiWastewaterCmd:

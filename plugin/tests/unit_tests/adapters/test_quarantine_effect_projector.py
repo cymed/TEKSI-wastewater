@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
@@ -33,8 +34,10 @@ from teksi_hooks.models.mapping import (
 from teksi_wastewater.hooks.adapters.tww_quarantine_effect_projector import (
     TwwQuarantineEffectProjector,
 )
-from teksi_wastewater.utils.database_utils import (
-    DatabaseUtils,
+
+from ..helpers import (
+    FakeQueryResult,
+    fake_connection_factory,
 )
 
 
@@ -53,11 +56,14 @@ class FunctionMappedClass:
 class FakeRelationContextProvider:
     contexts: tuple[
         RelationContext,
-        ...
+        ...,
     ] = ()
 
     init_args: list[
-        dict,
+        dict[
+            str,
+            Any,
+        ]
     ] = []
 
     def __init__(
@@ -79,7 +85,7 @@ class FakeRelationContextProvider:
         self,
     ) -> tuple[
         RelationContext,
-        ...
+        ...,
     ]:
         return self.__class__.contexts
 
@@ -136,7 +142,10 @@ def _canonical_metadata() -> CanonicalModelMetadata:
 
 def _mapping(
     *,
-    classes,
+    classes: dict[
+        str,
+        ClassMapping,
+    ],
     is_ssot: bool = True,
 ) -> EffectiveModelMappingCapability:
     return EffectiveModelMappingCapability(
@@ -150,11 +159,78 @@ def _mapping(
     )
 
 
+def _projector(
+    *,
+    model_mapping: EffectiveModelMappingCapability,
+    results: tuple[
+        FakeQueryResult,
+        ...,
+    ] = (),
+) -> tuple:
+    connection_factory, cursor = fake_connection_factory(
+        results=results,
+    )
+
+    return (
+        TwwQuarantineEffectProjector(
+            connection_factory=connection_factory,
+            model_mapping=model_mapping,
+        ),
+        cursor,
+        connection_factory,
+    )
+
+
+def _rows_result(
+    *rows: dict[
+        str,
+        Any,
+    ],
+) -> FakeQueryResult:
+    if not rows:
+        return FakeQueryResult(
+            column_names=(),
+            rows=(),
+        )
+
+    column_names = tuple(
+        rows[0],
+    )
+
+    return FakeQueryResult(
+        column_names=column_names,
+        rows=tuple(
+            tuple(
+                row.get(
+                    column_name,
+                )
+                for column_name in column_names
+            )
+            for row in rows
+        ),
+    )
+
+
+def _scalar_result(
+    value: Any,
+) -> FakeQueryResult:
+    return FakeQueryResult(
+        column_names=(
+            "effect_document",
+        ),
+        rows=(
+            (
+                value,
+            ),
+        ),
+    )
+
+
 def _patch_relation_context_provider(
     monkeypatch,
     contexts: tuple[
         RelationContext,
-        ...
+        ...,
     ],
 ) -> None:
     FakeRelationContextProvider.contexts = contexts
@@ -190,22 +266,19 @@ def test_projector_projects_simple_attribute_mapping(
         ),
     )
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "t_ili_tid": "ch000000ws000001",
-                "statusag": "active",
-            }
-        ],
-    )
-
-    projector = TwwQuarantineEffectProjector(
+    projector, cursor, connection_factory = _projector(
         model_mapping=_mapping(
             classes={
                 "GepKnoten": class_mapping,
             },
+        ),
+        results=(
+            _rows_result(
+                {
+                    "t_ili_tid": "ch000000ws000001",
+                    "statusag": "active",
+                }
+            ),
         ),
     )
 
@@ -248,6 +321,14 @@ def test_projector_projects_simple_attribute_mapping(
         }
     ]
 
+    assert len(
+        cursor.executed_queries,
+    ) == 1
+
+    assert connection_factory.autocommit_values == [
+        False,
+    ]
+
 
 def test_projector_applies_value_mapping(
     monkeypatch,
@@ -278,22 +359,19 @@ def test_projector_applies_value_mapping(
         ),
     )
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "t_ili_tid": "ch000000ws000002",
-                "funktionag": "Schacht",
-            }
-        ],
-    )
-
-    projector = TwwQuarantineEffectProjector(
+    projector, _, _ = _projector(
         model_mapping=_mapping(
             classes={
                 "GepKnoten": class_mapping,
             },
+        ),
+        results=(
+            _rows_result(
+                {
+                    "t_ili_tid": "ch000000ws000002",
+                    "funktionag": "Schacht",
+                }
+            ),
         ),
     )
 
@@ -332,17 +410,7 @@ def test_projector_skips_unmapped_canonical_class(
         ),
     )
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "t_ili_tid": "ch000000ws000003",
-            }
-        ],
-    )
-
-    projector = TwwQuarantineEffectProjector(
+    projector, cursor, _ = _projector(
         model_mapping=_mapping(
             classes={
                 "GepKnoten": class_mapping,
@@ -357,6 +425,7 @@ def test_projector_skips_unmapped_canonical_class(
     )
 
     assert document.effects == ()
+    assert cursor.executed_queries == []
 
 
 def test_projector_rejects_unknown_canonical_class(
@@ -377,7 +446,7 @@ def test_projector_rejects_unknown_canonical_class(
         ),
     )
 
-    projector = TwwQuarantineEffectProjector(
+    projector, cursor, _ = _projector(
         model_mapping=_mapping(
             classes={
                 "GepKnoten": class_mapping,
@@ -394,6 +463,8 @@ def test_projector_rejects_unknown_canonical_class(
             source_model="AG64",
             canonical_metadata=_canonical_metadata(),
         )
+
+    assert cursor.executed_queries == []
 
 
 def test_projector_rejects_unknown_canonical_attribute(
@@ -419,22 +490,19 @@ def test_projector_rejects_unknown_canonical_attribute(
         ),
     )
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "t_ili_tid": "ch000000ws000004",
-                "unknownag": "value",
-            }
-        ],
-    )
-
-    projector = TwwQuarantineEffectProjector(
+    projector, _, _ = _projector(
         model_mapping=_mapping(
             classes={
                 "GepKnoten": class_mapping,
             },
+        ),
+        results=(
+            _rows_result(
+                {
+                    "t_ili_tid": "ch000000ws000004",
+                    "unknownag": "value",
+                }
+            ),
         ),
     )
 
@@ -472,22 +540,19 @@ def test_projector_rejects_cross_class_simple_attribute_mapping(
         ),
     )
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "t_ili_tid": "ch000000ws000005",
-                "funktionag": "value",
-            }
-        ],
-    )
-
-    projector = TwwQuarantineEffectProjector(
+    projector, _, _ = _projector(
         model_mapping=_mapping(
             classes={
                 "GepKnoten": class_mapping,
             },
+        ),
+        results=(
+            _rows_result(
+                {
+                    "t_ili_tid": "ch000000ws000005",
+                    "funktionag": "value",
+                }
+            ),
         ),
     )
 
@@ -525,17 +590,6 @@ def test_projector_parses_function_mapping_payload(
         ),
     )
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "t_ili_tid": "source_1",
-                "funktionag": "value",
-            }
-        ],
-    )
-
     payload = {
         "version": 1,
         "effects": [
@@ -571,19 +625,22 @@ def test_projector_parses_function_mapping_payload(
         ],
     }
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchone",
-        lambda query: (
-            payload,
-        ),
-    )
-
-    projector = TwwQuarantineEffectProjector(
+    projector, cursor, _ = _projector(
         model_mapping=_mapping(
             classes={
                 "FunctionMappedClass": class_mapping,
             },
+        ),
+        results=(
+            _rows_result(
+                {
+                    "t_ili_tid": "source_1",
+                    "funktionag": "value",
+                }
+            ),
+            _scalar_result(
+                payload,
+            ),
         ),
     )
 
@@ -615,6 +672,10 @@ def test_projector_parses_function_mapping_payload(
         EnforceNotExistsEffect,
     )
 
+    assert len(
+        cursor.executed_queries,
+    ) == 2
+
 
 def test_projector_parses_string_function_mapping_payload(
     monkeypatch,
@@ -639,16 +700,6 @@ def test_projector_parses_string_function_mapping_payload(
         ),
     )
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "t_ili_tid": "source_1",
-            }
-        ],
-    )
-
     payload = {
         "version": 1,
         "effects": [
@@ -666,21 +717,23 @@ def test_projector_parses_string_function_mapping_payload(
         ],
     }
 
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchone",
-        lambda query: (
-            json.dumps(
-                payload,
-            ),
-        ),
-    )
-
-    projector = TwwQuarantineEffectProjector(
+    projector, _, _ = _projector(
         model_mapping=_mapping(
             classes={
                 "FunctionMappedClass": class_mapping,
             },
+        ),
+        results=(
+            _rows_result(
+                {
+                    "t_ili_tid": "source_1",
+                }
+            ),
+            _scalar_result(
+                json.dumps(
+                    payload,
+                )
+            ),
         ),
     )
 
@@ -701,8 +754,58 @@ def test_projector_parses_string_function_mapping_payload(
     assert effect.value == "planned"
 
 
+def test_projector_returns_no_effects_for_empty_function_payload(
+    monkeypatch,
+) -> None:
+    class_mapping = ClassMapping(
+        function=FunctionMapping(
+            schema="tww_app",
+            name="fct_agxx_mapping_jsonb",
+            parameters={
+                "row": "$row",
+            },
+        ),
+    )
+
+    _patch_relation_context_provider(
+        monkeypatch,
+        contexts=(
+            RelationContext(
+                relation=FunctionMappedClass,
+                class_mapping=class_mapping,
+            ),
+        ),
+    )
+
+    projector, _, _ = _projector(
+        model_mapping=_mapping(
+            classes={
+                "FunctionMappedClass": class_mapping,
+            },
+        ),
+        results=(
+            _rows_result(
+                {
+                    "t_ili_tid": "source_1",
+                }
+            ),
+            _scalar_result(
+                None,
+            ),
+        ),
+    )
+
+    document = projector.effect_document_from_quarantine(
+        schema="import_schema",
+        source_model="AG64",
+        canonical_metadata=_canonical_metadata(),
+    )
+
+    assert document.effects == ()
+
+
 def test_projector_rejects_unsafe_function_parameter_name() -> None:
-    projector = TwwQuarantineEffectProjector(
+    projector, cursor, _ = _projector(
         model_mapping=_mapping(
             classes={},
         ),
@@ -721,15 +824,18 @@ def test_projector_rejects_unsafe_function_parameter_name() -> None:
         match="Unsafe SQL identifier",
     ):
         projector._call_function_mapping(
+            cursor=cursor,
             function_mapping=function_mapping,
             row={
                 "t_ili_tid": "source_1",
             },
         )
 
+    assert cursor.executed_queries == []
+
 
 def test_projector_rejects_unsupported_function_effect_kind() -> None:
-    projector = TwwQuarantineEffectProjector(
+    projector, _, _ = _projector(
         model_mapping=_mapping(
             classes={},
         ),
