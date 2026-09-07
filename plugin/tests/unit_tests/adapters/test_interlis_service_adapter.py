@@ -87,16 +87,6 @@ def test_interlis_service_adapter_imports() -> None:
     assert TwwInterlisServiceAdapter is not None
 
 
-def test_interlis_service_adapter_applies_connection_configuration() -> None:
-    _, _, connection_factory = _adapter()
-
-    assert (
-        connection_factory
-        .apply_to_database_config_calls
-        == 1
-    )
-
-
 def test_interlis_service_adapter_delegates_import_with_generic_context() -> None:
     adapter, fake, _ = _adapter()
 

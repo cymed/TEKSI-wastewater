@@ -36,11 +36,18 @@ def fake_connection_factory(
     slots=True,
 )
 class FakeColumn:
-    """
-    Minimal cursor-description column.
-    """
-
     name: str
+
+    def __getitem__(
+        self,
+        index: int,
+    ) -> str:
+        if index != 0:
+            raise IndexError(
+                index,
+            )
+
+        return self.name
 
 
 @dataclass(

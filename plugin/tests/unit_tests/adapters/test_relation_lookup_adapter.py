@@ -7,26 +7,58 @@ from teksi_hooks.models.canonical_object import (
 from teksi_wastewater.hooks.adapters.tww_relation_lookup_adapter import (
     TwwRelationLookupAdapter,
 )
-from teksi_wastewater.utils.database_utils import (
-    DatabaseUtils,
+
+from ..helpers import (
+    FakeConnectionFactory,
+    FakeCursor,
+    FakeQueryResult,
+    fake_connection_factory,
 )
 
 
-def test_tww_relation_lookup_adapter_returns_canonical_identities(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall",
-        lambda query: [
-            (
-                "ch000000ws000001",
-            ),
-        ],
+def _adapter(
+    *,
+    results: tuple[
+        FakeQueryResult,
+        ...,
+    ] = (),
+    schema: str = "tww_od",
+) -> tuple[
+    TwwRelationLookupAdapter,
+    FakeCursor,
+    FakeConnectionFactory,
+]:
+    connection_factory, cursor = fake_connection_factory(
+        results=results,
     )
 
     adapter = TwwRelationLookupAdapter(
+        connection_factory=connection_factory,
+        schema=schema,
+    )
+
+    return (
+        adapter,
+        cursor,
+        connection_factory,
+    )
+
+
+def test_tww_relation_lookup_adapter_returns_canonical_identities() -> None:
+    adapter, cursor, connection_factory = _adapter(
         schema="tww_app",
+        results=(
+            FakeQueryResult(
+                column_names=(
+                    "obj_id",
+                ),
+                rows=(
+                    (
+                        "ch000000ws000001",
+                    ),
+                ),
+            ),
+        ),
     )
 
     objects = adapter.canonical_objects(
@@ -41,24 +73,34 @@ def test_tww_relation_lookup_adapter_returns_canonical_identities(
         objects,
     ) == 1
 
-    assert objects[0].class_id == "wastewater_structure"
+    assert objects[0].class_id == (
+        "wastewater_structure"
+    )
 
     assert objects[0].attributes == {
         "obj_id": "ch000000ws000001",
     }
 
+    assert len(
+        cursor.executed,
+    ) == 1
 
-def test_tww_relation_lookup_adapter_returns_empty_tuple_without_matches(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall",
-        lambda query: [],
-    )
+    assert connection_factory.autocommit_values == [
+        True,
+    ]
 
-    adapter = TwwRelationLookupAdapter(
+
+def test_tww_relation_lookup_adapter_returns_empty_tuple_without_matches() -> None:
+    adapter, cursor, connection_factory = _adapter(
         schema="tww_app",
+        results=(
+            FakeQueryResult(
+                column_names=(
+                    "obj_id",
+                ),
+                rows=(),
+            ),
+        ),
     )
 
     objects = adapter.canonical_objects(
@@ -71,18 +113,27 @@ def test_tww_relation_lookup_adapter_returns_empty_tuple_without_matches(
 
     assert objects == ()
 
+    assert len(
+        cursor.executed,
+    ) == 1
 
-def test_tww_relation_lookup_adapter_current_object_returns_none_without_match(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [],
-    )
+    assert connection_factory.autocommit_values == [
+        True,
+    ]
 
-    adapter = TwwRelationLookupAdapter(
-        schema="tww_od",
+
+def test_tww_relation_lookup_adapter_current_object_returns_none_without_match() -> None:
+    adapter, cursor, connection_factory = _adapter(
+        results=(
+            FakeQueryResult(
+                column_names=(
+                    "obj_id",
+                    "status",
+                    "last_modification",
+                ),
+                rows=(),
+            ),
+        ),
     )
 
     current = adapter.current_object(
@@ -96,25 +147,35 @@ def test_tww_relation_lookup_adapter_current_object_returns_none_without_match(
 
     assert current is None
 
+    assert len(
+        cursor.executed,
+    ) == 1
 
-def test_tww_relation_lookup_adapter_current_object_returns_canonical_object(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "obj_id": "ch000000ws000001",
-                "status": "operational",
-                "fk_provider": "ch000000provider1",
-                "last_modification": "2026-01-01T12:00:00",
-            }
-        ],
-    )
+    assert connection_factory.autocommit_values == [
+        True,
+    ]
 
-    adapter = TwwRelationLookupAdapter(
-        schema="tww_od",
+
+def test_tww_relation_lookup_adapter_current_object_returns_canonical_object() -> None:
+    adapter, cursor, _ = _adapter(
+        results=(
+            FakeQueryResult(
+                column_names=(
+                    "obj_id",
+                    "status",
+                    "fk_provider",
+                    "last_modification",
+                ),
+                rows=(
+                    (
+                        "ch000000ws000001",
+                        "operational",
+                        "ch000000provider1",
+                        "2026-01-01T12:00:00",
+                    ),
+                ),
+            ),
+        ),
     )
 
     identity = CanonicalObjectIdentity(
@@ -129,7 +190,6 @@ def test_tww_relation_lookup_adapter_current_object_returns_canonical_object(
     )
 
     assert current is not None
-
     assert current.identity == identity
 
     assert current.values == {
@@ -138,27 +198,42 @@ def test_tww_relation_lookup_adapter_current_object_returns_canonical_object(
         "last_modification": "2026-01-01T12:00:00",
     }
 
-    assert current.last_modification == "2026-01-01T12:00:00"
-
-
-def test_tww_relation_lookup_adapter_current_object_excludes_identity_attributes(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "obj_id": "ch000000ws000001",
-                "identifier": "abc",
-                "status": "operational",
-                "last_modification": "2026-01-01T12:00:00",
-            }
-        ],
+    assert (
+        current.last_modification
+        == "2026-01-01T12:00:00"
     )
 
-    adapter = TwwRelationLookupAdapter(
-        schema="tww_od",
+    query, parameters = cursor.executed[0]
+
+    assert "wastewater_structure" in str(
+        query,
+    )
+
+    assert parameters == (
+        "ch000000ws000001",
+    )
+
+
+def test_tww_relation_lookup_adapter_current_object_excludes_identity_attributes() -> None:
+    adapter, _, _ = _adapter(
+        results=(
+            FakeQueryResult(
+                column_names=(
+                    "obj_id",
+                    "identifier",
+                    "status",
+                    "last_modification",
+                ),
+                rows=(
+                    (
+                        "ch000000ws000001",
+                        "abc",
+                        "operational",
+                        "2026-01-01T12:00:00",
+                    ),
+                ),
+            ),
+        ),
     )
 
     identity = CanonicalObjectIdentity(
@@ -174,7 +249,6 @@ def test_tww_relation_lookup_adapter_current_object_excludes_identity_attributes
     )
 
     assert current is not None
-
     assert current.identity == identity
 
     assert current.values == {
@@ -182,31 +256,35 @@ def test_tww_relation_lookup_adapter_current_object_excludes_identity_attributes
         "last_modification": "2026-01-01T12:00:00",
     }
 
-    assert current.last_modification == "2026-01-01T12:00:00"
-
-
-def test_tww_relation_lookup_adapter_current_object_uses_first_row(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "obj_id": "ch000000ws000001",
-                "status": "first",
-                "last_modification": "2026-01-01T12:00:00",
-            },
-            {
-                "obj_id": "ch000000ws000001",
-                "status": "second",
-                "last_modification": "2026-01-02T12:00:00",
-            },
-        ],
+    assert (
+        current.last_modification
+        == "2026-01-01T12:00:00"
     )
 
-    adapter = TwwRelationLookupAdapter(
-        schema="tww_od",
+
+def test_tww_relation_lookup_adapter_current_object_uses_first_row() -> None:
+    adapter, _, _ = _adapter(
+        results=(
+            FakeQueryResult(
+                column_names=(
+                    "obj_id",
+                    "status",
+                    "last_modification",
+                ),
+                rows=(
+                    (
+                        "ch000000ws000001",
+                        "first",
+                        "2026-01-01T12:00:00",
+                    ),
+                    (
+                        "ch000000ws000001",
+                        "second",
+                        "2026-01-02T12:00:00",
+                    ),
+                ),
+            ),
+        ),
     )
 
     current = adapter.current_object(
@@ -219,29 +297,32 @@ def test_tww_relation_lookup_adapter_current_object_uses_first_row(
     )
 
     assert current is not None
-
     assert current.values["status"] == "first"
 
-    assert current.last_modification == "2026-01-01T12:00:00"
-
-
-def test_tww_relation_lookup_adapter_current_object_supports_non_obj_id_identity(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        DatabaseUtils,
-        "fetchall_dict",
-        lambda query: [
-            {
-                "identifier": "external-1",
-                "status": "operational",
-                "last_modification": "2026-01-01T12:00:00",
-            }
-        ],
+    assert (
+        current.last_modification
+        == "2026-01-01T12:00:00"
     )
 
-    adapter = TwwRelationLookupAdapter(
-        schema="tww_od",
+
+def test_tww_relation_lookup_adapter_current_object_supports_non_obj_id_identity() -> None:
+    adapter, cursor, _ = _adapter(
+        results=(
+            FakeQueryResult(
+                column_names=(
+                    "identifier",
+                    "status",
+                    "last_modification",
+                ),
+                rows=(
+                    (
+                        "external-1",
+                        "operational",
+                        "2026-01-01T12:00:00",
+                    ),
+                ),
+            ),
+        ),
     )
 
     identity = CanonicalObjectIdentity(
@@ -256,7 +337,6 @@ def test_tww_relation_lookup_adapter_current_object_supports_non_obj_id_identity
     )
 
     assert current is not None
-
     assert current.identity == identity
 
     assert current.values == {
@@ -264,4 +344,17 @@ def test_tww_relation_lookup_adapter_current_object_supports_non_obj_id_identity
         "last_modification": "2026-01-01T12:00:00",
     }
 
-    assert current.last_modification == "2026-01-01T12:00:00"
+    assert (
+        current.last_modification
+        == "2026-01-01T12:00:00"
+    )
+
+    query, parameters = cursor.executed[0]
+
+    assert "identifier" in str(
+        query,
+    )
+
+    assert parameters == (
+        "external-1",
+    )
