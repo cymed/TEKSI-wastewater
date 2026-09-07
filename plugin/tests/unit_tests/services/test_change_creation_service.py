@@ -20,7 +20,7 @@ from teksi_hooks.models.effects import (
     UpdateAttributeEffect,
 )
 from teksi_hooks.models.review import (
-    ReviewFeature
+    ReviewFeature,
 )
 
 from teksi_wastewater.hooks.services import (
@@ -55,8 +55,9 @@ def _effect(
     """
     Construct an effect without depending on unrelated constructor fields.
 
-    The service methods tested here only use identity, attribute_id and the
-    concrete effect type. Using the real classes preserves isinstance checks.
+    The service methods tested here use the identity, attribute identifier,
+    value and concrete effect type. Using the real classes preserves the
+    production isinstance checks.
     """
 
     effect = effect_type.__new__(
@@ -120,13 +121,25 @@ def _document(
     )
 
 
+def _canonical_metadata() -> CanonicalModelMetadata:
+    return CanonicalModelMetadata(
+        classes={},
+        attributes={},
+        values={},
+    )
+
+
 def _ready_service(
     **overrides,
 ) -> TwwChangeCreationService:
     values = {
+        "connection_factory": Mock(),
+        "quarantine_runner": Mock(),
+        "canonical_metadata": _canonical_metadata(),
         "effect_projector": Mock(),
-        "rights_evaluator_factory": Mock(),
+        "rights_evaluator": Mock(),
         "object_provider_factory": Mock(),
+        "diff_schema_service": Mock(),
     }
 
     values.update(
@@ -140,15 +153,19 @@ def _ready_service(
 
 def test_change_creation_service_requires_collaborators() -> None:
     service = TwwChangeCreationService(
+        connection_factory=Mock(),
+        quarantine_runner=Mock(),
+        canonical_metadata=_canonical_metadata(),
         effect_projector=None,
-        rights_evaluator_factory=None,
+        rights_evaluator=None,
         object_provider_factory=None,
+        diff_schema_service=Mock(),
     )
 
     with pytest.raises(
         RuntimeError,
         match=(
-            "effect_projector, rights_evaluator_factory, "
+            "effect_projector, rights_evaluator, "
             "object_provider_factory"
         ),
     ):
@@ -448,10 +465,16 @@ def test_change_creation_service_builds_one_change_per_identity() -> None:
     built_change = object()
 
     relation_lookup = Mock()
-    relation_lookup.current_object.return_value = current_object
+
+    relation_lookup.current_object.return_value = (
+        current_object
+    )
 
     change_builder = Mock()
-    change_builder.build.return_value = built_change
+
+    change_builder.build.return_value = (
+        built_change
+    )
 
     service = _ready_service(
         change_builder=change_builder,
@@ -541,6 +564,9 @@ def test_change_creation_service_builds_separate_changes_per_identity() -> None:
         second_change,
     )
 
+    assert relation_lookup.current_object.call_count == 2
+    assert change_builder.build.call_count == 2
+
 
 def test_change_creation_service_ignores_constraint_only_documents() -> None:
     identity = _identity(
@@ -590,6 +616,7 @@ def test_change_creation_service_builds_default_live_relation_lookup(
     monkeypatch,
 ) -> None:
     relation_lookup = object()
+
     constructor = Mock(
         return_value=relation_lookup,
     )
@@ -600,7 +627,10 @@ def test_change_creation_service_builds_default_live_relation_lookup(
         constructor,
     )
 
+    connection_factory = Mock()
+
     service = _ready_service(
+        connection_factory=connection_factory,
         live_relation_lookup=None,
     )
 
@@ -611,6 +641,7 @@ def test_change_creation_service_builds_default_live_relation_lookup(
     assert result is relation_lookup
 
     constructor.assert_called_once_with(
+        connection_factory=connection_factory,
         schema="custom_live_schema",
     )
 
@@ -682,34 +713,44 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
                 identifier="wastewater_structure",
             ),
         },
+        attributes={},
+        values={},
     )
 
-    canonical_model = Mock()
-    canonical_model.canonical_model.return_value = canonical_metadata
-
     effect_projector = Mock()
+
     effect_projector.effect_document_from_quarantine.side_effect = (
         base_document,
         incremental_document,
     )
 
     current_object = object()
+
     relation_lookup = Mock()
-    relation_lookup.current_object.return_value = current_object
 
-    built_change = object()
-    change_builder = Mock()
-    change_builder.build.return_value = built_change
-
-    rights_evaluator = object()
-    rights_evaluator_factory = Mock()
-    rights_evaluator_factory.rights_evaluator.return_value = (
-        rights_evaluator
+    relation_lookup.current_object.return_value = (
+        current_object
     )
 
-    classified_changes = object()
+    built_change = object()
+
+    change_builder = Mock()
+
+    change_builder.build.return_value = (
+        built_change
+    )
+
+    rights_evaluator = Mock()
+
+    classified_changes = SimpleNamespace(
+        changes=(),
+    )
+
     classifier = Mock()
-    classifier.classify.return_value = classified_changes
+
+    classifier.classify.return_value = (
+        classified_changes
+    )
 
     classifier_constructor = Mock(
         return_value=classifier,
@@ -722,7 +763,9 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
     )
 
     object_provider = object()
+
     object_provider_factory = Mock()
+
     object_provider_factory.change_object_provider.return_value = (
         object_provider
     )
@@ -742,7 +785,10 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
     }
 
     review_service = Mock()
-    review_service.export.return_value = features_by_class
+
+    review_service.export.return_value = (
+        features_by_class
+    )
 
     review_service_constructor = Mock(
         return_value=review_service,
@@ -761,19 +807,26 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
     )
 
     diff_schema_service = Mock()
-    diff_schema_service.write.return_value = diff_schema_result
+
+    diff_schema_service.write.return_value = (
+        diff_schema_result
+    )
 
     rights_context = SimpleNamespace(
         provider_oid="ch000000pr000001",
         dataowner_oid="ch000000do000001",
     )
 
+    connection_factory = Mock()
+
     service = TwwChangeCreationService(
-        canonical_model=canonical_model,
+        connection_factory=connection_factory,
+        quarantine_runner=Mock(),
+        canonical_metadata=canonical_metadata,
         effect_projector=effect_projector,
         change_builder=change_builder,
         diff_schema_service=diff_schema_service,
-        rights_evaluator_factory=rights_evaluator_factory,
+        rights_evaluator=rights_evaluator,
         object_provider_factory=object_provider_factory,
         live_relation_lookup=relation_lookup,
     )
@@ -827,9 +880,22 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
         built_change,
     ]
 
-    assert result.classified_changes is classified_changes
-    assert result.features_by_class == features_by_class
-    assert result.diff_schema_result is diff_schema_result
+    assert (
+        result.classified_changes
+        is classified_changes
+    )
+
+    assert (
+        result.features_by_class
+        == features_by_class
+    )
+
+    assert (
+        result.diff_schema_result
+        is diff_schema_result
+    )
+
+    assert result.validation_findings == []
 
     effect_projector.effect_document_from_quarantine.assert_any_call(
         schema="xtf_import",
@@ -839,7 +905,9 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
 
     effect_projector.effect_document_from_quarantine.assert_any_call(
         schema="xtf_agxx",
-        source_model="Genereller_Entwaesserungsplan_AG",
+        source_model=(
+            "Genereller_Entwaesserungsplan_AG"
+        ),
         canonical_metadata=canonical_metadata,
     )
 
@@ -851,21 +919,24 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
         ),
     )
 
-    rights_evaluator_factory.rights_evaluator.assert_called_once_with(
-        relation_lookup=relation_lookup,
-    )
-
     classifier_constructor.assert_called_once_with(
         rights_evaluator=rights_evaluator,
     )
 
     classify_call = classifier.classify.call_args
 
-    assert classify_call.kwargs["changes"] == (
+    assert classify_call.kwargs[
+        "changes"
+    ] == (
         built_change,
     )
 
-    assert classify_call.kwargs["context"] is rights_context
+    assert (
+        classify_call.kwargs[
+            "context"
+        ]
+        is rights_context
+    )
 
     workflow_metadata = classify_call.kwargs[
         "metadata"
@@ -892,6 +963,13 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
         canonical_metadata=canonical_metadata,
     )
 
+    review_service_constructor.assert_called_once_with(
+        object_provider=object_provider,
+        geometry_attribute_names_by_class={
+            "wastewater_structure": (),
+        },
+    )
+
     review_service.export.assert_called_once_with(
         classified_changes,
     )
@@ -904,6 +982,8 @@ def test_change_creation_service_creates_diff_job_from_quarantine(
         validation_success=True,
         job_status="pending",
     )
+
+
 def test_change_creation_service_imports_base_and_incremental_xtf(
     monkeypatch,
 ) -> None:
@@ -983,57 +1063,74 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
     assert result is delegated_result
 
     assert (
-        quarantine_runner.import_xtf_to_quarantine.call_count
+        quarantine_runner
+        .import_xtf_to_quarantine
+        .call_count
         == 2
     )
 
     base_import_call = (
-        quarantine_runner.import_xtf_to_quarantine.call_args_list[
-            0
-        ]
+        quarantine_runner
+        .import_xtf_to_quarantine
+        .call_args_list[0]
     )
 
-    assert base_import_call.kwargs[
-        "xtf_file"
-    ] == xtf_file
+    assert (
+        base_import_call.kwargs[
+            "xtf_file"
+        ]
+        == xtf_file
+    )
 
     assert base_import_call.kwargs[
         "schema"
     ] == "xtf_import"
 
     assert (
-        base_import_call.kwargs["context"].schema
+        base_import_call.kwargs[
+            "context"
+        ].schema
         == "xtf_import"
     )
 
     assert (
-        base_import_call.kwargs["context"].import_orgs
+        base_import_call.kwargs[
+            "context"
+        ].import_orgs
         is True
     )
 
     assert (
-        base_import_call.kwargs["context"].orgs_path
+        base_import_call.kwargs[
+            "context"
+        ].orgs_path
         == orgs_path
     )
 
     incremental_import_call = (
-        quarantine_runner.import_xtf_to_quarantine.call_args_list[
-            1
-        ]
+        quarantine_runner
+        .import_xtf_to_quarantine
+        .call_args_list[1]
     )
 
     assert (
-        incremental_import_call.kwargs["xtf_file"]
+        incremental_import_call.kwargs[
+            "xtf_file"
+        ]
         == incremental_xtf
     )
 
     assert (
-        incremental_import_call.kwargs["schema"]
+        incremental_import_call.kwargs[
+            "schema"
+        ]
         == "xtf_import_incremental"
     )
 
     assert (
-        incremental_import_call.kwargs["context"].schema
+        incremental_import_call.kwargs[
+            "context"
+        ].schema
         == "xtf_import_incremental"
     )
 
@@ -1045,19 +1142,23 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
     )
 
     assert (
-        incremental_import_call.kwargs["context"].orgs_path
+        incremental_import_call.kwargs[
+            "context"
+        ].orgs_path
         is None
     )
 
     assert (
-        quarantine_runner.validate_quarantine_or_raise.call_count
+        quarantine_runner
+        .validate_quarantine_or_raise
+        .call_count
         == 2
     )
 
     base_validation_call = (
-        quarantine_runner.validate_quarantine_or_raise.call_args_list[
-            0
-        ]
+        quarantine_runner
+        .validate_quarantine_or_raise
+        .call_args_list[0]
     )
 
     assert base_validation_call.kwargs[
@@ -1077,9 +1178,9 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
     )
 
     incremental_validation_call = (
-        quarantine_runner.validate_quarantine_or_raise.call_args_list[
-            1
-        ]
+        quarantine_runner
+        .validate_quarantine_or_raise
+        .call_args_list[1]
     )
 
     assert incremental_validation_call.kwargs[
@@ -1119,7 +1220,9 @@ def test_change_creation_service_imports_base_and_incremental_xtf(
 
     assert delegated_arguments[
         "incremental_source_model"
-    ] == "Genereller_Entwaesserungsplan_AG"
+    ] == (
+        "Genereller_Entwaesserungsplan_AG"
+    )
 
     assert delegated_arguments[
         "incremental_created_models"
