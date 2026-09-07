@@ -37,14 +37,15 @@ from teksi_hooks.models.effects import (
 )
 from teksi_hooks.models.review import (
     ReviewFeature,
+    DiffSchemaWriteResult,
 )
 from teksi_hooks.models.validation import (
     Change,
     ClassifiedChanges,
     ValidationFinding,
 )
-from teksi_hooks.models.review import (
-    DiffSchemaWriteResult,
+from teksi_hooks.models.persistence import (
+    DiffJobMode,
 )
 from teksi_hooks.services.change_builder import (
     ChangeBuilder,
@@ -74,14 +75,6 @@ from .tww_diff_schema_service import (
 )
 
 
-class DiffJobMode(StrEnum):
-    """
-    Defines how an existing diff job is handled.
-    """
-
-    CREATE = "create"
-    REPLACE = "replace"
-    REFRESH = "refresh"
 
 
 class QuarantineEffectProjector(Protocol):

@@ -9,17 +9,15 @@ from collections.abc import Mapping, Sequence
 
 from teksi_hooks.models.review import (
     ReviewFeature,
-    DiffReviewJob,
     DiffSchemaWriteResult,
 )
 from teksi_hooks.capabilities.connection import (
     DatabaseConnectionFactory,
 )
-from ...utils.database_utils import (
-    DatabaseUtils,
-)
 
-from .tww_change_creation_service import DiffJobMode
+from teksi_hooks.models.persistence import (
+    DiffJobMode,
+)
 
 @dataclass(slots=True)
 class TwwDiffSchemaService:

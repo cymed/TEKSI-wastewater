@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import StrEnum        
 import os
 from pathlib import Path
 from typing import Any, Mapping
@@ -15,18 +14,27 @@ from teksi_hooks.hook import (
 )
 
 from teksi_hooks.models.oid import Standardoid
-from teksi_hooks.models.rights import RightsEvaluationContext
 
-from teksi_hooks.evaluators.rights import RightsEvaluator
+from teksi_hooks.evaluators.rights import RightsEvaluator,RightsEvaluationContext
 
 from teksi_hooks.parsers.rights_parser import RightsParser
 from teksi_hooks.parsers.provider_rights_parser import ProviderRightsParser
 from teksi_hooks.parsers.validation import ValidationParser
 from teksi_hooks.parsers.model_mapping_parser import ModelMappingParser
 
+from teksi_hooks.resolver.provider_resolver import ProviderResolver
+from teksi_hooks.resolver.rights_resolver import RightsResolver
+
 from teksi_hooks.exceptions import RightsEvaluationError
 
 from teksi_hooks.capabilities.connection import DatabaseConnectionFactory
+from teksi_hooks.capabilities.rights import (
+    RightsCapability,
+    DerivedRightsCapability,
+    SubclassRightsCapability,
+)
+from teksi_hooks.capabilities.privilege import ResolvedProviderCapability
+from teksi_hooks.capabilities.conditions import ConditionsCapability
 
 from teksi_wastewater.interlis import (
     config,
@@ -137,6 +145,9 @@ class Hook(
             )
         )
 
+        provider_oid = Standardoid(parameters["provider_oid"])
+        dataowner_oid = Standardoid(parameters["dataowner_oid"])
+
         model_config_dir = self._model_config_dir()
 
         validation_definition = ValidationParser().parse_file(
@@ -149,22 +160,21 @@ class Hook(
             / "agxx_mapping.yaml",
         )
 
-        provider_rights_path,privileges_tree_path = self._eval_rights_profile(
+        provider_rights_path,rights_definition_path = self._eval_rights_profile(
             hook_config_dir,
             parameters.get(
                 "rights_profile",
                 'default',
             )
         )
-        provider_privileges=RightsParser.parse_file(
-            privileges_tree_path
+        rights_definition=RightsParser().parse_file(
+            rights_definition_path
         )
-        provider_rights=ProviderRightsParser.parse_file(
+        raw_provider_rights=ProviderRightsParser().parse_file(
             provider_rights_path
         )
-
-        provider_oid = Standardoid(parameters["provider_oid"])
-        dataowner_oid = Standardoid(parameters["dataowner_oid"])
+        resolved_providers = ProviderResolver.resolve_all(raw_provider_rights)
+        resolved_provider = resolved_providers[provider_oid]
 
         rights_context = RightsEvaluationContext(
             provider_oid=provider_oid,
@@ -209,26 +219,21 @@ class Hook(
         )
 
 
-
-
-
-        resolved_rights = self._resolved_rights(
-            provider_rights_path=provider_rights_path,
-            provider_privileges_path=provider_privileges_path,
+        resolved_rights = RightsResolver().resolve(
+            definition=rights_definition,
+            validation_definition=validation_definition,
             canonical_metadata=canonical_metadata,
         )
 
-        rights_capability = ResolvedRightsCapability(
+        rights_capability = RightsCapability(
             resolved_rights,
         )
 
         provider_capability = ResolvedProviderCapability(
-            provider_privileges,
+            resolved_provider,
         )
 
-        conditions_capability = ConditionsCapability(
-            ...
-        )
+        conditions_capability = ConditionsCapability()
 
         derived_rights_capability = DerivedRightsCapability(
             resolved_rights,
@@ -277,14 +282,13 @@ class Hook(
                     if provider_rights_path is not None
                     else None
                 ),
-                "provider_privileges_path": (
-                    str(provider_privileges_path)
-                    if provider_privileges_path is not None
+                "resolved_provider": (
+                    str(resolved_provider)
+                    if resolved_provider is not None
                     else None
                 ),
             },
         )
-
 
         context.logger.info(
             "Created tww_diff review job '%s' with %s rows.",
@@ -394,12 +398,12 @@ class Hook(
             )
         )
 
-        privilege_tree_path = (
+        rights_definition_path = (
             self._profile_template_path(
                 config_dir=config_dir,
                 profile_name=rights_profile,
                 profile=raw_profile,
-                key="privilege_tree",
+                key="rights_definition",
             )
         )
 
@@ -407,7 +411,7 @@ class Hook(
             path
             for path in (
                 provider_rights_path,
-                privilege_tree_path,
+                rights_definition_path,
             )
             if not path.is_file()
         ]
@@ -425,7 +429,7 @@ class Hook(
 
         return (
             provider_rights_path,
-            privilege_tree_path,
+            rights_definition_path,
         )
 
     def _profile_template_path(
