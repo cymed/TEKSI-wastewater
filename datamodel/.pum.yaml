@@ -16,7 +16,7 @@ roles:
     inherit: tww_viewer
     permissions:
       - type: write
-        schemas: [tww_od, tww_app, tww_app_xtf2pg, tww_app_pg2xtf, tww_diff]
+        schemas: [tww_od, tww_app, tww_app_xtf2pg,tww_app_xtf2pg_incr, tww_app_pg2xtf, tww_diff]
 
   - name: tww_manager
     description: Role for users who can view and edit the TWW data, and manage the TWW application.
@@ -80,6 +80,10 @@ application:
     - code: DROP SCHEMA IF EXISTS tww_app_pg2xtf CASCADE;
     - code: DROP SCHEMA IF EXISTS tww_app_xtf2pg CASCADE;
   create:
+    - code: CREATE SCHEMA IF NOT EXISTS tww_app;
+    - code: CREATE SCHEMA IF NOT EXISTS tww_app_pg2xtf;
+    - code: CREATE SCHEMA IF NOT EXISTS tww_app_xtf2pg;
+    - code: CREATE SCHEMA IF NOT EXISTS tww_app_xtf2pg_incr;
     - file: app/create_app.py
     - code: SELECT tww_app.update_wastewater_node_symbology(NULL,True);
     - code: SELECT tww_app.update_wastewater_structure_label(NULL,True);
@@ -88,11 +92,13 @@ uninstall:
   - code: DROP SCHEMA IF EXISTS tww_od CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_vl CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_sys CASCADE;
+  - code: DROP SCHEMA IF EXISTS tww_diff CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_app CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_app_pg2ili CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_app_pg2xtf CASCADE;
+  - code: DROP SCHEMA IF EXISTS tww_app_xtf2pg_incr CASCADE;
   - code: DROP SCHEMA IF EXISTS tww_app_xtf2pg CASCADE;
-
+  
 demo_data:
   - name: Aletsch
     file: demo_data/demo_data_aletsch.sql
