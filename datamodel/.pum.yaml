@@ -79,6 +79,7 @@ application:
     - code: DROP SCHEMA IF EXISTS tww_app_pg2ili CASCADE;
     - code: DROP SCHEMA IF EXISTS tww_app_pg2xtf CASCADE;
     - code: DROP SCHEMA IF EXISTS tww_app_xtf2pg CASCADE;
+    - code: DROP SCHEMA IF EXISTS tww_app_xtf2pg_incr CASCADE;
   create:
     - code: CREATE SCHEMA IF NOT EXISTS tww_app;
     - code: CREATE SCHEMA IF NOT EXISTS tww_app_pg2xtf;

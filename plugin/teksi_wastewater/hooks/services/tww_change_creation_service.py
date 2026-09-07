@@ -75,8 +75,6 @@ from .tww_diff_schema_service import (
 )
 
 
-
-
 class QuarantineEffectProjector(Protocol):
     """
     Protocol for projecting imported quarantine data into canonical effects.
@@ -188,11 +186,11 @@ class TwwChangeCreationService:
     """
 
     connection_factory: DatabaseConnectionFactory
+    canonical_metadata: CanonicalModelMetadata
     quarantine_runner: TwwQuarantineRunner = field(
         default_factory=TwwQuarantineRunner,
     )
 
-    canonical_metadata: CanonicalModelMetadata
 
     effect_projector: QuarantineEffectProjector | None = None
 
