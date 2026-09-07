@@ -53,7 +53,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/plugin:${{ github.workspace }}/plugin_hooks:${{ github.workspace }}
         run: |
-          pytest -v plugin/tests/unittest
+          pytest -v plugin/tests/unit_tests
 
   integration-tests-db-qgis:
     name: Adapter integration tests with DB/QGIS
