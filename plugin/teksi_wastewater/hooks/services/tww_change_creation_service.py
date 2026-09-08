@@ -191,7 +191,6 @@ class TwwChangeCreationService:
         default_factory=TwwQuarantineRunner,
     )
 
-
     effect_projector: QuarantineEffectProjector | None = None
 
     change_builder: ChangeBuilder = field(
@@ -413,7 +412,7 @@ class TwwChangeCreationService:
                 }
             )
 
-        canonical_metadata = self.canonical_model.canonical_model()
+        canonical_metadata = self.canonical_metadata
 
         base_document = (
             self.effect_projector.effect_document_from_quarantine(

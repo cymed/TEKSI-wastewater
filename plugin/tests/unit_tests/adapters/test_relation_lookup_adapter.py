@@ -82,7 +82,7 @@ def test_tww_relation_lookup_adapter_returns_canonical_identities() -> None:
     }
 
     assert len(
-        cursor.executed,
+        cursor.executed_queries,
     ) == 1
 
     assert connection_factory.autocommit_values == [
@@ -114,7 +114,7 @@ def test_tww_relation_lookup_adapter_returns_empty_tuple_without_matches() -> No
     assert objects == ()
 
     assert len(
-        cursor.executed,
+        cursor.executed_queries,
     ) == 1
 
     assert connection_factory.autocommit_values == [
@@ -148,7 +148,7 @@ def test_tww_relation_lookup_adapter_current_object_returns_none_without_match()
     assert current is None
 
     assert len(
-        cursor.executed,
+        cursor.executed_queries,
     ) == 1
 
     assert connection_factory.autocommit_values == [
@@ -195,7 +195,6 @@ def test_tww_relation_lookup_adapter_current_object_returns_canonical_object() -
     assert current.values == {
         "status": "operational",
         "fk_provider": "ch000000provider1",
-        "last_modification": "2026-01-01T12:00:00",
     }
 
     assert (
@@ -203,7 +202,7 @@ def test_tww_relation_lookup_adapter_current_object_returns_canonical_object() -
         == "2026-01-01T12:00:00"
     )
 
-    query, parameters = cursor.executed[0]
+    query, parameters = cursor.executed_queries[0]
 
     assert "wastewater_structure" in str(
         query,
@@ -253,7 +252,6 @@ def test_tww_relation_lookup_adapter_current_object_excludes_identity_attributes
 
     assert current.values == {
         "status": "operational",
-        "last_modification": "2026-01-01T12:00:00",
     }
 
     assert (
@@ -341,7 +339,6 @@ def test_tww_relation_lookup_adapter_current_object_supports_non_obj_id_identity
 
     assert current.values == {
         "status": "operational",
-        "last_modification": "2026-01-01T12:00:00",
     }
 
     assert (
@@ -349,7 +346,7 @@ def test_tww_relation_lookup_adapter_current_object_supports_non_obj_id_identity
         == "2026-01-01T12:00:00"
     )
 
-    query, parameters = cursor.executed[0]
+    query, parameters = cursor.executed_queries[0]
 
     assert "identifier" in str(
         query,
