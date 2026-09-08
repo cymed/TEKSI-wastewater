@@ -102,7 +102,7 @@ jobs:
         run: |
           docker compose exec db sh -c "dropdb -U postgres --if-exists ${DB_NAME}"
           docker compose exec db sh -c "createdb -U postgres ${DB_NAME}"
-          docker compose run pum -p ${PGSERVICE} -d datamodel install -p SRID 2056
+          docker compose run pum -p ${PGSERVICE} -d datamodel install -p SRID 2056 - p modification_agxx true
 
       - name: Debug dependency import in qgis container
         run: |
