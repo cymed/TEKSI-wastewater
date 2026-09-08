@@ -9,6 +9,7 @@ dependencies = [
     "sqlalchemy",
     "geoalchemy2",
     "requests",
+    "pgserviceparser",
 ]
 authors = [
     {name = "TEKSI"}
