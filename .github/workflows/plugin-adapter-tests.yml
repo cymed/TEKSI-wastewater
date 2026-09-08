@@ -95,8 +95,7 @@ jobs:
             python3 -m venv --system-site-packages /tmp/teksi-hooks-venv
             . /tmp/teksi-hooks-venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install pytest
-            python -m pip install "teksi-hooks @ git+https://github.com/teksi/teksi_hooks.git"
+            python -m pip install -e ".[dev]"
           '
 
       - name: Initialize database
@@ -105,7 +104,7 @@ jobs:
           docker compose exec db sh -c "createdb -U postgres ${DB_NAME}"
           docker compose run pum -p ${PGSERVICE} -d datamodel install -p SRID 2056
 
-      - name: Debug teksi_hooks import in qgis container
+      - name: Debug dependency import in qgis container
         run: |
           docker compose exec qgis sh -c '
             . /tmp/teksi-hooks-venv/bin/activate
@@ -118,11 +117,11 @@ jobs:
             which pip
             pip --version
 
-            echo "Package info:"
+            echo "Package info teksi-hooks:"
             pip show teksi-hooks || true
 
-            echo "Installed files:"
-            pip show -f teksi-hooks || true
+            echo "Package info pgserviceparser:"
+            pip show teksi-pgserviceparser || true
             '
 
       - name: Run dockerised adapter tests
