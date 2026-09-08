@@ -2938,7 +2938,11 @@ class InterlisImporterFromIntermediateSchema:
                 flaeche_reduziert_ist=row.flaeche_reduziert_ist,
                 fremdwasseranfall_geplant=row.fremdwasseranfall_geplant,
                 fremdwasseranfall_ist=row.fremdwasseranfall_ist,
-                perimeter_ist=ST_Multi(row.perimeter_ist),
+                perimeter_ist=(
+                    row.perimeter_ist
+                    if row.perimeter_ist is None
+                    else self.session_tww.scalar(ST_Multi(row.perimeter_ist))
+                ),
                 schmutzabwasseranfall_geplant=row.schmutzabwasseranfall_geplant,
                 schmutzabwasseranfall_ist=row.schmutzabwasseranfall_ist,
                 einleitstelleref=self.get_pk(row.einleitstelleref__REL),
