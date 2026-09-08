@@ -190,7 +190,14 @@ class DatabaseUtils:
         if DatabaseUtils.databaseConfig.PGPASS:
             pgconf["password"] = DatabaseUtils.databaseConfig.PGPASS
 
-        return collections.defaultdict(str, pgconf)
+        return collections.defaultdict(
+            str,
+            {
+                key: str(value)
+                for key, value in pgconf.items()
+                if value is not None
+            },
+        )
 
     @staticmethod
     def get_pgconf_as_psycopg_dsn() -> list[str]:
