@@ -156,6 +156,7 @@ class InterlisImporterExporter:
     ):
         if not self.schema:
             self.schema=config.IMPORT_SCHEMA
+        self._clear_ili_schema(recreate_tables=True)
         import_model=self.interlis_import_to_quarantine(
             xtf_file_input=xtf_file_input,
             logs_next_to_file=logs_next_to_file,
