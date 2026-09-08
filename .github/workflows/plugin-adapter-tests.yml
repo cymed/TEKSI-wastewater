@@ -95,7 +95,7 @@ jobs:
             python3 -m venv --system-site-packages /tmp/teksi-hooks-venv
             . /tmp/teksi-hooks-venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -e ".[dev]"
+            python -m pip install -e "/usr/src[dev]"
           '
 
       - name: Initialize database
