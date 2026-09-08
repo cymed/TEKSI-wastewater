@@ -66,8 +66,6 @@ DB_ARGS = (
 )
 
 
-DSS_IMPORT_SCHEMA = config.IMPORT_SCHEMA
-AGXX_IMPORT_SCHEMA = "xtf_agxx"
 
 def run_import_cli(
     *,
@@ -105,8 +103,6 @@ def run_import_cli(
             str(
                 incremental_xtf,
             ),
-            "--incremental-import-schema",
-            AGXX_IMPORT_SCHEMA,
             "--rights-profile",
             "CI",
             "--hook-config-dir",
@@ -124,7 +120,6 @@ def run_import_cli(
 
 def run_interlis_import(
     xtf_file: Path,
-    schema: str = DSS_IMPORT_SCHEMA,
 ) -> None:
     """
     Import one baseline XTF through the legacy INTERLIS CLI.
@@ -141,8 +136,6 @@ def run_interlis_import(
             str(
                 xtf_file,
             ),
-            "--schema",
-            schema,
             *DB_ARGS,
         ]
     )
@@ -157,19 +150,15 @@ def import_baseline() -> None:
     """
     Import the trusted DSS and AG-XX baselines.
 
-    DSS and organizations share the standard import schema. AG-XX uses its
-    own staging schema because both models contain overlapping base classes.
     """
 
     run_interlis_import(
         ORGS_XTF,
-        schema=DSS_IMPORT_SCHEMA,
     )
 
     run_interlis_import(
         DATA_DIR
         / "test_baseline_import_DSS_2020_1_LV95.xtf",
-        schema=DSS_IMPORT_SCHEMA,
     )
 
     run_interlis_import(
@@ -178,7 +167,6 @@ def import_baseline() -> None:
             "test_baseline_"
             "Genereller_Entwaesserungsplan_AG.xtf"
         ),
-        schema=AGXX_IMPORT_SCHEMA,
     )
 
 def assert_baseline_imported() -> None:
