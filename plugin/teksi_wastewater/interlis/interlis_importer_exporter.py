@@ -153,9 +153,11 @@ class InterlisImporterExporter:
         srid: int = None,
         import_orgs=False,
         user_interaction=False,
+        incremental_only=False,
     ):
         if not self.schema:
             self.schema=config.IMPORT_SCHEMA
+
         self._clear_ili_schema(recreate_tables=True)
         import_model=self.interlis_import_to_quarantine(
             xtf_file_input=xtf_file_input,
@@ -168,6 +170,7 @@ class InterlisImporterExporter:
                 start=self.current_progress,
                 end=35,
             ),
+            incremental_only=incremental_only,
         )
         self.interlis_import_from_quarantine_to_live(
             import_model=import_model,
@@ -190,6 +193,7 @@ class InterlisImporterExporter:
         import_model=None,
         created_models=None,
         progress_scope: ProgressScope = ProgressScope(),
+        incremental_only=False,
     ):
         if logs_next_to_file and xtf_file_input:
             self.base_log_path = xtf_file_input
@@ -205,6 +209,16 @@ class InterlisImporterExporter:
             self.srid = srid
 
         if import_model is not None:
+            if import_model not in (
+                "Genereller_Entwaesserungsplan_AG",
+                "Abwasserkataster_AG_V2_LV95",
+            ) and incremental_only:
+                raise InterlisImporterExporterError(
+                    error=(
+                        "incremental_only flag is not applicable "
+                        f"to {import_model}."
+                    )
+                )
             return import_model, created_models
 
         if not xtf_file_input:
@@ -233,13 +247,16 @@ class InterlisImporterExporter:
         import_orgs=False,
         disable_validation=False,
         progress_scope: ProgressScope = ProgressScope(),
+        incremental_only=False,
+        
     ):
             import_model, created_models=self._prepare_interlis_import(
                 xtf_file_input=xtf_file_input,
                 logs_next_to_file=logs_next_to_file,
                 filter_nulls=filter_nulls,
                 srid=srid,
-                progress_scope=progress_scope
+                progress_scope=progress_scope,
+                incremental_only=incremental_only,
                 )
 
             created_models = tuple(created_models)

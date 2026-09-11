@@ -120,29 +120,42 @@ def run_import_cli(
 
 def run_interlis_import(
     xtf_file: Path,
+    *,
+    incremental_only: bool = False,
 ) -> None:
     """
-    Import one baseline XTF through the legacy INTERLIS CLI.
+    Import one baseline XTF through the INTERLIS CLI.
+
+    When ``incremental_only`` is enabled, only the incremental AG-XX values
+    are applied. The regular canonical update path is skipped.
     """
 
     assert xtf_file.is_file(), (
         f"Missing INTERLIS fixture: {xtf_file}"
     )
 
-    command = shlex.join(
-        [
-            "interlis_import",
-            "--xtf_file",
-            str(
-                xtf_file,
-            ),
-            *DB_ARGS,
-        ]
+    arguments = [
+        "interlis_import",
+        "--xtf_file",
+        str(
+            xtf_file,
+        ),
+    ]
+
+    if incremental_only:
+        arguments.append(
+            "--incremental_only",
+        )
+
+    arguments.extend(
+        DB_ARGS,
     )
 
     run_cli(
-        command,
-        INTERLIS_CLI_PATH
+        shlex.join(
+            arguments,
+        ),
+        INTERLIS_CLI_PATH,
     )
 
 
@@ -164,9 +177,9 @@ def import_baseline() -> None:
     run_interlis_import(
         DATA_DIR
         / (
-            "test_baseline_"
-            "Genereller_Entwaesserungsplan_AG.xtf"
+            "test_baseline_Genereller_Entwaesserungsplan_AG.xtf"
         ),
+        incremental_only=True,
     )
 
 def assert_baseline_imported() -> None:

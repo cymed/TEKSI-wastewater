@@ -74,6 +74,12 @@ class TeksiWastewaterCmd:
         )
 
         subparser.add_argument(
+            "--incremental_only",
+            help="Only import incremental data for non-VSA datamodels",
+            action="store_true",
+        )
+
+        subparser.add_argument(
             "--logs_next_to_file",
             help="Put log files next to XTF import file",
             action="store_true",
@@ -278,6 +284,7 @@ class TeksiWastewaterCmd:
                 self.args.logs_next_to_file
             ),
             filter_nulls=self.args.filter_nulls,
+            incremental_only=self.args.incremental_only,
         )
 
         xtf_file = Path(

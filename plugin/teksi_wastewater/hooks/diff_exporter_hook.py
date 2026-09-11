@@ -13,7 +13,11 @@ from teksi_hooks.hook import (
     HookMetadata,
 )
 
-from teksi_hooks.models.oid import Standardoid
+
+
+from teksi_hooks.models.privilege import ALL_PRIVILEGES
+from teksi_hooks.models.provider import ResolvedProvider
+from teksi_hooks.models.oid import Oid,Standardoid
 
 from teksi_hooks.evaluators.rights import RightsEvaluator,RightsEvaluationContext
 
@@ -126,6 +130,9 @@ class Hook(
                 "incremental_xtf",
             )
         )
+        skip_rights_evaluation = parameters.get(
+            "skip_rights_evaluation",
+        )
         incremental_import_schema = parameters.get(
                 "incremental_import_schema",
                 config.IMPORT_SCHEMA_INCR
@@ -174,7 +181,15 @@ class Hook(
             provider_rights_path
         )
         resolved_providers = ProviderResolver.resolve_all(raw_provider_rights)
-        resolved_provider = resolved_providers[provider_oid]
+        if skip_rights_evaluation:
+            resolved_providers = self._grant_all(resolved_providers)
+        try:
+            resolved_provider = resolved_providers[provider_oid]
+        except KeyError as exception:
+            raise RightsEvaluationError.from_message(
+                "No provider-rights definition exists for "
+                f"provider {provider_oid!s}."
+            ) from exception
 
         rights_context = RightsEvaluationContext(
             provider_oid=provider_oid,
@@ -498,3 +513,44 @@ class Hook(
             )
 
         return path
+
+    def _grant_all(
+        self,
+        providers: Mapping[
+            Oid,
+            ResolvedProvider,
+        ],
+    ) -> dict[
+        Oid,
+        ResolvedProvider,
+    ]:
+        """
+        Grant every resolved provider all privileges for its configured data owners.
+
+        Provider identities and data-owner scopes remain unchanged. Only the
+        privilege sets are replaced by the ``ALL_PRIVILEGES`` sentinel.
+
+        This is intended exclusively for trusted baseline imports where rights
+        evaluation must run normally but must not reject any configured provider
+        operation.
+        """
+
+        return {
+            provider_oid: ResolvedProvider(
+                name=provider.name,
+                organisation_oid=(
+                    provider.organisation_oid
+                ),
+                permissions={
+                    dataowner_oid: frozenset(
+                        {
+                            ALL_PRIVILEGES,
+                        }
+                    )
+                    for dataowner_oid
+                    in provider.permissions
+                },
+            )
+            for provider_oid, provider
+            in providers.items()
+    }

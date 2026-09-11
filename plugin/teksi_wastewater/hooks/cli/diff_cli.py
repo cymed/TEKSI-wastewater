@@ -31,7 +31,7 @@ from teksi_wastewater.hooks.services.tww_change_creation_service import (
 )
 
 
-from . import helpers
+from teksi_wastewater.hooks.cli import helpers
 
 logger = logging.getLogger(
     __name__,
@@ -139,6 +139,15 @@ def main() -> int:
         ),
     )
 
+    parser.add_argument(
+        "--skip_rights_evaluation",
+        action="store_true",
+        help=(
+            "Skip rights evaluation for import. This setting "
+            "should only be used when setting a baseline."
+        ),
+    )
+
     helpers.add_postgres_connection_args(
             parser,
         )
@@ -155,9 +164,10 @@ def main() -> int:
         "live_schema": config.TWW_OD_SCHEMA,
         "orgs_path": args.orgs_path,
         "incremental_xtf": args.incremental_xtf,
-        "incremental_import-schema": config.IMPORT_SCHEMA_INCREMENTAL,
+        "incremental_import-schema": config.IMPORT_SCHEMA_INCR,
         "rights_profile": args.rights_profile,
         "hook_config_dir": args.hook_config_dir,
+        "skip_rights_evaluation": args.skip_rights_evaluation,
     }
 
     if args.job_id is not None:
